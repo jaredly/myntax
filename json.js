@@ -38,9 +38,28 @@ const noloc = data => {
   })
 }
 
+const better = data => {
+  walk(data, (obj, name) => {
+    if (obj && obj.typ) {
+      delete obj.start
+      delete obj.cend
+      if (!obj.children.length) {
+        delete obj.children
+      }
+      if (!obj.label) delete obj.label
+    }
+    if (obj && obj.typ && obj.typ[0] === 'Lexical') {
+      delete obj.children
+      obj.contents = obj.typ[2]
+    }
+    return obj
+  })
+}
+
 readStdin(text => {
   const data = JSON.parse(text)
   if (process.argv[2] === '--noloc') noloc(data)
+    better(data)
   console.log(JSON.stringify(data, null, 2))
 })
 

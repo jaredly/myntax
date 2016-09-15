@@ -1,0 +1,53 @@
+Start = Rule*
+
+Rule =
+  | [name]ident "=" [choices]Choice #eol
+  | [name]ident "=" #eol ("|" [choices]Choice #eol)+
+
+Choice = [:children]Item+ ("--" [name]ident)? (";" #[comment]rest_of_line)?
+
+Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemInner [suffix]suffix?
+
+ItemInner =
+  | string
+  | ident
+  | "(" [:nested]Item+ ")"
+  | char_range
+  | char
+
+char_range = "'" [start]single ".." [end]single "'"
+char = "'" [char]single "'"
+
+single =
+  | "\\" any
+  | ~"'" ~'\n' any
+
+string = '"' [@contents]strchar* '"'
+strchar =
+  | "\\" any
+  | ~'"' ~'\n' any
+
+flag =
+  | "?" -- bool ; exists
+  | ":" -- array
+  | "@" -- string ; contents
+
+suffix =
+  | "+"
+  | "*"
+  | "?"
+
+ident = ~"0" identchar+
+identchar =
+  | 'a..z'
+  | 'A..Z'
+  | '0..9'
+  | '_'
+
+rest_of_line = (~"\n" any)*
+
+eol = white* "\n"
+white =
+  | " "
+  | "\t"
+  | "\v"

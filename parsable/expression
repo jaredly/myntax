@@ -1,0 +1,19 @@
+Start = Exprs
+
+Exprs = (Expr #"\n")* Expr?
+
+Expr =
+  | "fun" Patt "->" Expr -- fun ; function
+  | "(" [contents]Expr ")" -- parens
+  | [left]Expr "+" [right]Expr -- add
+  | constant
+
+constant =
+  | ident
+  | int64
+
+ident = ~reserved alpha+
+int64 = ~"0" digit+
+
+alpha = 'a..z'
+digit = '0..9'
