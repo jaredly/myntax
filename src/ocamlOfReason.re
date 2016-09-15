@@ -58,41 +58,16 @@ let optMap' mapper opt => {
   }
 };
 
-let rec parseLongIdent (_, children, _) => {
-  let leafs = RU.getChildren children (fun (_, child) => {
-    switch child {
-      | Leaf ("lowerIdent", _) contents _ => Some contents
-      | Leaf ("capIdent", _) contents _ => Some contents
-      | _ => None
-    }
-  });
-  let rec loop leafs current => switch leafs {
-    | [contents, ...rest] => loop rest (Ldot current contents)
-    | [] => current
-  };
-  switch leafs {
-    | [leftMost, ...rest] => {
-      loop rest (Lident leftMost)
-    }
-    | [] => failwith "empty longident"
-  }
-  /* loop leafs */
-};
-
 let getExpression toOcaml children => RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
 
-let rec fromIdents longident coll => {
+/* let rec fromIdents longident coll => {
   switch longident {
     /* TODO lower vs caps */
     | Lident x => [("", Leaf (isUpper x ? "capIdent" : "lowerIdent", "") x mLoc), ...coll]
     | Ldot a b => fromIdents a [("", Leaf (isUpper b ? "capIdent" : "lowerIdent", "") b mLoc)]
     | Lapply a b => List.concat [(fromIdents a []), (fromIdents b [])]
   }
-};
-
-let fromLongIdent longident => {
-  Node ("longIdent", "") (fromIdents longident []) mLoc;
-};
+}; */
 
 let _parseLongCap children => {
   let leafs = RU.getChildren children (fun (_, child) => {
@@ -131,15 +106,49 @@ let parseLongCap (_, children, _) => {
   RU.getNodeByType children "longCap_" |> unwrap |> parseLongCap_
 };
 
+let parseLongIdent (_, children, _) => {
+  let first = RU.getNodeByType children "longCap_" |> optMap' parseLongCap_;
+  let last = RU.getContentsByType children "lowerIdent" |> unwrap;
+  switch first {
+    | Some x => Ldot x last
+    | None => Lident last
+  }
+  /* let leafs = RU.getChildren children (fun (_, child) => {
+    switch child {
+      | Leaf ("lowerIdent", _) contents _ => Some contents
+      | Leaf ("capIdent", _) contents _ => Some contents
+      | _ => None
+    }
+  });
+  let rec loop leafs current => switch leafs {
+    | [contents, ...rest] => loop rest (Ldot current contents)
+    | [] => current
+  };
+  switch leafs {
+    | [leftMost, ...rest] => {
+      loop rest (Lident leftMost)
+    }
+    | [] => failwith "empty longident"
+  }
+  /* loop leafs */ */
+};
+
 let rec fromLongCap_ longident => {
-  /* Node ("longCap", "") (fromIdents longident []) mLoc; */
   switch longident {
     /* TODO lower vs caps */
     | Lident x => Node ("longCap_", "lident") [("", Leaf ("capIdent", "") x mLoc)] mLoc
     | Ldot a b => Node ("longCap_", "dot") [("", fromLongCap_ a), ("", Leaf ("capIdent", "") b mLoc)] mLoc
     | Lapply a b => failwith "long cap can't have an lapply"
-    /* List.concat [(fromIdents a []), (fromIdents b [])] */
   }
+};
+
+let fromLongIdent longident => {
+  let children = switch longident {
+    | Lident contents => [("", Leaf ("lowerIdent", "") contents mLoc)]
+    | Ldot a b => [("", fromLongCap_ a), ("", Leaf ("lowerIdent", "") b mLoc)]
+    | _ => failwith "invalid longident"
+  };
+  Node ("longIdent", "") children mLoc;
 };
 
 let fromLongCap longident => {

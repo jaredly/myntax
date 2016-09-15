@@ -214,7 +214,7 @@ binOp =
   | "!=="
   | "==="
 
-longIdent = (capIdent ".")* lowerIdent
+longIdent = (longCap_ ".")? lowerIdent
 longCap = longCap_ ~"."
 
 longCap_ =
