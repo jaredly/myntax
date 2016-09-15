@@ -1,0 +1,58 @@
+Start = (Structure "\n"+)* Structure? "\n"*
+
+Structure =
+  | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)*
+  | [expr]Expression [attr]Attribute* -- eval
+
+ValueBinding = Pattern "=" Expression
+
+Pattern =
+  | Pattern "as" ident ; why isn't this working? :///
+  | "_"
+  | "[" ComPat "]"
+  | "{" ComRecPat "}"
+  | ident
+
+Palias = Pattern "as" ident
+
+Attribute = "[@@" ident Expr? "]"
+
+Expression =
+  | longident -- ident
+  | constant -- ident
+
+longident = (ident ".")* ident
+
+Commas = (Expr ",")* Expr?
+ComPat = (Pattern ",")* Pattern?
+ComRecPat = (RecPat ",")* RecPat?
+RecPat = ident (":" Pattern)?
+
+
+
+
+constant =
+  | ident
+  | int64
+  | string
+
+ident = ~reserved ~digit identchar+
+identchar =
+  | alpha
+  | digit
+  | "_"
+
+int64 =  digit+ ~identchar
+string = "\"" strchar* "\""
+strchar =
+  | "\\" any
+  | ~"\"" ~"\n" ~"\\" any
+
+reserved =
+  | "fun"
+  | "let"
+  | "and"
+  | "as"
+
+alpha = 'a..z'
+digit = '0..9'

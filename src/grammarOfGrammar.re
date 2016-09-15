@@ -3,7 +3,7 @@ open PackTypes.Result;
 let module P = PackTypes.Parsing;
 
 let debug_type typ => {
-  typ |> PackTypes.Result.resultType_to_yojson |> Yojson.Safe.to_string;
+  typ |> Json.resultType_to_string;
 };
 
 let optOr a b => {

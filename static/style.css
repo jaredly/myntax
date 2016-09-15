@@ -1,0 +1,24 @@
+
+body {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+textarea {
+  width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 20px;
+}

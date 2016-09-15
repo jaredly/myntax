@@ -1,0 +1,9 @@
+
+ocaml:
+	rebuild src/run.native -use-ocamlfind -X ocaml -X react -X bs_build
+
+buckle:
+	./buckle.sh
+	# ../jenga/buckle/node_modules/.bin/bsc -I bs_build -pp refmt -impl src/packTypes.re -impl src/grammarGrammar.re -impl src/grammarOfGrammar.re -impl src/runtime.re -impl src/run.re
+
+.PHONY: ocaml buckle

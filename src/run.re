@@ -1,28 +1,15 @@
 
-let readFile chan => {
-  let lines = ref [];
-  try (
-    while true {
-      lines := [input_line chan, ...!lines]
-    }
-  ) {
-  | End_of_file => ()
-  };
-  let lines = List.rev !lines;
-  String.concat "\n" lines
-};
-
-let (grammar, input) = switch Sys.argv {
+let (grammar, input) = switch Sysop.argv {
   | [|_, grammar, input|] =>  (grammar, input)
   | _ => failwith "Usage: run grammarfile inputfile"
 };
 
-let contents = readFile (switch input {
-  | "-" => stdin
-  | x => open_in x
-});
+let contents = switch input {
+  | "-" => Sysop.readStdin ()
+  | x => Sysop.readFile x
+};
 
-let grammarRaw = open_in grammar |> readFile;
+let grammarRaw = Sysop.readFile grammar;
 
 let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
   | Runtime.Failed message => failwith "Unable to parse grammar"
@@ -30,15 +17,14 @@ let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
   | Runtime.Complete result => GrammarOfGrammar.convert result
 };
 
-/* print_endline(PackTypes.Parsing.show_grammar grammar); */
-
 switch (Runtime.parse grammar "Start" contents) {
   | Runtime.Failed message => failwith "Unable to parse input file"
   | Runtime.Incomplete (i, result) => {
-    PackTypes.Result.result_to_yojson result |> Yojson.Safe.to_string |> print_endline;
-    failwith "Incomplete parse of input file"
+    Json.result_to_string result |> print_endline;
+    Printf.eprintf "Incomplete parse of input file %d of %d total chars" i (String.length contents);
+    exit 1;
   }
   | Runtime.Complete result => {
-    PackTypes.Result.result_to_yojson result |> Yojson.Safe.to_string |> print_endline;
+    Json.result_to_string result |> print_endline;
   }
-}
+};

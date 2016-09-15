@@ -23,11 +23,11 @@ let main () => {
     Printf.eprintf "parse error: parsing failed\n";
     exit 1
   } else if (i < state.len) {
-    Printf.printf "%s\n" (Yojson.Safe.to_string(PackTypes.Result.result_to_yojson result));
+    Printf.printf "%s\n" (Json.result_to_string result);
     Printf.eprintf "parse error: extra characters after end of input \"%s\"\n" (String.sub state.input i (state.len - i));
     exit 1
   } else {
-    Printf.printf "%s" (Yojson.Safe.to_string(PackTypes.Result.result_to_yojson result));
+    Printf.printf "%s" (Json.result_to_string result);
     /* Printf.printf "parsed OK\n" */
   }
 };

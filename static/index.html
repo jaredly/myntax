@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <title>Reason Myntax</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="side">
+<textarea id="grammar"></textarea>
+<div id="grammar-status"></div>
+</div>
+<div class="side">
+<textarea id="input"></textarea>
+<div id="input-status"></div>
+</div>
+<script>
+(() => {
+  "use strict";
+  let grammar = document.getElementById("grammar");
+  let input = document.getElementById("input");
+  window.getValue = text => text.value;
+  window.setValue = (text, value) => text.value = value;
+  window.setA = (a, b, c) => a[b] = c;
+  window.getA = (a, b) => a[b];
+  window.onGrammar = fn => {
+    grammar.addEventListener("keyup", () => fn(grammar.value))
+  }
+  window.onInput = fn => {
+    input.addEventListener("keyup", () => fn(input.value))
+  }
+  window.setupWorker = (name, onmessage) => {
+    let worker = new Worker(name)
+    worker.onmessage = evt => onmessage(JSON.parse(evt.data));
+    return data => worker.postMessage(JSON.stringify(data))
+  }
+})();
+</script>
+<script src="bundle.js"></script>

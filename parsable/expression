@@ -1,4 +1,4 @@
-Start = "fun" Patt "->" Expr
+Start = "fun" Patt "->" Expr "\n"*
 
 Exprs = (Expr #"\n")* Expr?
 
