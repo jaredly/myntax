@@ -92,8 +92,7 @@ let grammar = { lineComment = Some (";");
        choices =
        [("", "",
          [(Plus (
-             (NonTerminal ("Item", Some ("children"))),
-             None));
+             (NonTerminal ("Item", None)), None));
            (Optional (
               (Group
                  [(Terminal ("--", None));
@@ -115,25 +114,50 @@ let grammar = { lineComment = Some (";");
        choices =
        [("", "",
          [(Optional (
-             (Terminal ("~", Some ("neg"))), None));
+             (NoSpaceAfter
+                (Terminal ("~", Some ("neg")))),
+             None));
            (Optional (
-              (Terminal ("#", Some ("lexify"))), None));
+              (NoSpaceAfter
+                 (Terminal ("#", Some ("lexify")))),
+              None));
            (Optional (
-              (Group
-                 [(Terminal ("[", None));
-                   (Optional (
-                      (NonTerminal ("flag", Some ("flag"))),
-                      None));
-                   (NonTerminal ("ident", Some ("name")));
-                   (Terminal ("]", None))]),
+              (NoSpaceAfter
+                 (Group
+                    [(NoSpaceAfter
+                        (Terminal ("[", None)));
+                      (Optional (
+                         (NoSpaceAfter
+                            (NonTerminal ("flag",
+                               Some ("flag")))),
+                         None));
+                      (NoSpaceAfter
+                         (NonTerminal ("ident",
+                            Some ("name"))));
+                      (Terminal ("]", None))])),
+              None));
+           (Optional (
+              (NoSpaceAfter
+                 (NonTerminal ("noSpace",
+                    Some ("noSpaceBefore")))),
               None));
            (NonTerminal ("ItemInner", Some ("inner")));
            (Optional (
-              (NonTerminal ("suffix", Some ("suffix"))),
+              (NoSpaceBefore
+                 (NonTerminal ("noSpace",
+                    Some ("noSpaceAfter")))),
+              None));
+           (Optional (
+              (NoSpaceBefore
+                 (NonTerminal ("suffix", Some ("suffix")))),
               None))
            ])
          ]
        });
+    ("noSpace",
+     { passThrough = false;
+       ignoreNewlines = Inherit; leaf = true;
+       choices = [("", "", [(Terminal ("&", None))])] });
     ("ItemInner",
      { passThrough = false;
        ignoreNewlines = Inherit; leaf = false;

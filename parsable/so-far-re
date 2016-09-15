@@ -13,19 +13,19 @@ ModuleDesc =
 
 @passThrough
 @ignoreNewlines(false)
-ModuleBody = __comment_eol? ([structure]Structure __comment_eol)*
+ModuleBody = __comment_eol? ([structure]&Structure __comment_eol)*
 
 Structure =
   | "let" "module" capIdent "=" ModuleDesc -- let_module
-  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" ("\n" "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
-  | "let" [rec]"rec"? [bindings]ValueBinding ("\n" "and" [bindings]ValueBinding)* -- value
-  | "type" TypeDeclaration ("\n"+ "and" TypeDeclaration)* -- type
+  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" (__comment_eol "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
+  | "let" [rec]"rec"? [bindings]ValueBinding (__comment_eol "and" [bindings]ValueBinding)* -- value
+  | "type" TypeDeclaration (__comment_eol+ "and" TypeDeclaration)* -- type
   | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type
   | "exception" capIdent "of" Type
   | "import" "*" "from" longCap -- open
   | "include" "*" "from" longCap -- include
-  | "[@@@" lowerIdent "]" -- attribute
-  | "[%%" lowerIdent "]" -- extension
+  | "[@@@"& lowerIdent &"]" -- attribute
+  | "[%%"& lowerIdent &"]" -- extension
   | [expr]Statement [attrs]Attribute* -- eval
   ; class, class type
   ; typeext
@@ -39,7 +39,7 @@ ModuleTypeDeclaration = lowerIdent ; TODO
 ; TODO class type
 
 TypeDeclaration =
-  | lowerIdent "=" longident "=" TypeDecl -- manifested
+  | lowerIdent "=" longIdent "=" TypeDecl -- manifested
   | lowerIdent "=" TypeDecl -- decl
   | lowerIdent -- ident
 
@@ -59,54 +59,55 @@ TypeVariantItem =
 
 @ignoreNewlines
 @passThrough
-TypesCommad = (Type ",")* Type?
+TypesCommad = (Type &",")* Type?
 
-TypeRecord = "{" "\n"* (lowerIdent ":" Type "," "\n"*)* (lowerIdent ":" Type)? "\n"* "}"
+@ignoreNewlines
+TypeRecord = "{" (lowerIdent &":" Type ",")* (lowerIdent &":" Type)? "}"
 
 ValueBinding =
-  | [name]lowerIdent "(" ValueArgs ")" "=>" Expression -- func
+  | [name]lowerIdent "("& ValueArgs &")" "=>" Expression -- func
   | [name]lowerIdent Arg "=>" Expression -- func
   | Pattern "=" Expression -- value
 
 @passThrough
 @ignoreNewlines
-ValueArgs = (Arg "," "\n"?)* Arg?
+ValueArgs = (Arg &",")* Arg?
 
 Arg =
-  | "::" lowerIdent ArgValue? -- punned
-  | lowerIdent "::" Pattern ArgValue? -- named
+  | "::"& lowerIdent &ArgValue? -- punned
+  | lowerIdent &"::"& Pattern &ArgValue? -- named
   | Pattern -- anon
 
 ArgValue =
-  | "=" "?" -- none
-  | "=" Expression -- expr
+  | "=" &"?" -- none
+  | "=" &Expression -- expr
 
 Pattern =
   | Pattern "as" lowerIdent
-  | Pattern ":" Type
+  | Pattern &":" Type
   | "()"
   | "_"
-  | "(" Pattern ("," Pattern)+ ","? ")" -- tuple
-  | "[" (Pattern ",")* Pattern? "]" -- list
-  | "{" (longIdent (":" Pattern)? ",")* (longIdent (":" Pattern)?)? "}" -- record
+  | "("& Pattern (&"," Pattern)+ &","? &")" -- tuple
+  | "["& (Pattern &",")* Pattern? &"]" -- list
+  | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record
   | lowerIdent -- ident
 
 MatchPattern =
   | MatchPattern "as" lowerIdent
-  | MatchPattern ":" Type
+  | MatchPattern &":" Type
   | "()"
   | "_"
   | MatchPattern "|" MatchPattern -- or
-  | "(" MatchPattern ":" Type ")" -- constraint
+  | "(" MatchPattern &":" Type ")" -- constraint
   | "lazy" MatchPattern -- lazy
   | "exception" MatchPattern -- exception
   | "[%" lowerIdent "]" -- extension
-  | char ".." char -- interval
-  | "(" MatchPattern ("," MatchPattern)+ ","? ")" -- tuple
-  | "[|" (MatchPattern ",")* MatchPattern? "|]" -- array
-  | "[" (MatchPattern ",")* MatchPattern? "]" -- list ; TODO ...rest
-  | "`"? capIdent ("(" (MatchPattern ",")* MatchPattern? ")")? 
-  | "{" (longident (":" MatchPattern)? ",")* (longident (":" MatchPattern)?)? "}" ; TODO _ for open flag
+  | char &".."& char -- interval
+  | "("& MatchPattern (&"," MatchPattern)+ &","? &")" -- tuple
+  | "[|"& (MatchPattern &",")* MatchPattern? &"|]" -- array
+  | "["& (MatchPattern &",")* MatchPattern? &"]" -- list ; TODO ...rest
+  | "`"&? capIdent &("("& (MatchPattern &",")* MatchPattern? &")")?  -- constructor
+  | "{"& (longIdent (&":" MatchPattern)? &",")* (longIdent (&":" MatchPattern)?)? &"}" -- record ; TODO _ for open flag
   | lowerIdent
   | constant
   ; Ppat_type
@@ -114,11 +115,11 @@ MatchPattern =
 
 Type =
   | Type "as" typeVar -- alias
-  | "(" TupleTypes ")" -- tuple
+  | "("& TupleTypes &")" -- tuple
   | "_" -- any
   | typeVar -- var
-  | (lowerIdent "?"? "::") Type "=>" Type
-  | longident ("<" TypesCommad ">")? -- constructor
+  | (lowerIdent &"?"? &"::"&) Type "=>" Type
+  | longIdent (&"<"& TypesCommad &">"&)? -- constructor
   ; TODO object
   ; TODO class
   ; TODO alias?
@@ -127,7 +128,7 @@ Type =
 
 @passThrough
 @ignoreNewlines
-TupleTypes = Type ("," Type)+ ","?
+TupleTypes = Type (&"," Type)+ ","?
 
 typeVar = "'" lowerIdent
 
@@ -135,7 +136,7 @@ Attribute = "[@@" lowerIdent Expr? "]"
 
 @ignoreNewlines(false)
 Statement =
-  | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
+  | "let" [rec]"rec"? ValueBinding (__comment_eol "and" ValueBinding)* -- value
   | "let" "module" capIdent "=" ModuleDesc
   | "import" "*" "from" longCap
   | Expression
@@ -143,30 +144,30 @@ Statement =
 Expression =
   | Block
   | BinExp
-  | Application
+  | Application -- application
   | FunExpr
   | SwitchExp
   | TryExp
-  | "(" TupleBody ")" -- tuple
-  | "`"? capIdent ("(" Commas ")")? -- constructor
-  | "{" (RecordItem ",")+ RecordItem? "}"
-  | "[|" (Expression ",")* Expression? "|]" -- list
-  | "[" (Expression ",")* Expression? "]" -- list
-  | Expression "." longIdent "=" Expression -- set_attr
-  | Expression "." longIdent -- get_attr
+  | "("& TupleBody &")" -- tuple
+  | "`"&? longCap (&"("& Commas &")")? -- constructor
+  | "{"& (RecordItem &",")+ RecordItem? &"}"
+  | "[|"& (Expression &",")* Expression? &"|]" -- list
+  | "["& (Expression &",")* Expression? &"]" -- list
+  | Expression &"."& longIdent "=" Expression -- set_attr
+  | Expression &"."& longIdent -- get_attr
   | Expression "?" Expression ":" Expression -- ternary
   | "while" Expression Block -- while
   | "for" -- for ; maybe ditch?
-  | "new" longident -- new
-  | Expression "#" lowerIdent -- send
+  | "new" longIdent -- new
+  | Expression &"#"& lowerIdent -- send
   | lowerIdent "=" Expression -- instance_var
   | "assert" Expression -- assert
   | "lazy" Expression -- lazy
-  | longident -- ident
+  | longIdent -- ident
   | constant -- const
   | "()" -- unit
-  | "(" WrappedExpression ")" -- wrapped ; or constraint
-  | "[%" lowerIdent "]" -- extension
+  | "("& WrappedExpression &")" -- wrapped ; or constraint
+  | "[%"& lowerIdent &"]" -- extension
   ; TODO coerce
   ; TODO override
   ; TODO poly
@@ -176,31 +177,31 @@ Expression =
 
 @ignoreNewlines
 @passThrough
-WrappedExpression = Expression (':' Type)?
+WrappedExpression = Expression (&':' Type)?
 
 @ignoreNewlines
 @passThrough
-TupleBody = Expression ("," Expression)+ ","?
+TupleBody = Expression (&"," Expression)+ &","?
 
-RecordItem = lowerIdent (":" Expression)?
+RecordItem = lowerIdent (&":" Expression)?
 
 SwitchExp = "switch" Expression SwitchBody
 SwitchBody = "{" "\n"+ (SwitchCase "\n"+)* "}"
-SwitchCase = "case" MatchPattern ("with" [guard]Expression)? ":" "\n"* Expression?
+SwitchCase = "case" MatchPattern ("with" [guard]Expression)? &":" "\n"* Expression?
 
 TryExp = "try" Block "catch" SwitchBody
 
 FunExpr =
-  | "(" ValueArgs ")" "=>" Expression
+  | "("& ValueArgs &")" "=>" Expression
   | Arg "=>" Expression
 
 @ignoreNewlines(true)
 Block = "{" Statement* "}"
 
-Application = Expression "(" AppArgs ")"
+Application = Expression &"("& AppArgs &")"
 
 @ignoreNewlines
-AppArgs = (FnArg ",")* FnArg?
+AppArgs = (FnArg &",")* FnArg?
 
 ;; maybe get operator precedence going?
 BinExp = Expression binOp Expression
@@ -215,14 +216,14 @@ binOp =
   | "!=="
   | "==="
 
-longident = (capIdent ".")* lowerIdent
-longCap = (capIdent ".")* capIdent
+longIdent = (capIdent ".")* lowerIdent
+longCap = (capIdent ".")* capIdent ~"."
 
-Commas = (Expression ",")* Expression?
+Commas = (Expression &",")* Expression?
 FnArg =
-  | "::" lowerIdent
-  | lowerIdent "::" Expression
-  | Expression
+  | "::"& lowerIdent -- punned
+  | lowerIdent &"::"& Expression -- named
+  | Expression -- anon
 
 constant =
   | [val]int64 -- int

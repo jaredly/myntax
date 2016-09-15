@@ -114,11 +114,15 @@ let rec parseInner label ((_, sub), children, loc) => {
 and parseItem children => {
   let neg = RU.getPresenceByLabel children "neg";
   let lexify = RU.getPresenceByLabel children "lexify";
+  let noSpaceAfter = RU.getPresenceByLabel children "noSpaceAfter";
+  let noSpaceBefore = RU.getPresenceByLabel children "noSpaceBefore";
   let suffix = getSuffix children;
   let _ = getFlag children; /* TODO use flags? */
   let label = RU.getContentsByLabel children "name";
   let inner = RU.getNodeByLabel children "inner" |> RU.unwrap |> parseInner label;
 
+  let inner = noSpaceAfter ? P.NoSpaceAfter inner : inner;
+  let inner = noSpaceBefore ? P.NoSpaceBefore inner : inner;
   let inner = switch suffix {
     | None => inner
     | Some "plus" => P.Plus inner None
@@ -135,13 +139,10 @@ let parseChoice children => {
   let name = RU.getContentsByLabel children "name" |> optOr "";
   let comment = RU.getContentsByLabel children "comment" |> optOr "";
   let children = RU.getChildren children (fun (label, child) => {
-    if (label != "children") {
-      None
-    } else {
-      switch child {
-        | Leaf _ => failwith "Invalid child"
-        | Node _ children _ => Some (parseItem children)
-      }
+    switch child {
+      | Node ("Item", _) children _ => Some (parseItem children)
+      /* | Leaf ("noSpace", _) _ _ => Some (P.NoSpace) */
+      | _ => None
     }
   });
   (name, comment, children)

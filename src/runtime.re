@@ -342,8 +342,10 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
           };
 
           switch items {
-            | [P.Lexify p, ...rest] => loop i [p, ...rest] path loopIndex isNegated
             | [P.Empty, ...rest] => loop i rest path (loopIndex + 1) isNegated
+            | [P.NoSpaceAfter p, ...rest]
+            | [P.NoSpaceBefore p, ...rest]
+            | [P.Lexify p, ...rest] => loop i [p, ...rest] path loopIndex isNegated
             | [P.Lookahead p, ...rest] => {
               let (i', _, err) = loop i [p] path (loopIndex + 1) isNegated;
               if (i' >= i) {

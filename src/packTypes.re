@@ -22,6 +22,8 @@ let module Parsing = {
     | Plus parsing (option string)      /* e+ */
     | Optional parsing (option string)  /* e? */
     | Any (option string) /* any */
+    | NoSpaceAfter parsing /* a printing rule, suppresses space */
+    | NoSpaceBefore parsing /* a printing rule, suppresses space */
     | EOF /* EOF */
     | CommentEOL
     | Group (list parsing)  /* ( e ... ) */

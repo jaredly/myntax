@@ -18,13 +18,18 @@ Rule =
   | [decorators]Decorator* [name]ident "=" [choices]Choice __comment_eol
   | [decorators]Decorator* [name]ident "=" __comment_eol ("|" [choices]Choice __comment_eol)+
 
-Choice = [children]Item+ (
+Choice = Item+ (
   "--" [name]ident
 )? (
   ";" [comment]rest_of_line
 )?
 
-Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemInner [suffix]suffix?
+Item = [?neg]"~"&? [?lexify]"#"&? ("["& [flag]flag&? [name]ident &"]")&? [noSpaceBefore]noSpace&? [inner]ItemInner [noSpaceAfter]&noSpace? [suffix]&suffix?
+
+; This rule is only for printing - it doesn't effect parsing at all.
+; During printing, it suppresses space if space would be there.
+@leaf
+noSpace = "&"
 
 ItemInner =
   | string

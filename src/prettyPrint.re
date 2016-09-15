@@ -12,6 +12,7 @@ let module Output = {
     | EOL
     | NoSpace
     | MaybeNewlined (list outputT)
+    | Lexical (list outputT)
     | Straight (list outputT)
     /* | Newlined (list outputT) TODO I do think I want this... */
     [@@deriving show];
@@ -31,50 +32,90 @@ let pad num base => {
   !txt
 };
 
+type iterim =
+  | Text string
+  | NoSpace;
+
 let rec outputToString config indentLevel output => {
   switch output {
-    | Output.EOL => ("\n" ^ (pad (indentLevel - 0) config.indentStr), true) /* TODO need to account for current indent level too */
-    | Output.NoSpace => failwith "NoSpace should be handled by the parent"
+    | Output.EOL => ("\n" ^ (pad (indentLevel - 1) config.indentStr), true) /* TODO need to account for current indent level too */
+    | Output.NoSpace => ("NOSPACE", false)
+    /* failwith "NoSpace should be handled by the parent" */
     | Output.Text str => (str, false) /* TODO check for newlines? */
+    /** TODO multiline strings -- should I be aware of that? Also lexical things that span multiple lines.. for some reason */
+    | Output.Lexical items => (String.concat "" (List.map (fun x => fst (outputToString config 0 x)) items), false)
     | Output.Straight items => {
-      /* TODO this might be reversing thigns? */
       let rec loop items => {
         switch items {
-          | [child, ...rest] => {
-            let (items, multi) = loop rest;
+          | [] => ("", false)
+          | [child] => outputToString config indentLevel child
+          | [child, Output.NoSpace, ...rest] => {
+            let (restext, multi) = loop rest;
             let (res, nmulti) = outputToString config indentLevel child;
-            ([res, ...items], multi || nmulti)
+            (res ^ restext, multi || nmulti)
           }
-          | [] => ([], false)
+          | [child, ...rest] => {
+            let (restext, multi) = loop rest;
+            let (res, nmulti) = outputToString config indentLevel child;
+            (res ^ " " ^ restext, multi || nmulti)
+          }
         }
       };
-      let (items, multi) = loop items;
-      ((String.concat " " items), true)
+
+      loop items;
     }
     | Output.MaybeNewlined items => {
+
       let rec loop items => {
         switch items {
-          | [child, ...rest] => {
-            let (items, total, multi) = loop rest;
+          | [] => ([], 0, 0)
+          | [Output.NoSpace, ...rest] => {
+            let (items, len, multis) = loop rest;
             /* let (res, nmulti) = outputToString config indentLevel child; */
-            /* ([res, ...items], multi || nmulti) */
-            let (res, nmulti) = outputToString config (indentLevel + 1) child;
-            if (multi || nmulti) {
-              ([res, ...items], 0, true)
-            } else {
-              ([res, ...items], total + (String.length res), false)
-            }
+            ([NoSpace, ...items], len, multis)
           }
-          | [] => ([], 0, false)
+          | [child, ...rest] => {
+            let (items, len, multis) = loop rest;
+            let (res, nmulti) = outputToString config (indentLevel + 1) child;
+            ([Text res, ...items], len + String.length res, nmulti ? multis + 1 : multis)
+          }
         }
       };
-      let (items, total, multi) = loop items;
-      if (multi || total + (config.indentWidth * indentLevel) > config.maxWidth && List.length items > 1) {
-        let padt = "\n" ^ (pad (indentLevel + 1) config.indentStr);
-        let txt = padt ^ (String.concat (padt) items) ^ "\n";
-        (txt, true)
+
+      let (items, total, multis) = loop items;
+      if (multis > 1 || total + (config.indentWidth * indentLevel) > config.maxWidth && List.length items > 1) {
+        let padt = "\n" ^ (pad (indentLevel + 0) config.indentStr);
+        let rec loop items => {
+          switch items {
+            | [] => ""
+            | [Text child] => child
+            | [Text child, NoSpace, ...rest] => {
+              child ^ (loop rest)
+            }
+            | [Text child, ...rest] => {
+              child ^ padt ^ (loop rest)
+            }
+            | [NoSpace, ...rest] => loop rest
+          }
+        };
+        /* let txt = padt ^ (String.concat (padt) items) ^ "\n"; */
+        (padt ^ (loop items) ^ "\n" ^ (pad (indentLevel - 1) config.indentStr), true)
       } else {
-        (String.concat " " items, false)
+        /* (String.concat " " items, false) */
+        let rec loop items => {
+          switch items {
+            | [] => ""
+            | [Text child] => child
+            | [Text child, NoSpace, ...rest] => {
+              child ^ (loop rest)
+            }
+            | [Text child, ...rest] => {
+              child ^ " " ^ (loop rest)
+            }
+            | [NoSpace, ...rest] => loop rest
+          }
+        };
+        (loop items, false)
       }
     }
   }
@@ -168,6 +209,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
     | (No, _) => false
     | (Inherit, x) => x
   };
+  let isLexical = (Char.uppercase (String.get name 0)) != (String.get name 0);
   print_endline ("Ignoring newlines: " ^ (ignoringNewlines ? "yep" :" nop"));
 
   let rec loop ignoringNewlines items children => {
@@ -243,6 +285,25 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
 
           | Lexify p => loop ignoringNewlines [p, ...rest] children
 
+          | NoSpaceAfter p => {
+            let (success, res, unused) = loop ignoringNewlines [p] children;
+            if (success) {
+              let (s2, r2, u2) = loop ignoringNewlines rest unused;
+              (s2, List.concat [res, [Output.NoSpace], r2], u2)
+            } else {
+              (success, res, unused)
+            }
+          }
+          | NoSpaceBefore p => {
+            let (success, res, unused) = loop ignoringNewlines [p] children;
+            if (success) {
+              let (s2, r2, u2) = loop ignoringNewlines rest unused;
+              (s2, List.concat [[Output.NoSpace], res, r2], u2)
+            } else {
+              (success, res, unused)
+            }
+          }
+
           | Group p => {
             let (success, res, unused) = loop ignoringNewlines p children;
             if success {
@@ -300,7 +361,9 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
   switch unused {
     | [] => Some (switch res {
       | [sub] => sub
-      | _ => if (rule.ignoreNewlines == Yes) {
+      | _ => if (isLexical) {
+          Lexical res
+      } else if (rule.ignoreNewlines == Yes) {
           MaybeNewlined res
         } else {
           Straight res
@@ -320,8 +383,8 @@ let toString (grammar: grammar) result => {
       print_endline (Output.show_outputT output);
         Some (fst (outputToString {
         indentWidth: 2,
-        indentStr: "--",
-        maxWidth: 10
+        indentStr: ". ",
+        maxWidth: 50
       } 0 output))
     }
     | None => None
