@@ -15,16 +15,24 @@ Rule =
   | Comment_eol? [decorators]Decorator* [name]ident "=" [choices]Choice Comment_eol
   | Comment_eol? [decorators]Decorator* [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
 
-Choice = [children]Item+ ("--" [name]ident)? (";" [comment]rest_of_line)?
+Choice = [children]Item+ (
+  "--" [name]ident
+)? (
+  ";" [comment]rest_of_line
+)?
 
 Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemInner [suffix]suffix?
 
 ItemInner =
   | string
   | ident
-  | "(" [:nested]Item+ ")" -- nested
+  | "(" NestedItems ")" -- nested
   | char_range
   | char
+
+@passThrough
+@ignoreNewlines(true)
+NestedItems = [:nested]Item+
 
 char_range = "'" [start]single ".." [end]single "'"
 char = "'" [char]single "'"

@@ -45,13 +45,15 @@ let unwrap opt =>
 
 let fst (a, _, _) => a;
 
-let rec skipWhite i text len => {
+let rec skipWhite i text len ignoreNewlines => {
   if (i >= len) {
     i
-  } else if (String.get text i === ' ') {
-    skipWhite (i + 1) text len
   } else {
-    i
+    switch (String.get text i) {
+      | ' ' => skipWhite (i + 1) text len ignoreNewlines
+      | '\n' when ignoreNewlines => skipWhite (i + 1) text len ignoreNewlines
+      | _ => i
+    }
   }
 };
 
@@ -100,21 +102,21 @@ let rec greedy loop min max subr i path greedyCount => {
 /* Apply rule 'rulename' at position 'i' in the input.  Returns the new
  * position if the rule can be applied, else -1 if fails.
  */
-let rec apply_rule grammar state rulename i path => {
+let rec apply_rule grammar state rulename i ignoringNewlines path => {
   /* print_endline ("Apply rule" ^ rulename); */
   let isLexical = (Char.uppercase (String.get rulename 0)) != (String.get rulename 0);
-  switch (recall grammar state rulename i isLexical path) {
+  switch (recall grammar state rulename i isLexical ignoringNewlines path) {
   | None =>
     let lr = {seed: (-1, emptyResult i rulename isLexical, (-1, [])), rulename, head: None};
     state.lrstack = [lr, ...state.lrstack];
     let memoentry = {ans: LR lr, pos: i};
     Hashtbl.add state.memo (rulename, i) memoentry;
-    let answer = parse grammar state rulename i isLexical path;
+    let answer = parse grammar state rulename i isLexical ignoringNewlines path;
     state.lrstack = List.tl state.lrstack;
     memoentry.pos = state.cpos;
     if (lr.head != None) {
       lr.seed = answer;
-      lr_answer grammar state rulename i memoentry isLexical path
+      lr_answer grammar state rulename i memoentry isLexical ignoringNewlines path
     } else {
       memoentry.ans = Answer answer;
       answer
@@ -147,7 +149,7 @@ and setup_lr state rulename lr => {
   loop state.lrstack
 }
 
-and lr_answer grammar state rulename i memoentry isLexical path => {
+and lr_answer grammar state rulename i memoentry isLexical ignoringNewlines path => {
   let lr =
     switch memoentry.ans {
     | Answer _ => assert false
@@ -165,12 +167,12 @@ and lr_answer grammar state rulename i memoentry isLexical path => {
     if (fst lr.seed == -1) {
       (-1, emptyResult i rulename isLexical, (-1, []))
     } else {
-      grow_lr grammar state rulename i memoentry head isLexical path
+      grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines path
     }
   }
 }
 
-and recall grammar state rulename i isLexical path => {
+and recall grammar state rulename i isLexical ignoringNewlines path => {
   let maybeEntry =
     try (Some (Hashtbl.find state.memo (rulename, i))) {
     | Not_found => None
@@ -187,7 +189,7 @@ and recall grammar state rulename i isLexical path => {
     } else {
       if (StringSet.mem rulename head.eval_set) {
         head.eval_set = StringSet.remove rulename head.eval_set;
-        let answer = parse grammar state rulename i isLexical path;
+        let answer = parse grammar state rulename i isLexical ignoringNewlines path;
         /* Original paper RECALL function seems to have a bug ... */
         let memoentry = unwrap maybeEntry;
         memoentry.ans = Answer answer;
@@ -198,12 +200,12 @@ and recall grammar state rulename i isLexical path => {
   }
 }
 
-and grow_lr grammar state rulename i memoentry head isLexical path => {
+and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines path => {
   Hashtbl.replace state.heads i head; /* A */
   let rec loop () => {
     state.cpos = i;
     head.eval_set = head.involved_set; /* B */
-    let ans = parse grammar state rulename i isLexical path;
+    let ans = parse grammar state rulename i isLexical ignoringNewlines path;
     let oans = switch (memoentry.ans) {
       | Answer (i, _, _) => i
       | LR _ => -1
@@ -225,7 +227,7 @@ and grow_lr grammar state rulename i memoentry head isLexical path => {
   }
 }
 
-and parse grammar state rulename i isLexical path => {
+and parse grammar state rulename i isLexical ignoringNewlines path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
   let {ignoreNewlines, choices, passThrough} =
     try (List.assoc rulename grammar) {
@@ -233,6 +235,11 @@ and parse grammar state rulename i isLexical path => {
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
       exit 1
     };
+  let ignoringNewlines = switch (ignoreNewlines, ignoringNewlines) {
+    | (Inherit, x) => x
+    | (No, _) => false
+    | (Yes, _) => true
+  };
   let numChoices = List.length choices;
   /* Try each choice in turn until one matches. */
   let rec process choices prevErrors choiceIndex => {
@@ -246,7 +253,7 @@ and parse grammar state rulename i isLexical path => {
           } else {
             switch items {
               | [Lexify p, ...rest] => (i, [p, ...rest])
-              | _ => (skipWhite i state.input state.len, items)
+              | _ => (skipWhite i state.input state.len ignoringNewlines, items)
             }
           };
 
@@ -273,7 +280,7 @@ and parse grammar state rulename i isLexical path => {
             }
 
             | [(NonTerminal n label) as item, ...rest] => {
-                let (i', result, errs) = apply_rule grammar state n i [Item item loopIndex, ...path];
+                let (i', result, errs) = apply_rule grammar state n i ignoringNewlines [Item item loopIndex, ...path];
                 if (i' >= i) {
                   let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1);
                   (i'', [{...result, label}, ...children], mergeErrs errs rest_errs)
@@ -386,7 +393,8 @@ let initialState input => {
 
 let parse (grammar: PackTypes.grammar) start input => {
   let state = initialState input;
-  let (i, result, errs) = apply_rule grammar state start 0 [];
+  /* TODO ignoringNewlines should be configurable? */
+  let (i, result, errs) = apply_rule grammar state start 0 false [];
   if (i == -1) {
     Failure None (0, errs)
   } else if (i < state.len) {

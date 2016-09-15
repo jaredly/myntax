@@ -142,12 +142,20 @@ let grammar = [("Start",
        ("", "", [(NonTerminal ("ident", None))]);
        ("nested", "",
         [(Terminal ("(", None));
-          (Plus (
-             (NonTerminal ("Item", Some ("nested"))), None
-             ));
+          (NonTerminal ("NestedItems", None));
           (Terminal (")", None))]);
        ("", "", [(NonTerminal ("char_range", None))]);
        ("", "", [(NonTerminal ("char", None))])]
+     });
+  ("NestedItems",
+   { passThrough = true;
+     ignoreNewlines = Yes;
+     choices =
+     [("", "",
+       [(Plus (
+           (NonTerminal ("Item", Some ("nested"))), None))
+         ])
+       ]
      });
   ("char_range",
    { passThrough = false;

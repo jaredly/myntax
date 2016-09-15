@@ -198,6 +198,7 @@ let convert (result: result) => {
         let {name, args} = parseDecorator decorator;
         switch (name, args) {
           | ("ignoreNewlines", [Bool whether]) => (whether ? P.Yes : P.No, pass)
+          | ("ignoreNewlines", []) => (P.Yes, pass)
           | ("passThrough", []) => (white, true)
           | _ => {
             print_endline ("Ignoring decorator " ^ name);
