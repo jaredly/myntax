@@ -202,7 +202,11 @@ let rec greedy loop p children min max => {
 };
 
 let passThroughChildren grammar name => {
-  let rule = List.assoc name grammar.rules;
+  let rule = try {
+    List.assoc name grammar.rules;
+  } {
+    | Not_found => failwith ("Undefined rule name: " ^ name)
+  };
   if (rule.passThrough) {
     let (a, b, c) = (List.hd rule.choices); /** TODO test multiple? */
     Some (c, rule.ignoreNewlines)

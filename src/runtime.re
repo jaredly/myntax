@@ -26,8 +26,7 @@ let emptyResult pos name isLexical => (R.Leaf (name, "") "" (pos, pos), false);
 
 type state = {
   mutable lrstack: list lr,
-  memo: Hashtbl.t (StringSet.elt, int) memoentry,
-  heads: Hashtbl.t int head,
+  memo: Hashtbl.t (StringSet.elt, int) memoentry, heads: Hashtbl.t int head,
   mutable cpos: int,
   len: int,
   input: string,
@@ -525,8 +524,8 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
 let initialState input => {
   lrstack: [],
   cpos: 0,
-  memo: Hashtbl.create 13,
-  heads: Hashtbl.create 13,
+  memo: Hashtbl.create 100,
+  heads: Hashtbl.create 100,
   len: String.length input,
   input,
 };

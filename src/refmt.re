@@ -1,7 +1,10 @@
-type printType = Bin | Pretty | Debug;
+type printType = Bin | Pretty | Debug | Dump | RoundPretty | RoundDump;
 let (grammarFile, input, printType) = switch Sysop.argv {
   | [|_, "bin", grammarFile, input|] =>  (grammarFile, input, Bin)
+  | [|_, "dump", grammarFile, input|] =>  (grammarFile, input, Dump)
   | [|_, "pretty", grammarFile, input|] =>  (grammarFile, input, Pretty)
+  | [|_, "round-pretty", grammarFile, input|] =>  (grammarFile, input, RoundPretty)
+  | [|_, "round-dump", grammarFile, input|] =>  (grammarFile, input, RoundDump)
   | [|_, grammarFile, input|] =>  (grammarFile, input, Debug)
   | _ => failwith "Usage: run grammarfile inputfile"
 };
@@ -58,6 +61,20 @@ switch (Runtime.parse grammar "Start" contents) {
           | Some x => print_endline x
           | None => failwith "Failed to pretty print :("
         }
+      }
+      | RoundPretty => {
+        let round = (OcamlOfReason.convertFrom (OcamlOfReason.convert result));
+        /* failwith "no impl" */
+        switch (PrettyPrint.toString grammar round) {
+          | Some x => print_endline x
+          | None => failwith "Failed to pretty print :("
+        }
+      }
+      | Dump => {
+        print_endline (PackTypes.Result.show_result result);
+      }
+      | RoundDump => {
+        print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result)));
       }
     }
     /* Json.result_to_string result |> print_endline; */

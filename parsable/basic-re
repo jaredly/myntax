@@ -1,9 +1,32 @@
+let [a,b] = 10
+let [s,10, _] = 20
+let (a, b, [2,3,...more]) = Ten.ten(10, 10,)
+let z = {}
+let module X = {
+  10
+  220
+}
+let z = {z}
+let z = {z,}
+let z = {
+  ...other,
+  hi: 10,
+  ho: 20,
+  me: {mo, more, evenmore,},
+  ratherlongnamehere,
+  howlongdowehavetogo,
+}
+
+let m x => 10 // TODO short let
+
+let m n => {
 let x = 10
-let y = 20
-let z = Ten.ten(10, 10,)
-let r = {}
+  10
+  30
+}
 let m = (y, z,) => {
   10
+let x = 10
   30
 }
 let y = (
@@ -26,11 +49,4 @@ let z () => { 10 }
 let z () => {
   10
   20
-}
-let z = {
-  hi: 10,
-  ho: 20,
-  me: {mo, more, evenmore,},
-  ratherlongnamehere,
-  howlongdowehavetogo,
 }

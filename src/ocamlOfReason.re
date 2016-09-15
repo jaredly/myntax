@@ -34,7 +34,10 @@ let stripQuotes str => {
   String.sub str 1 (String.length str - 2)
 };
 
-let isLower x => (Char.uppercase (String.get x 0)) != (String.get x 0);
+let isUpper x => {
+  let n = Char.code (String.get x 0);
+  90 >= n && n >= 65
+};
 
 /** LEXICAL THINGS **/
 let processString str => {
@@ -48,6 +51,13 @@ let optMap mapper opt => {
   }
 };
 
+let optMap' mapper opt => {
+  switch opt {
+    | Some x => Some (mapper x)
+    | None => None
+  }
+};
+
 let rec parseLongIdent (_, children, _) => {
   let leafs = RU.getChildren children (fun (_, child) => {
     switch child {
@@ -56,19 +66,27 @@ let rec parseLongIdent (_, children, _) => {
       | _ => None
     }
   });
-  let rec loop leafs => switch leafs {
-    | [contents] => Lident contents
-    | [contents, ...rest] => Ldot (loop rest) contents
+  let rec loop leafs current => switch leafs {
+    | [contents, ...rest] => loop rest (Ldot current contents)
+    | [] => current
     | _ => failwith "invalid longcap"
   };
-  loop leafs
+  switch leafs {
+    | [leftMost, ...rest] => {
+      loop rest (Lident leftMost)
+    }
+    | [] => failwith "empty longident"
+  }
+  /* loop leafs */
 };
+
+let getExpression toOcaml children => RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
 
 let rec fromIdents longident coll => {
   switch longident {
     /* TODO lower vs caps */
-    | Lident x => [("", Leaf (isLower x ? "lowerIdent" : "capIdent", "") x mLoc), ...coll]
-    | Ldot a b => fromIdents a [("", Leaf (isLower b ? "lowerIdent" : "capIdent", "") b mLoc)]
+    | Lident x => [("", Leaf (isUpper x ? "capIdent" : "lowerIdent", "") x mLoc), ...coll]
+    | Ldot a b => fromIdents a [("", Leaf (isUpper b ? "capIdent" : "lowerIdent", "") b mLoc)]
     | Lapply a b => List.concat [(fromIdents a []), (fromIdents b [])]
   }
 };
@@ -92,8 +110,8 @@ let parseLongCap children => {
   loop leafs
 };
 
-let fromCapIdent longident => {
-  Node ("capIdent", "") (fromIdents longident []) mLoc;
+let fromLongCap longident => {
+  Node ("longCap", "") (fromIdents longident []) mLoc;
 };
 
 let nodeWrap rulename (sub, children, loc) => Node (rulename, sub) children loc;
@@ -123,17 +141,47 @@ let fromConstant constant => {
 let ocamlLoc loc => Location.none;
 
 let emptyLabeled fn x => ("", fn x);
+let withEmptyLabels x => ("", x);
 
 let labeled label fn x => (label, fn x);
 
-let rec fromPattern {ppat_desc, _} => {
-  switch ppat_desc {
-    | Ppat_var {txt, _} => Node ("Pattern", "ident") [("", Leaf ("lowerIdent", "") txt mLoc)] mLoc
-    | Ppat_tuple items => {
-      Node ("Pattern", "tuple") (List.map (emptyLabeled fromPattern) items) mLoc
+let rec listToConstruct list maybeRest typeC tupleC => {
+  switch list {
+    | [] => {
+      switch maybeRest {
+        | None => typeC (Location.mkloc (Lident "[]") loc) None
+        | Some x => x
+      }
     }
-    | _ => failwith "nop pat"
+    | [one, ...rest] => typeC (Location.mkloc (Lident "::") loc) (Some (tupleC [one, (listToConstruct rest maybeRest typeC tupleC)]))
   }
+};
+
+let rec listFromConstruct ({ppat_desc, _} as pattern) => {
+  switch ppat_desc {
+    | Ppat_tuple [first, second] => {
+      [("", (fromPattern first)), ...(listFromConstruct second)]
+    }
+    | Ppat_var {txt, _} => [("rest", Leaf ("lowerIdent", "") txt mLoc)]
+    | Ppat_construct {txt: Lident "[]", _} _ => []
+    | Ppat_construct {txt: Lident "::", _} (Some pattern) => listFromConstruct pattern
+    | _ => [("", fromPattern pattern)]
+  }
+} and
+
+fromPattern {ppat_desc, _} => {
+  let (sub, children) = switch ppat_desc {
+    | Ppat_var {txt, _} => ("ident", [("", Leaf ("lowerIdent", "") txt mLoc)])
+    | Ppat_tuple items => {
+      ("tuple", (List.map (emptyLabeled fromPattern) items))
+    }
+    | Ppat_construct {txt: Lident "[]", _} _ => ("list", [])
+    | Ppat_construct {txt: Lident "::", _} (Some pattern) => ("list", (listFromConstruct pattern))
+    | Ppat_any => ("ignore", [])
+    | Ppat_constant constant => ("const", [("", fromConstant constant |> nodeWrap "constant")])
+    | _ => failwith "nop pat"
+  };
+  Node ("Pattern", sub) children mLoc
 };
 
 let rec parsePattern toOcaml (sub, children, loc) => {
@@ -146,80 +194,19 @@ let rec parsePattern toOcaml (sub, children, loc) => {
     | "tuple" => {
       H.Pat.tuple (RU.getNodesByType children "Pattern" (parsePattern toOcaml))
     }
-    /* | "list" => {
-      H.Pat.list (RU.getContentsByType children "Pattern" (parsePattern toOcaml))
-    } */
-    | _ => failwith "not impl pattern stuff"
-  }
-
-  /* switch (result) {
-    | {typ: Nonlexical (_, "ident", _) _, children: [{typ: Lexical _ contents _, _}], _} => {
-      H.Pat.var (Location.mkloc contents loc)
+    | "list" => {
+      listToConstruct
+      (RU.getNodesByType children "Pattern" (parsePattern toOcaml))
+      ((RU.getContentsByLabel children "rest") |> optMap (fun label => Some (H.Pat.var (Location.mkloc label oloc))))
+      H.Pat.construct H.Pat.tuple
+      /* H.Pat.construct  */
+      /* H.Pat.list (RU.getContentsByType children "Pattern" (parsePattern toOcaml)) */
     }
-    | {typ: Nonlexical (_, "tuple", _) _, children: children, _} => {
-      let subs = List.map parsePattern (getChildrenByType children "Pattern");
-      H.Pat.tuple subs
-    }
-    | _ => failwith "not impl pat"
-  } */
-};
-
-/* let rec parsePattern result => {
-  switch (result) {
-    | {typ: Nonlexical (_, "ident", _) _, children: [{typ: Lexical _ contents _, _}], _} => {
-      H.Pat.var (Location.mkloc contents loc)
-    }
-    | {typ: Nonlexical (_, "tuple", _) _, children: children, _} => {
-      let subs = List.map parsePattern (getChildrenByType children "Pattern");
-      H.Pat.tuple subs
-    }
-    | _ => failwith "not impl pat"
+    | "const" => H.Pat.constant (RU.getNodeByType children "constant" |> unwrap |> parseConstant)
+    | "ignore" => H.Pat.any ()
+    | _ => failwith ("not impl pattern stuff" ^ sub)
   }
 };
-
-let rec parseType {typ, children, _} => {
-  switch typ {
-    | Nonlexical (_, "constructor", _) _ => {
-      let ident = getChildByType children "longident" |> unwrap |> parseLongIdent;
-      let types = getChildrenByType children "Type";
-      H.Typ.constr (Location.mkloc ident loc) (List.map parseType types)
-    }
-    | _ => failwith "not support atm type"
-  }
-};
-
-let parseExpression toOcaml result => {
-  switch (result) {
-    | {typ: Nonlexical (_, "wrapped", _) _, children, _} => {
-      let expr = getChildByType children "Expression" |> unwrap |> (toOcaml.expression toOcaml);
-      switch (getChildByType children "Type") {
-        | None => expr
-        | Some x => H.Exp.constraint_ expr (parseType x)
-      }
-    }
-    | {typ: Nonlexical (_, "ident", _) _, children, _} => {
-      H.Exp.ident (Location.mkloc (parseLongIdent (unwrap (getChildByType children "longident"))) loc)
-    }
-    | {typ: Nonlexical (_, "const", _) _, children: [{typ: constant, _}], _} => {
-      H.Exp.constant (parseConstant constant)
-    }
-    | {typ: Nonlexical (_, "tuple", _) _, children: children, _} => {
-      let children = List.map (toOcaml.expression toOcaml) (getChildrenByType children "Expression");
-      H.Exp.tuple children
-    }
-    | _ => failwith ("not impl" ^ (PackTypes.show_result result))
-  }
-};
-
-let parseArgValue toOcaml name maybeArgValue => {
-  switch maybeArgValue  {
-    | None => (name, None)
-    | Some {typ: Nonlexical (_, "none", _) _, _} => ("?" ^ name, None)
-    | Some {typ: Nonlexical (_, "expr", _) _, children} =>
-    ("?" ^ name, Some (parseExpression toOcaml (unwrap (getChildByType children "Expression"))))
-    | _ => failwith "Invalid ArgValue"
-  }
-}; */
 
 /* let makeFunction toOcaml args expr => {
   List.fold_left
@@ -247,67 +234,6 @@ let parseArgValue toOcaml name maybeArgValue => {
   args
 }; */
 
-let makeFunction toOcaml args expr => {
-  List.fold_left
-  (fun expr (label, pat, maybeExpr) => {
-    H.Exp.fun_ label maybeExpr pat expr
-  })
-  expr
-  args;
-
-/*   List.fold_left
-  (fun expr arg => {
-    switch arg {
-      | {typ: Nonlexical (_, "anon", _) _, children, _} => {
-        H.Exp.fun_ "" None (parsePattern (unwrap (getChildByType children "Pattern"))) expr
-      }
-      | {typ: Nonlexical (_, "punned", _) _, children, _} => {
-        let name = getChildByType children "ident" |> unwrap |> getContents;
-        let pat = H.Pat.var (Location.mkloc name loc);
-        let (name, value) = parseArgValue toOcaml name (getChildByType children "ArgValue");
-        H.Exp.fun_ name value pat expr
-      }
-      | {typ: Nonlexical (_, "named", _) _, children, _} => {
-        let name = getChildByType children "ident" |> unwrap |> getContents;
-        let pat = getChildByType children "Pattern" |> unwrap |> parsePattern;
-        let (name, value) = parseArgValue toOcaml name (getChildByType children "ArgValue");
-        H.Exp.fun_ name value pat expr
-      }
-      | _ => failwith "unso"
-    }
-  })
-  (parseExpression toOcaml expr)
-  args
-   */
-};
-
-/* let parseBinding toOcaml result => {
-  switch (result.typ) {
-    | Nonlexical (_, "func", _) _ => {
-      let name = getChild result.children "name" |> unwrap |> getContents;
-      let args = getChildrenByType result.children "Arg";
-      let expr = getChildByType result.children "Expression" |> unwrap;
-      {
-        pvb_pat: H.Pat.var (Location.mkloc name loc),
-        pvb_expr: makeFunction toOcaml args expr,
-        pvb_attributes: [],
-        pvb_loc: loc,
-      }
-    }
-    | Nonlexical (_, "value", _) _ => {
-      let pattern = ResultUtils.getChildByType result.children "Pattern" |> unwrap;
-      let expr = getChildByType result.children "Expression" |> unwrap;
-      {
-        pvb_pat: parsePattern pattern,
-        pvb_expr: parseExpression toOcaml expr,
-        pvb_attributes: [],
-        pvb_loc: loc,
-      }
-    }
-    | _ => failwith "unreachable"
-  }
-}; */
-
 let parseModuleDesc toOcaml (sub, children, loc) => {
   /* RU.getChildren children (convertStructures toOcaml) */
   switch sub {
@@ -319,6 +245,14 @@ let parseModuleDesc toOcaml (sub, children, loc) => {
       Pmod_ident (Location.mkloc (parseLongCap children) (ocamlLoc loc))
     }
     | _ => failwith "not impl"
+  }
+};
+
+let fromModuleDesc fromOcaml desc => {
+  switch desc {
+    | Pmod_structure items => Node ("ModuleDesc", "structure") (List.map (emptyLabeled (fromOcaml.fromStructure fromOcaml)) items) mLoc
+    | Pmod_ident {txt, _} => Node ("ModuleDesc", "ident") [("ident", fromLongCap txt)] mLoc
+    | _ => failwith "module desc not imprt"
   }
 };
 
@@ -349,24 +283,66 @@ let parseArgValue toOcaml (sub, children, loc) => {
   }
 };
 
+let fromArgValue fromOcaml maybeDefault => {
+  let (sub, children) = switch maybeDefault {
+    | None => ("none", [])
+    | Some x => ("expr", [("", fromOcaml.fromExpression fromOcaml x)])
+  };
+  Node ("ArgValue", sub) children mLoc;
+};
+
 let parseArg toOcaml (sub, children, loc) => {
   let oloc = ocamlLoc loc;
   switch sub {
     | "punned" => {
       let name = RU.getContentsByType children "lowerIdent" |> unwrap;
-      let maybeExpr = RU.getNodeByType children "ArgValue" |> optMap (parseArgValue toOcaml);
+      let maybeArg = RU.getNodeByType children "ArgValue";
+      let maybeExpr = maybeArg |> optMap (parseArgValue toOcaml);
+      let name = maybeArg == None ? name : "?" ^ name;
       (name, H.Pat.var (Location.mkloc name oloc), maybeExpr)
+    }
+    | "anon" => {
+      ("", RU.getNodeByType children "Pattern" |> unwrap |> parsePattern toOcaml, None)
+    }
+    | "named" => {
+      let name = RU.getContentsByType children "lowerIdent" |> unwrap;
+      let pat = RU.getNodeByType children "Pattern" |> unwrap |> parsePattern toOcaml;
+      let maybeArg = RU.getNodeByType children "ArgValue";
+      let maybeExpr = maybeArg |> optMap (parseArgValue toOcaml);
+      let name = maybeArg == None ? name : "?" ^ name;
+      (name, pat, maybeExpr)
     }
     | _ => failwith "nop arg"
   }
 };
 
-let fromValueBinding fromOcaml {pvb_pat, pvb_expr, _} => {
-  Node ("ValueBinding", "value") [("", fromPattern pvb_pat), ("", fromOcaml.fromExpression fromOcaml pvb_expr)] mLoc
-  /* switch (pvb_pat.ppat_desc) {
-    | Ppat_var {txt, _} => Node ("ValueBinding", "value") [ ] mLoc
-    | _ => failwith "nop vb"
-  } */
+let fromArg fromOcaml (label, maybeDefault, pattern) => {
+  let (sub, children) = if (label == "") {
+    ("anon", [("", fromPattern pattern)])
+  } else {
+    let ll = String.length label;
+    let (label, opt) = if (ll > 0 && String.get label 0 == '?') {
+      (String.sub label 1 (ll - 1), true)
+    } else {
+      (label, false)
+    };
+    let argValue = opt ? [("", fromArgValue fromOcaml maybeDefault)] : [];
+    let ident = Leaf ("lowerIdent", "") label mLoc;
+    switch pattern.ppat_desc {
+      | Ppat_var {txt, _} when txt == label => ("punned", [("", ident), ...argValue])
+      | _ => ("named", [("", ident), ("", (fromPattern pattern)), ...argValue])
+    }
+  };
+  Node ("Arg", sub) children mLoc;
+};
+
+let makeFunction toOcaml args expr => {
+  List.fold_left
+  (fun expr (label, pat, maybeExpr) => {
+    H.Exp.fun_ label maybeExpr pat expr
+  })
+  expr
+  args;
 };
 
 let parseBinding toOcaml (sub, children, loc) => {
@@ -388,38 +364,10 @@ let parseBinding toOcaml (sub, children, loc) => {
   }
 };
 
-/* let parseStructure toOcaml child => {
-  switch child {
-    | Node ("Structure", "value") children _ => {
-    /* | Nonlexical ("Structure", "value", _) _ => { */
-      let isRec = isPresent (ResultUtils.getChild children "rec");
-      let bindings = ResultUtils.getChildrenByType children "ValueBinding";
-      H.Str.value (isRec ? Recursive : Nonrecursive)
-      (List.map (parseBinding toOcaml) bindings)
-    }
-    /* TODO let rec module */
-    | Nonlexical ("Structure", "let_module", _) _ => {
-      let name = getChildByType children "capIdent" |> unwrap |> ResultUtils.getContents;
-      /* H.Str.value (isRec ? Recursive : Nonrecursive) (List.map parseBinding bindings) */
-      H.Str.module_ {
-        pmb_name: (Location.mkloc name loc),
-        pmb_attributes: [],
-        pmb_loc: loc,
-        pmb_expr: {
-          pmod_desc: parseModuleDesc toOcaml (unwrap (getChildByType children "ModuleDesc")),
-          pmod_loc: loc,
-          pmod_attributes: [],
-        }
-      };
-    }
-    | Nonlexical (_, "type", _) _ => {
-      let declarations = getChildrenByType children "TypeDeclaration";
-      /* TODO why not work? */
-      H.Str.type_ (List.map parseTypeDeclaration declarations)
-    }
-    | _ => failwith "nop"
-  }
-}; */
+let fromValueBinding fromOcaml {pvb_pat, pvb_expr, _} => {
+  Node ("ValueBinding", "value") [("", fromPattern pvb_pat), ("", fromOcaml.fromExpression fromOcaml pvb_expr)] mLoc
+  /** TODO check to see if it's a function, and if so, use the "func" subtype **/
+};
 
 let rec parseType (sub, children, loc) => {
   let oloc = ocamlLoc loc;
@@ -452,10 +400,13 @@ let parseStructure toOcaml (sub, children, loc) => {
       /* print_endline (PackTypes.Result.show_result (Node ("Structure", sub) children loc)); */
       H.Str.value (isRec ? Recursive : Nonrecursive) bindings
     }
+    | "eval" => {
+      H.Str.eval (RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml);
+    }
     | "type" => {
       H.Str.type_ (RU.getNodesByType children "TypeDeclaration" (parseTypeDeclaration toOcaml))
     }
-    | _ => failwith "Unknown structure type"
+    | _ => failwith ("Unknown structure type - " ^ sub)
   }
 };
 
@@ -466,7 +417,113 @@ let fromStructure fromOcaml structure => {
       let children = recFlag == Recursive ? [("rec", mLeaf), ...children] : children;
       Node ("Structure", "value") children mLoc
     }
+    | Pstr_eval expr attrs => {
+      Node ("Structure", "eval") [("", fromOcaml.fromExpression fromOcaml expr)] mLoc
+    }
+    | Pstr_module {pmb_name: {txt, _}, pmb_expr: {pmod_desc, _}, _} => {
+      Node ("Structure", "let_module")
+      [("", Leaf ("capIdent", "") txt mLoc), ("", fromModuleDesc fromOcaml pmod_desc)]
+      mLoc
+    }
+    /* TODO let_module, type */
     | _ => failwith "no parse structure"
+  }
+};
+
+let parseFnArg toOcaml (sub, children, loc) => {
+  let oloc = ocamlLoc loc;
+  switch sub {
+    | "punned" => {
+      let name = RU.getContentsByType children "lowerIdent" |> unwrap;
+      (name, H.Exp.ident (Location.mkloc (Lident name) oloc))
+    }
+    | "named" => {
+      let name = RU.getContentsByType children "lowerIdent" |> unwrap;
+      let value = RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
+      (name, value)
+    }
+    | "anon" => {
+      let value = RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
+      ("", value)
+    }
+    | _ => failwith ("unknown fnarg type " ^ sub)
+  }
+};
+
+let fromFnArg fromOcaml (label, arg) => {
+  switch arg.pexp_desc {
+    | Pexp_ident {txt: Lident name, _} when name == label => {
+      Node ("FnArg", "punned") [("", Leaf ("lowerIdent", "") name mLoc)] mLoc
+    }
+    | _ => {
+      let exp = fromOcaml.fromExpression fromOcaml arg;
+      if (label == "") {
+        Node ("FnArg", "anon") [("", exp)] mLoc
+      } else {
+        Node ("FnArg", "named") [("", Leaf ("lowerIdent", "") label mLoc), ("", exp)] mLoc
+      }
+    }
+  }
+};
+
+let rec unrollFunExpr label maybeDefault pattern expr => {
+  let arg = (label, maybeDefault, pattern);
+  switch expr.pexp_desc {
+    | Pexp_fun l m p e => {
+      let (rest, exp) = (unrollFunExpr l m p e);
+      ([arg, ...rest], exp)
+    }
+    | _ => ([arg], expr)
+  }
+};
+
+let fromFunExpr fromOcaml label maybeDefault pattern expr => {
+  let (args, exp) = unrollFunExpr label maybeDefault pattern expr;
+  let sub = switch args {
+    | [one] => "single"
+    | _ => "multi"
+  };
+  Node ("FunExpr", sub) (List.concat [(List.map (emptyLabeled (fromArg fromOcaml)) args), [("", fromOcaml.fromExpression fromOcaml exp)]]) mLoc
+};
+
+let parseFunExpr toOcaml (sub, children, loc) => {
+  let args = RU.getNodesByType children "Arg" (parseArg toOcaml);
+  let expr = RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
+  makeFunction toOcaml args expr;
+};
+
+let parseBlock toOcaml (sub, children, loc) => {
+  let oloc = ocamlLoc loc;
+  /* let exprs = RU.getNodesByType children "Expression" (toOcaml.expression toOcaml); */
+  let rec loop children => {
+    switch children {
+      | [] => H.Exp.ident (Location.mkloc (Lident "()") oloc)
+      | [(_, Leaf _), ...rest] => loop rest
+      | [(_, Node ("Statement", "expr") children _)] => getExpression toOcaml children
+      | [(_, Node ("Statement", "expr") children _), ...rest] => H.Exp.sequence (getExpression toOcaml children) (loop rest)
+      | [(_, Node ("Statement", "value") children _), ...rest] => {
+        let isRec = RU.getPresenceByLabel children "rec";
+        let bindings = RU.getNodesByType children "ValueBinding" (parseBinding toOcaml);
+        H.Exp.let_ (isRec ? Recursive : Nonrecursive) bindings (loop rest)
+      }
+      | [(_, Node ("Statement", "module") children _), ...rest] => {
+        let name = (Location.mkloc (RU.getContentsByType children "capIdent" |> unwrap) oloc);
+        H.Exp.letmodule name {
+          pmod_desc: RU.getNodeByType children "ModuleDesc" |> unwrap |> parseModuleDesc toOcaml,
+          pmod_loc: oloc,
+          pmod_attributes: [],
+        } (loop rest)
+      }
+      | _ => failwith "Unknown statement"
+    }
+  };
+  loop children
+};
+
+let unwrapm message::message="" opt => {
+  switch opt {
+    | Some x => x
+    | None => raise (RU.ConversionFailure ("Unwrapping none " ^ message))
   }
 };
 
@@ -484,24 +541,100 @@ let parseExpression toOcaml (sub, children, loc) => {
       let ident = RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent;
       H.Exp.ident (Location.mkloc ident oloc)
     }
-    | "const" => {
-      H.Exp.constant (RU.getNodeByType children "constant" |> unwrap |> parseConstant)
+    | "application" => {
+      let base = RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
+      let args = RU.getNodesByType children "FnArg" (parseFnArg toOcaml);
+      H.Exp.apply base args;
     }
-    | "tuple" => {
-      let children = RU.getNodesByType children "Expression" (toOcaml.expression toOcaml);
-      /* let children = List.map (toOcaml.expression toOcaml) (getChildrenByType children "Expression"); */
-      H.Exp.tuple children
+    | "const" => H.Exp.constant (RU.getNodeByType children "constant" |> unwrap |> parseConstant)
+    | "tuple" => H.Exp.tuple (RU.getNodesByType children "Expression" (toOcaml.expression toOcaml))
+    | "funexpr" => RU.getNodeByType children "FunExpr" |> unwrap |> parseFunExpr toOcaml;
+    | "block" => RU.getNodeByType children "Block" |> unwrap |> parseBlock toOcaml;
+    | "record" => {
+      let extends = RU.getNodeByType children "Expression" |> optMap' (toOcaml.expression toOcaml);
+      let items = RU.getNodesByType children "RecordItem" (fun (sub, children, loc) => {
+        let oloc = ocamlLoc loc;
+        let name = RU.getNodeByType children "longIdent" |> unwrapm message::"long ident record" |> parseLongIdent;
+        let expr = RU.getNodeByType children "Expression" |> optMap' (toOcaml.expression toOcaml);
+        let expr = switch expr {
+          | Some x => x
+          | None => H.Exp.ident (Location.mkloc name oloc)
+        };
+        ((Location.mkloc name oloc), expr)
+      });
+      H.Exp.record items extends
     }
     | _ => failwith ("not impl - expression - " ^ sub)
   }
 };
 
-let fromExpression fromOcaml {pexp_desc, _} => {
-  switch pexp_desc {
-    | Pexp_ident {txt, _} => Node ("Expression", "ident") [("", fromLongIdent txt)] mLoc
-    | Pexp_constant constant => Node ("Expression", "const") [("", fromConstant constant |> nodeWrap "constant")] mLoc
-    | _ => failwith "no exp"
+let fromLet fromOcaml isRec values => {
+  let bindings = List.map (emptyLabeled (fromValueBinding fromOcaml)) values;
+  Node ("Statement", "value")
+  (isRec == Recursive ? [("rec", Leaf ("", "") "rec" mLoc), ...bindings] : bindings)
+  mLoc
+};
+
+let rec unwrapSequence fromOcaml exp => {
+  switch exp.pexp_desc {
+    | Pexp_sequence first second => {
+      List.concat [unwrapSequence fromOcaml first, unwrapSequence fromOcaml second]
+      /* [fromOcaml.fromExpression fromOcaml first, ...unwrapSequence fromOcaml second] */
+    }
+    | Pexp_let isRec values exp => {
+      [fromLet fromOcaml isRec values, ...unwrapSequence fromOcaml exp]
+    }
+    | Pexp_letmodule {txt, _} modexp exp => {
+      failwith "letmodule not yet"
+    }
+    | _ => [Node ("Statement", "expr") [("", fromOcaml.fromExpression fromOcaml exp)] mLoc]
   }
+};
+
+let fromExpression fromOcaml ({pexp_desc, _} as expression) => {
+  let (sub, children) =
+  switch pexp_desc {
+    | Pexp_ident {txt, _} => ("ident", [("", fromLongIdent txt)])
+    | Pexp_constant constant => ("const", [("", fromConstant constant |> nodeWrap "constant")])
+    | Pexp_fun label maybeDefault pattern expr => ("funexpr", [("", fromFunExpr fromOcaml label maybeDefault pattern expr)])
+    | Pexp_apply base args => {
+      let exp = fromOcaml.fromExpression fromOcaml base;
+      ("application", [("", exp), ...(List.map (emptyLabeled (fromFnArg fromOcaml)) args)])
+    }
+    | Pexp_record items extends => {
+      let exp = extends |> optMap' (fromOcaml.fromExpression fromOcaml);
+      let args = List.map (emptyLabeled (fun (ident, exp) => {
+        let children = switch (exp.pexp_desc) {
+          | Pexp_ident {txt: name, _} when name == ident.txt => {
+            [("", fromLongIdent ident.txt)]
+          }
+          | _ => [("", fromLongIdent ident.txt), ("", fromOcaml.fromExpression fromOcaml exp)]
+        };
+        Node ("RecordItem", "") children mLoc
+      })) items;
+      let children = switch exp {
+        | Some x => [("", x), ...args]
+        | None => args
+      };
+      ("record", children)
+    }
+    | Pexp_let isRec values exp => {
+      let children = [fromLet fromOcaml isRec values, ...unwrapSequence fromOcaml exp];
+      ("block", [("", Node ("Block", "") (List.map withEmptyLabels children) mLoc)])
+    }
+    | Pexp_sequence first second => {
+      let children = List.concat [unwrapSequence fromOcaml first, unwrapSequence fromOcaml second];
+      ("block", [("", Node ("Block", "") (List.map withEmptyLabels children) mLoc)])
+    }
+    | Pexp_tuple items => {
+      ("tuple", (List.map (emptyLabeled (fromOcaml.fromExpression fromOcaml)) items))
+    }
+    | _ => {
+      Printast.expression 0 Format.std_formatter expression;
+      failwith "no exp"
+    }
+  };
+  Node ("Expression", sub) children mLoc
 };
 
 

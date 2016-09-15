@@ -20,10 +20,6 @@ let main dump::dump=false file::file=? dest::dest=? unit => {
   };
   switch (Runtime.parse GrammarGrammar.grammar "Start" contents) {
     | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
-      /* switch maybeResult {
-        | Some result => Json.result_to_string result |> print_endline
-        | None => ()
-      }; */
       Printf.eprintf "%s\n" (PackTypes.Error.genErrorText contents failure);
       exit 1;
     }
@@ -42,6 +38,37 @@ let main dump::dump=false file::file=? dest::dest=? unit => {
       } else {
         print_endline (Json.result_to_string result);
       }
+    }
+  };
+};
+
+let parseOptions options => {
+  let htbl = Hashtbl.create 13;
+  let rec loop options => {
+    switch options {
+      | [] => ()
+      | [one] => failwith "Options must be in pairs"
+      | [key, value, ...rest] =>  {
+        Hashtbl.replace htbl key value;
+        loop rest;
+      }
+    }
+  };
+  loop options;
+  htbl
+};
+
+let examples filename ruleName options => {
+  let contents = Sysop.readFile filename;
+  switch (Runtime.parse GrammarGrammar.grammar "Start" contents) {
+    | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
+      Printf.eprintf "%s\n" (PackTypes.Error.genErrorText contents failure);
+      exit 1;
+    }
+    | PackTypes.Result.Success result => {
+      let grammar = GrammarOfGrammar.convert result;
+      let table = parseOptions options;
+      print_endline (ExampleGenerator.generateExamples grammar ruleName table);
     }
   };
 };
@@ -142,11 +169,12 @@ white =
   ("Item", "Hello"),
 ];
 
-switch Sys.argv {
-  | [|_, "test"|] => tests testCases;
-  | [|_, "dump"|] => main dump::true ()
-  | [|_, "dump", filename|] => main dump::true file::filename ()
-  | [|_, "dump", filename, destination|] => main dump::true file::filename dest::destination ()
-  | [|_, filename|] => main dump::false file::filename ()
+switch (Array.to_list Sys.argv) {
+  | [_, "test"] => tests testCases;
+  | [_, "dump"] => main dump::true ()
+  | [_, "dump", filename] => main dump::true file::filename ()
+  | [_, "dump", filename, destination] => main dump::true file::filename dest::destination ()
+  | [_, "examples", filename, ruleName, ...rest] => examples filename ruleName rest
+  | [_, filename] => main dump::false file::filename ()
   | _ => main()
 };

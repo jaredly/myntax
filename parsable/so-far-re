@@ -26,7 +26,7 @@ Structure =
   | "include" "*" "from" longCap -- include
   | "[@@@"& lowerIdent &"]" -- attribute
   | "[%%"& lowerIdent &"]" -- extension
-  | [expr]Statement [attrs]Attribute* -- eval
+  | [expr]Expression [attrs]Attribute* -- eval
   ; class, class type
   ; typeext
   ; external "primitive"
@@ -85,31 +85,21 @@ ArgValue =
 Pattern =
   | Pattern "as" lowerIdent
   | Pattern &":" Type
-  | "()"
-  | "_"
-  | "("& Pattern (&"," Pattern)+ &","? &")" -- tuple
-  | "["& (Pattern &",")* Pattern? &"]" -- list
-  | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record
-  | lowerIdent -- ident
-
-MatchPattern =
-  | MatchPattern "as" lowerIdent
-  | MatchPattern &":" Type
-  | "()"
-  | "_"
-  | MatchPattern "|" MatchPattern -- or
-  | "(" MatchPattern &":" Type ")" -- constraint
-  | "lazy" MatchPattern -- lazy
-  | "exception" MatchPattern -- exception
+  | "()" -- unit
+  | "_" -- ignore
+  | Pattern "|" Pattern -- or
+  | "(" Pattern &":" Type ")" -- constraint
+  | "lazy" Pattern -- lazy
+  | "exception" Pattern -- exception
   | "[%" lowerIdent "]" -- extension
   | char &".."& char -- interval
-  | "("& MatchPattern (&"," MatchPattern)+ &","? &")" -- tuple
-  | "[|"& (MatchPattern &",")* MatchPattern? &"|]" -- array
-  | "["& (MatchPattern &",")* MatchPattern? &"]" -- list ; TODO ...rest
-  | "`"&? capIdent &("("& (MatchPattern &",")* MatchPattern? &")")?  -- constructor
-  | "{"& (longIdent (&":" MatchPattern)? &",")* (longIdent (&":" MatchPattern)?)? &"}" -- record ; TODO _ for open flag
-  | lowerIdent
-  | constant
+  | "("& Pattern (&"," Pattern)+ &","? &")" -- tuple
+  | "[|"& (Pattern &",")* Pattern? &"|]" -- array
+  | "["& (Pattern &",")* Pattern? ("..." [rest]lowerIdent)? &"]" -- list
+  | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record ; TODO _ for open flag
+  | "`"&? capIdent &("("& (Pattern &",")* Pattern? &")")?  -- constructor
+  | lowerIdent -- ident
+  | constant -- const
   ; Ppat_type
   ; Ppat_unpack
 
@@ -150,8 +140,8 @@ Expression =
   | "("& TupleBody &")" -- tuple
   | "`"&? longCap (&"("& Commas &")")? -- constructor
   | "[|"& (Expression &",")* Expression? &"|]" -- list
-  | "{"& RecordBody &"}" -- record
   | Block -- block
+  | "{"& RecordBody &"}" -- record
   | "["& (Expression &",")* Expression? &"]" -- list
   | Expression &"."& longIdent "=" Expression -- set_attr
   | Expression &"."& longIdent -- get_attr
@@ -185,12 +175,12 @@ TupleBody = Expression (&"," Expression)+ &","?
 
 @ignoreNewlines
 @passThrough
-RecordBody = (RecordItem &",")* RecordItem?
-RecordItem = lowerIdent (&":" Expression)?
+RecordBody = ("..."& Expression &",")? (RecordItem &",")* RecordItem?
+RecordItem = longIdent (&":" Expression)?
 
 SwitchExp = "switch" Expression SwitchBody
 SwitchBody = "{" "\n"+ (SwitchCase "\n"+)* "}"
-SwitchCase = "case" MatchPattern ("with" [guard]Expression)? &":" "\n"* Expression?
+SwitchCase = "case" Pattern ("with" [guard]Expression)? &":" "\n"* Expression?
 
 TryExp = "try" Block "catch" SwitchBody
 
@@ -199,12 +189,15 @@ FunExpr =
   | Arg "=>" Expression -- single
 
 Block = "{" BlockBody "}"
+
 @ignoreNewlines(false)
 @passThrough
 BlockBody = EOL? (Statement EOL)* Statement?
 
+@passThrough
 Application = Expression &"("& AppArgs &")"
 
+@passThrough
 @ignoreNewlines
 AppArgs = (FnArg &",")* FnArg?
 
