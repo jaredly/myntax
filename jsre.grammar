@@ -1,0 +1,187 @@
+JsRe {
+Structures =
+  Structure*
+
+Structure
+  = Pstr_value
+  | Pstr_eval
+  | Pstr_primitive
+  | Pstr_type
+  | Pstr_typext
+  | Pstr_exception
+  | Pstr_module
+  | Pstr_recmodule
+  | Pstr_modtype
+  | Pstr_open
+  | Pstr_class
+  | Pstr_class_type
+  | Pstr_include
+  | Pstr_attribute
+  | Pstr_extension
+
+Pstr_eval
+  = Expression Attributes
+
+Pstr_value
+  = "let" "rec"? ValueBinding ("and" ValueBinding)*
+
+ValueBinding
+  = Pattern "=" Expression -- normal
+  | ident "(" ArgPatterns ")" "=>" Expression -- fn
+
+ArgPatterns
+  = (ArgPattern ",")* (ArgPattern ","?)?
+
+ArgPattern =
+  Pattern ("::" ident ArgOpt?)? -- full
+  | "::" ident ArgOpt? -- punned
+
+ArgOpt
+  = "?"
+  | "=" Expression -- default
+
+Pstr_primitive = "NA"
+Pstr_type = "NA"
+Pstr_typext = "NA"
+Pstr_exception = "NA"
+Pstr_module = "NA"
+Pstr_recmodule = "NA"
+Pstr_modtype = "NA"
+Pstr_open = "NA"
+Pstr_class = "NA"
+Pstr_class_type = "NA"
+Pstr_include = "NA"
+Pstr_attribute = "NA"
+Pstr_extension = "NA"
+
+Expression
+  = Pexp_apply
+  | Pexp_let
+  | Pexp_constant
+  | Pexp_fun
+  | Pexp_ident
+  | Block
+  // TODO complete
+
+Block
+  = "{" (Expression #"\n")* Expression? "}"
+
+Pexp_fun
+  = ident "=>" Expression -- short
+  | "(" ArgPatterns ")" "=>" Expression -- long
+
+Pexp_ident
+  = LongLoc
+
+LongLoc = Longident
+
+Longident
+  = Ldot
+  | Lident
+
+Lident
+  = ~reserve ident
+
+Ldot
+  = Longident "." ident
+
+ident
+  = letter (identchar)*
+
+identchar
+  = letter
+  | digit
+  | "_"
+
+reserve
+  = "let"
+
+Pexp_constant
+  = Const_int
+  | Const_char
+  | Const_string
+  | Const_float
+
+Const_int
+  = int
+
+int
+  = "0"
+  | ~"0" digit+
+
+Const_char
+  = char
+
+Const_string
+  = string
+  | multilinestring
+
+string
+  = "\"" strchar* "\""
+
+multilinestring
+  = "`" mlstrchar* "`"
+
+mlstrchar
+  = ~ "`" any
+
+strchar
+  = "\\" any -- escaped
+  | ~ "\"" ~ "\n" any
+
+Const_float
+  = float
+
+float
+  = digit* "." digit+
+
+number
+  = digit+ ("." digit+)?
+  
+bool
+  = "true" | "false"
+
+char
+  = "'" letter "'"
+
+Pexp_let
+  = "let" "rec"? Pattern "=" Expression
+
+Pattern
+  = Ppat_any
+  | Ppat_alias
+  | Ppat_var
+  // TODO complete
+
+Ppat_any = "_"
+Ppat_var = StrLoc
+Ppat_alias = Pattern "as" StrLoc
+
+StrLoc = ident
+
+Attributes
+  = Attribute*
+
+Attribute
+  = "[@" attr_label Payload? "]"
+
+attr_label
+  = (ident ".")* ident
+
+Payload
+  = Structure -- pstr
+  | Core_Type -- ptyp
+  | Pattern Expression -- ppat
+
+Core_Type = "NA"
+
+Pexp_apply
+  = Expression "(" Args ")"
+
+Args
+  = (Arg ",")* (Arg ","?)?
+
+Arg
+  = (ident "::")? Expression
+
+}

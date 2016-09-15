@@ -1,87 +1,7 @@
-/* https://rwmj.wordpress.com/2010/12/29/packrat-parser-with-left-recursion/ */
-type grammar = list production
-and production = (string, list choice) /* rule name -> e1 | e2 | ... */
-and choice = (string, string, list parsing) /* choice name, comment, sequence */
-and parsing =
-  | Star parsing       /* e* */
-  | Plus parsing       /* e+ */
-  | Optional parsing   /* e? */
-  | Lookahead parsing  /* &e */
-  | Not parsing        /* !e */
-  | NonTerminal string /* nonterminal 'name' */
-  | Terminal string    /* terminal */
-  | Chars char char    /* [a-z] */
-  | Empty              /* epsilon */;
-
-let grammar: grammar = [
-  /*
-     start -> expr
-   */
-  ("start", [("", "", [NonTerminal "expr"])]),
-  /*
-     expr ->
-           | expr expr
-           | "fun" patt "->" expr = "fundecl" ; function
-           | "(" expr ")"
-           | expr "+" expr
-           | ident
-           | int64
-   */
-  (
-    "expr",
-    [
-      ("funappl", "", [NonTerminal "expr", NonTerminal "sp", NonTerminal "expr"]),
-      (
-        "fundecl",
-        "function declaration",
-        [Terminal "fun", NonTerminal "sp", NonTerminal "patt", NonTerminal "osp", Terminal "->", NonTerminal "sp", NonTerminal "expr"]
-      ),
-      ("paren", "", [Terminal "(", NonTerminal "osp", NonTerminal "expr", NonTerminal "osp", Terminal ")"]),
-      ("addition", "", [NonTerminal "expr", NonTerminal "osp", Terminal "+", NonTerminal "osp", NonTerminal "expr"]),
-      ("ident", "", [NonTerminal "ident"]),
-      ("int64", "", [NonTerminal "int64"])
-    ]
-  ),
-  /*
-     patt -> ident
-   */
-  ("patt", [("", "", [NonTerminal "ident"])]),
-  /*
-     int64 -> digit19 digit*
-            | digit
-     digit -> [0-9]
-     digit19 -> [1-9]
-   */
-  (
-    "int64",
-    [
-      /* ("", "", [NonTerminal "digit19", Star (NonTerminal "digit")]) */
-      ("", "", [Not (Terminal "0"), Plus (NonTerminal "digit")])
-      /* ("", "", [Plus(NonTerminal "digit")]) */
-    ]
-  ),
-  ("digit", [("", "", [Chars '0' '9'])]),
-  ("digit19", [("", "", [Chars '1' '9'])]),
-  /*
-     ident -> alpha+
-     alpha -> [a-z]
-   */
-  ("ident", [("", "", [Not (NonTerminal "reserved"), Plus (NonTerminal "alpha")])]),
-  ("reserved", [
-    ("", "", [Terminal "let"]),
-    ("", "", [Terminal "for"]),
-    ("", "", [Terminal "fun"]),
-  ]),
-  ("alpha", [("", "", [Chars 'a' 'z'])]),
-  /*
-     sp -> " "+
-     osp -> " "*
-   */
-  ("sp", [("", "", [Plus (Terminal " ")])]),
-  ("osp", [("", "", [Star (Terminal " ")])])
-];
-
-let initial_state = "start";
+/* from https://rwmj.wordpress.com/2010/12/29/packrat-parser-with-left-recursion/ with modifications */
+open PackTypes;
+let initial_state = "Start";
+let grammar = SimpleGrammar.grammar;
 
 /* To support backtracking, need to read all input. */
 let input = {
@@ -106,17 +26,55 @@ let len = String.length input;
  */
 let module StringSet = Set.Make String;
 
-exception Found int;
+/* type prodState = {
+  name: string,
+  choice: string,
+  children: list parseState
+}
+and parseState = {
+  label: string,
+  typ: string,
+  children: list parseState
+}; */
+
+type stateType =
+  | Terminal
+  | Lexical
+  | Iter
+  | Nonlexical [@@deriving yojson];
+
+type state = {
+  start: int,
+  cend: int,
+  typ: stateType,
+  name: option string,
+  children: list state,
+} [@@deriving yojson];
+
+/* type stateType =
+  | Production
+  | Choice
+  | Star
+  | Plus
+  | Optional;
+type state = {
+  productionName: string,
+  children: list state,
+}; */
 
 type lr = {mutable seed: ans, mutable rulename: string, mutable head: option head}
 and memoentry = {mutable ans: ans_or_lr, mutable pos: int}
 and ans_or_lr = | Answer ans | LR lr
-and ans = int
+and ans = (int, state)
 and head = {
   mutable hrule: string,
   mutable involved_set: StringSet.t,
   mutable eval_set: StringSet.t
 };
+
+exception Found ans;
+
+let emptyState pos name typ => {start: pos, cend: pos, typ, name: Some name, children: []};
 
 let lrstack = ref [];
 let memo = Hashtbl.create 13;
@@ -129,22 +87,29 @@ let optionGet v =>
     | None => failwith "Expected Some(x)"
   };
 
+let fst (a, _) => a;
+
 /* Apply rule 'rulename' at position 'i' in the input.  Returns the new
  * position if the rule can be applied, else -1 if fails.
  */
-let rec apply_rule rulename i =>
-  switch (recall rulename i) {
+let rec apply_rule rulename i => {
+  let typ = if ((Char.uppercase (String.get rulename 0)) == (String.get rulename 0)) {
+    Nonlexical
+  } else {
+    Lexical
+  };
+  switch (recall rulename i typ) {
   | None =>
-    let lr = {seed: (-1), rulename, head: None};
+    let lr = {seed: (-1, emptyState i rulename typ), rulename, head: None};
     lrstack := [lr, ...!lrstack];
     let m = {ans: LR lr, pos: i};
     Hashtbl.add memo (rulename, i) m;
-    let r = parse rulename i;
+    let r = parse rulename i typ;
     lrstack := List.tl !lrstack;
     m.pos = !pos;
     if (lr.head != None) {
       lr.seed = r;
-      lr_answer rulename i m
+      lr_answer rulename i m typ
     } else {
       m.ans = Answer r;
       r
@@ -158,6 +123,7 @@ let rec apply_rule rulename i =>
     | Answer r => r
     }
   }
+}
 
 and setup_lr rulename lr => {
   if (lr.head == None) {
@@ -175,7 +141,8 @@ and setup_lr rulename lr => {
       };
   loop !lrstack
 }
-and lr_answer rulename i m => {
+
+and lr_answer rulename i m typ => {
   let lr =
     switch m.ans {
     | Answer _ => assert false
@@ -190,14 +157,15 @@ and lr_answer rulename i m => {
     lr.seed
   } else {
     m.ans = Answer lr.seed;
-    if (lr.seed == (-1)) {
-      (-1)
+    if (fst lr.seed == -1) {
+      (-1, emptyState i rulename typ)
     } else {
-      grow_lr rulename i m h
+      grow_lr rulename i m h typ
     }
   }
 }
-and recall rulename i => {
+
+and recall rulename i typ => {
   let m =
     try (Some (Hashtbl.find memo (rulename, i))) {
     | Not_found => None
@@ -210,11 +178,11 @@ and recall rulename i => {
   | None => m
   | Some h =>
     if (m == None && not (StringSet.mem rulename (StringSet.add h.hrule h.involved_set))) {
-      Some {ans: Answer (-1), pos: i}
+      Some {ans: Answer (-1, emptyState i rulename Nonlexical), pos: i}
     } else {
       if (StringSet.mem rulename h.eval_set) {
         h.eval_set = StringSet.remove rulename h.eval_set;
-        let r = parse rulename i;
+        let r = parse rulename i typ;
         /* Original paper RECALL function seems to have a bug ... */
         let m = optionGet m;
         m.ans = Answer r;
@@ -224,13 +192,14 @@ and recall rulename i => {
     }
   }
 }
-and grow_lr rulename i m h => {
+
+and grow_lr rulename i m h typ => {
   Hashtbl.replace heads i h; /* A */
   let rec loop () => {
     pos := i;
     h.eval_set = h.involved_set; /* B */
-    let ans = parse rulename i;
-    if (ans == (-1) || !pos <= m.pos) {
+    let ans = parse rulename i typ;
+    if (fst ans == (-1) || !pos <= m.pos) {
       ()
     } else {
       m.ans = Answer ans;
@@ -247,7 +216,7 @@ and grow_lr rulename i m h => {
   }
 }
 
-and parse rulename i => {
+and parse rulename i typ => {
   /* Printf.printf "parse %s %d\n" rulename i; */
   let choices =
     try (List.assoc rulename grammar) {
@@ -259,81 +228,92 @@ and parse rulename i => {
   try {
     List.iter
       (
-        fun (name, comment, rs) => {
+        fun (sub_name, comment, rs) => {
           /* Printf.printf "parse %s \"%s\" %d\n" rulename name i; */
           let rec loop i =>
             fun
             | [Empty, ...rest] => loop i rest
             | [Lookahead p, ...rest] => {
-              let i' = loop i [p];
+              let (i', _) = loop i [p];
               if (i' >= i) {
                 loop i rest
               } else {
-                -1
+                (-1, [])
               }
             }
             | [Not p, ...rest] => {
-              let i' = loop i [p];
+              let (i', _) = loop i [p];
               if (i' >= i) {
-                -1
+                (-1, [])
               } else {
                 loop i rest
               }
             }
-            | [NonTerminal n, ...rest] => {
-                let i' = apply_rule n i;
+            | [NonTerminal n name, ...rest] => {
+                let (i', state) = apply_rule n i;
                 if (i' >= i) {
-                  loop i' rest
+                  let (i'', children) = loop i' rest;
+                  (i'', [(
+                    switch name {
+                      | Some x => {name, start: i, cend: i', children: [state], typ: Nonlexical}
+                      | None => state
+                    }
+                  ), ...children])
                 } else {
-                  (-1)
+                  (-1, [])
                 }
               }
-            | [Terminal str, ...rest] => {
+            | [Terminal str name, ...rest] => {
                 let slen = String.length str;
                 if (i + slen > len) {
-                  (-1)
+                  (-1, [])
                 } else {
                   let sub = String.sub input i slen;
                   if (sub == str) {
-                    loop (i + slen) rest
+                    let (i'', children) = loop (i + slen) rest;
+                    (i'', [{name, start: i, cend: i + slen, children: [], typ: Terminal}, ...children])
                   } else {
-                    (-1)
+                    (-1, [])
                   }
                 }
               }
-            | [Chars c1 c2 [@implicit_arity], ...rest] =>
+            | [Chars c1 c2 name, ...rest] =>
               if (i >= len) {
-                (-1)
+                (-1, [])
               } else if (input.[i] >= c1 && input.[i] <= c2) {
-                loop (i + 1) rest
+                let (i'', children) = loop (i + 1) rest;
+                (i'', [{name, start: i, cend: i + 1, children: [], typ: Terminal}, ...children])
               } else {
-                (-1)
+                (-1, [])
               }
-            | [Star subr, ...rest] => {
-                let i' = greedy 0 None subr i;
+            | [Star subr name, ...rest] => {
+                let (i', subchildren) = greedy 0 None subr i;
                 if (i' >= i) {
-                  loop i' rest
+                  let (i'', children) = loop i' rest;
+                  (i'', [{name, start: i, cend: i', children: subchildren, typ: Iter}, ...children])
                 } else {
-                  (-1)
+                  (-1, [])
                 }
               }
-            | [Plus subr, ...rest] => {
-                let i' = greedy 1 None subr i;
+            | [Plus subr name, ...rest] => {
+                let (i', subchildren) = greedy 1 None subr i;
                 if (i' >= i) {
-                  loop i' rest
+                  let (i'', children) = loop i' rest;
+                  (i'', [{name, start: i, cend: i', children: subchildren, typ: Iter}, ...children])
                 } else {
-                  (-1)
+                  (-1, [])
                 }
               }
-            | [Optional subr, ...rest] => {
-                let i' = greedy 0 (Some 1) subr i;
+            | [Optional subr name, ...rest] => {
+                let (i', subchildren) = greedy 0 (Some 1) subr i;
                 if (i' >= i) {
-                  loop i' rest
+                  let (i'', children) = loop i' rest;
+                  (i'', [{name, start: i, cend: i', children: subchildren, typ: Iter}, ...children])
                 } else {
-                  (-1)
+                  (-1, [])
                 }
               }
-            | [] => i
+            | [] => (i, [])
           and greedy min max subr i => {
             /* implements e* e+ e? */
             /* Printf.printf
@@ -347,55 +327,60 @@ and parse rulename i => {
               )
               i; */
             switch max {
-            | Some 0 => i
+            | Some 0 => (i, [])
             | _ =>
               if (min > 0) {
                 /* we must match at least min or fail */
-                let i' = loop i [subr];
+                let (i', found) = loop i [subr];
                 if (i' >= i) {
-                  greedy (min - 1) max subr i'
+                  let (i'', children) = greedy (min - 1) max subr i';
+                  (i'', List.concat [found, children])
                 } else {
-                  (-1)
+                  (-1, [])
                 }
               } else {
                 /* try matching, doesn't matter if we fail */
-                let i' = loop i [subr];
+                let (i', children) = loop i [subr];
                 if (i' >= i) {
                   let max =
                     switch max {
                     | None => None
                     | Some n => Some (n - 1)
                     };
-                  greedy 0 max subr i'
+                  let (i'', more) = greedy 0 max subr i';
+                  (i'', List.concat [children, more])
                 } else {
-                  i /* don't fail, return longest match */
+                  (i, []) /* don't fail, return longest match */
                 }
               }
             }
           };
-          let i' = loop i rs;
+          let (i', children) = loop i rs;
           if (i' >= i) {
             /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
-            raise (Found i')
+            let name = if ((List.length choices) === 1) { rulename } else {(rulename ^ "_" ^ sub_name)};
+            raise (Found (i', {start: i, cend: i', children, name: Some name, typ}))
           }
         }
       )
       choices;
-    (-1)
+    (-1, emptyState i rulename typ)
   } {
-  | Found i => i
+  | Found ans => ans
   }
 };
 
 let () = {
-  let i = apply_rule initial_state 0;
+  let (i, state) = apply_rule initial_state 0;
   if (i == (-1)) {
+    /* TODO: report errors! */
     Printf.eprintf "parse error: parsing failed\n";
     exit 1
   } else if (i < len) {
     Printf.eprintf "parse error: extra characters after end of input\n";
     exit 1
   } else {
-    Printf.printf "parsed OK\n"
+    Printf.printf "%s" (Yojson.Safe.to_string(state_to_yojson state));
+    /* Printf.printf "parsed OK\n" */
   }
 };

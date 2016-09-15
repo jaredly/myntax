@@ -1,0 +1,1 @@
+<src/*>: package(ppx_deriving.std), package(ppx_deriving_yojson)
