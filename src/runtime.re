@@ -454,7 +454,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
               }
 
-            | [(P.Star subr _) as item, ...rest] => {
+            | [(P.Star subr) as item, ...rest] => {
                 let (i', subchildren, errs) = greedy loop 0 None subr i [RP.Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
@@ -464,7 +464,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 }
               }
 
-            | [(P.Plus subr _) as item, ...rest] => {
+            | [(P.Plus subr) as item, ...rest] => {
                 let (i', subchildren, errs) = greedy loop 1 None subr i [RP.Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
@@ -474,7 +474,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 }
               }
 
-            | [(P.Optional subr _) as item, ...rest] => {
+            | [(P.Optional subr) as item, ...rest] => {
                 let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [RP.Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;

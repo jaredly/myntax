@@ -1,15 +1,15 @@
 
 let rx = Str.regexp "PackTypes\\.Parsing\\.";
 let replaceModule = Str.global_replace rx "";
+let module P = PackTypes.Parsing;
 
 let printGrammar grammar name => {
   Printf.sprintf {|(** This grammar definition was generated from %s **)
-
 open PackTypes.Parsing
 
 let grammar = %s;
 
-|} name (replaceModule (PackTypes.Parsing.show_grammar grammar));
+|} name (replaceModule (P.show_grammar grammar));
 
 };
 
@@ -145,7 +145,6 @@ white =
 switch Sys.argv {
   | [|_, "test"|] => tests testCases;
   | [|_, "dump"|] => main dump::true ()
-  | [|_, "dump-base"|] => print_endline (printGrammar (GrammarGrammar.grammar) "baseGrammarGrammar.re")
   | [|_, "dump", filename|] => main dump::true file::filename ()
   | [|_, "dump", filename, destination|] => main dump::true file::filename dest::destination ()
   | [|_, filename|] => main dump::false file::filename ()

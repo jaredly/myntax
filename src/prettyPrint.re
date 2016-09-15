@@ -98,10 +98,8 @@ let rec outputToString config indentLevel output => {
             | [NoSpace, ...rest] => loop rest
           }
         };
-        /* let txt = padt ^ (String.concat (padt) items) ^ "\n"; */
         (padt ^ (loop items) ^ "\n" ^ (pad (indentLevel - 1) config.indentStr), true)
       } else {
-        /* (String.concat " " items, false) */
         let rec loop items => {
           switch items {
             | [] => ""
@@ -139,15 +137,6 @@ let findByLabel children needle => {
   maybeFind children (fun (label, child) => label == needle ? Some child : None)
 };
 
-/* let findNodeByType children needle => {
-  maybeFind children (fun (_, child) => {
-    switch child {
-      | Leaf _ => None
-      | Node (name, sub) children _ as child when name == needle => Some ((name, sub), children)
-    }
-  })
-}; */
-
 let findByType children needle => {
   maybeFind children (fun (_, child) => {
     switch child {
@@ -159,17 +148,19 @@ let findByType children needle => {
 };
 
 let rec greedy loop p children min max => {
-  Printf.printf "Greedy %d %d\n" min max;
+  /* Printf.printf "Greedy %d %d\n" min max; */
   if (max == 0) {
     (true, [], children)
   } else {
     let (success, res, unused) = loop [p] children;
     if (not success) {
-      print_endline ("First greed aborted, and " ^ (min <= 0 ? "yup" : "nop"));
+      /* print_endline ("First greed aborted, and " ^ (min <= 0 ? "yup" : "nop")); */
       (min <= 0, [], children)
+    } else if (children == unused) { /* didn't consume anything, limit to one */
+      (true, res, unused)
     } else {
       let (s2, r2, u2) = greedy loop p unused (min - 1) (max - 1);
-      print_endline ("Inner greed " ^ (s2 ? "yup" : "nop"));
+      /* print_endline ("Inner greed " ^ (s2 ? "yup" : "nop")); */
       if (s2) {
         (true, List.concat [res, r2], u2)
       } else {
@@ -201,7 +192,7 @@ let rec resultToOutput: bool => grammar => result => option Output.outputT = fun
 }
 
 and nodeToOutput ignoringNewlines grammar (name, sub) children => {
-  Printf.printf "Output: %s %s\n" name sub;
+  /* Printf.printf "Output: %s %s\n" name sub; */
   let rule = List.assoc name grammar.rules;
   let (_, _, items) = List.find (fun (name, _ ,_) => name == sub) rule.choices;
   let ignoringNewlines = switch (rule.ignoreNewlines, ignoringNewlines) {
@@ -210,7 +201,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
     | (Inherit, x) => x
   };
   let isLexical = (Char.uppercase (String.get name 0)) != (String.get name 0);
-  print_endline ("Ignoring newlines: " ^ (ignoringNewlines ? "yep" :" nop"));
+  /* print_endline ("Ignoring newlines: " ^ (ignoringNewlines ? "yep" :" nop")); */
 
   let rec loop ignoringNewlines items children => {
 
@@ -224,7 +215,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
           }
           | Terminal text (Some label) => {
             switch (findByLabel children label) {
-              | (None, _) => (print_endline ("unable to find by label " ^ label));(false, [], children)
+              | (None, _) => (false, [], children)
               | (Some x, children) => {
                 let (success, res, unused) = (loop ignoringNewlines rest children);
                 (success, [Output.Text text, ...res], unused)
@@ -259,7 +250,6 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
                   };
                   (s2, [output, ...r2], u2)
                 }
-                /* loop (List.concat [subs, rest]) children */
               }
               | None => {
                 let (child, others) = switch label {
@@ -270,9 +260,9 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
                   | None => findByType children name
                 };
                 switch child {
-                  | None => {print_endline ("no child "^name);(false, [], children)}
+                  | None => {(false, [], children)}
                   | Some result => switch (resultToOutput ignoringNewlines grammar result)  {
-                    | None => print_endline ("no child "^name);(false, [], children)
+                    | None => (false, [], children)
                     | Some output => {
                       let (success, res, unused) = loop ignoringNewlines rest others;
                       (success, [output, ...res], unused)
@@ -325,7 +315,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
           | Lookahead _
           | Not _ => loop ignoringNewlines rest children
 
-          | Star p _ => {
+          | Star p => {
             let (success, res, unused) = greedy (loop ignoringNewlines) p children 0 (-1);
             if success {
               let (s2, r2, u2) = loop ignoringNewlines rest unused;
@@ -334,7 +324,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
               (success, res, unused)
             }
           }
-          | Plus p _ => {
+          | Plus p => {
             let (success, res, unused) = greedy (loop ignoringNewlines) p children 1 (-1);
             if success {
               let (s2, r2, u2) = loop ignoringNewlines rest unused;
@@ -343,7 +333,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
               (success, res, unused)
             }
           }
-          | Optional p _ => {
+          | Optional p => {
             let (success, res, unused) = greedy (loop ignoringNewlines) p children 0 1;
             if success {
               let (s2, r2, u2) = loop ignoringNewlines rest unused;
@@ -370,7 +360,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
         }
       })
     | _ => {
-      print_endline "Some unused";
+      /* print_endline "Some unused"; */
       None
     }
   }
@@ -380,10 +370,10 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
 let toString (grammar: grammar) result => {
   switch (resultToOutput false grammar result) {
     | Some output => {
-      print_endline (Output.show_outputT output);
+        /* print_endline (Output.show_outputT output); */
         Some (fst (outputToString {
         indentWidth: 2,
-        indentStr: ". ",
+        indentStr: "  ",
         maxWidth: 50
       } 0 output))
     }

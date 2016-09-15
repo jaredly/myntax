@@ -2,7 +2,7 @@
 @blockComment("/*", "*/")
 Start = Rule*
 
-Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? __comment_eol
+Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? EOL
 
 decarg =
   | bool -- bool
@@ -15,8 +15,8 @@ bool =
   | "false"
 
 Rule =
-  | [decorators]Decorator* [name]ident "=" [choices]Choice __comment_eol
-  | [decorators]Decorator* [name]ident "=" __comment_eol ("|" [choices]Choice __comment_eol)+
+  | [decorators]Decorator* [name]ident "=" [choices]Choice EOL
+  | [decorators]Decorator* [name]ident "=" EOL ("|" [choices]Choice EOL)+
 
 Choice = Item+ (
   "--" [name]ident

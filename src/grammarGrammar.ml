@@ -1,5 +1,4 @@
 (** This grammar definition was generated from parsable/grammar **)
-
 open PackTypes.Parsing
 
 let grammar = { lineComment = Some (";");
@@ -10,8 +9,8 @@ let grammar = { lineComment = Some (";");
       ignoreNewlines = Inherit; leaf = false;
       choices =
       [("", "",
-        [(Star (
-            (NonTerminal ("Rule", None)), None))
+        [(Star
+            (NonTerminal ("Rule", None)))
           ])
         ]
       });
@@ -22,21 +21,18 @@ let grammar = { lineComment = Some (";");
        [("", "",
          [(Terminal ("@", None));
            (NonTerminal ("ident", Some ("name")));
-           (Optional (
+           (Optional
               (Group
                  [(Terminal ("(", None));
-                   (Star (
+                   (Star
                       (Group
                          [(NonTerminal ("decarg",
                              Some ("args")));
-                           (Terminal (",", None))]),
-                      None));
-                   (Optional (
+                           (Terminal (",", None))]));
+                   (Optional
                       (NonTerminal ("decarg", Some ("args")
-                         )),
-                      None));
-                   (Terminal (")", None))]),
-              None));
+                         )));
+                   (Terminal (")", None))]));
            CommentEOL])
          ]
        });
@@ -60,29 +56,26 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
-         [(Star (
+         [(Star
              (NonTerminal ("Decorator", Some ("decorators")
-                )),
-             None));
+                )));
            (NonTerminal ("ident", Some ("name")));
            (Terminal ("=", None));
            (NonTerminal ("Choice", Some ("choices")));
            CommentEOL]);
          ("", "",
-          [(Star (
+          [(Star
               (NonTerminal ("Decorator",
-                 Some ("decorators"))),
-              None));
+                 Some ("decorators"))));
             (NonTerminal ("ident", Some ("name")));
             (Terminal ("=", None));
             CommentEOL;
-            (Plus (
+            (Plus
                (Group
                   [(Terminal ("|", None));
                     (NonTerminal ("Choice",
                        Some ("choices")));
-                    CommentEOL]),
-               None))
+                    CommentEOL]))
             ])
          ]
        });
@@ -91,20 +84,18 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
-         [(Plus (
-             (NonTerminal ("Item", None)), None));
-           (Optional (
+         [(Plus
+             (NonTerminal ("Item", None)));
+           (Optional
               (Group
                  [(Terminal ("--", None));
-                   (NonTerminal ("ident", Some ("name")))]),
-              None));
-           (Optional (
+                   (NonTerminal ("ident", Some ("name")))]));
+           (Optional
               (Group
                  [(Terminal (";", None));
                    (NonTerminal ("rest_of_line",
                       Some ("comment")))
-                   ]),
-              None))
+                   ]))
            ])
          ]
        });
@@ -113,44 +104,37 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
-         [(Optional (
+         [(Optional
              (NoSpaceAfter
-                (Terminal ("~", Some ("neg")))),
-             None));
-           (Optional (
+                (Terminal ("~", Some ("neg")))));
+           (Optional
               (NoSpaceAfter
-                 (Terminal ("#", Some ("lexify")))),
-              None));
-           (Optional (
+                 (Terminal ("#", Some ("lexify")))));
+           (Optional
               (NoSpaceAfter
                  (Group
                     [(NoSpaceAfter
                         (Terminal ("[", None)));
-                      (Optional (
+                      (Optional
                          (NoSpaceAfter
                             (NonTerminal ("flag",
-                               Some ("flag")))),
-                         None));
+                               Some ("flag")))));
                       (NoSpaceAfter
                          (NonTerminal ("ident",
                             Some ("name"))));
-                      (Terminal ("]", None))])),
-              None));
-           (Optional (
+                      (Terminal ("]", None))])));
+           (Optional
               (NoSpaceAfter
                  (NonTerminal ("noSpace",
-                    Some ("noSpaceBefore")))),
-              None));
+                    Some ("noSpaceBefore")))));
            (NonTerminal ("ItemInner", Some ("inner")));
-           (Optional (
+           (Optional
               (NoSpaceBefore
                  (NonTerminal ("noSpace",
-                    Some ("noSpaceAfter")))),
-              None));
-           (Optional (
+                    Some ("noSpaceAfter")))));
+           (Optional
               (NoSpaceBefore
-                 (NonTerminal ("suffix", Some ("suffix")))),
-              None))
+                 (NonTerminal ("suffix", Some ("suffix")))))
            ])
          ]
        });
@@ -176,9 +160,8 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Yes; leaf = false;
        choices =
        [("", "",
-         [(Plus (
-             (NonTerminal ("Item", Some ("nested"))), None
-             ))
+         [(Plus
+             (NonTerminal ("Item", Some ("nested"))))
            ])
          ]
        });
@@ -223,9 +206,8 @@ let grammar = { lineComment = Some (";");
        choices =
        [("", "",
          [(Terminal ("\"", None));
-           (Star (
-              (NonTerminal ("strchar", Some ("contents"))),
-              None));
+           (Star
+              (NonTerminal ("strchar", Some ("contents"))));
            (Terminal ("\"", None))])
          ]
        });
@@ -265,8 +247,8 @@ let grammar = { lineComment = Some (";");
        [("", "",
          [(Not
              (NonTerminal ("digit", None)));
-           (Plus (
-              (NonTerminal ("identchar", None)), None))
+           (Plus
+              (NonTerminal ("identchar", None)))
            ])
          ]
        });
@@ -290,8 +272,8 @@ let grammar = { lineComment = Some (";");
            ]);
          ("", "",
           [(Not (Terminal ("0", None)));
-            (Plus (
-               (NonTerminal ("digit", None)), None));
+            (Plus
+               (NonTerminal ("digit", None)));
             (Not
                (NonTerminal ("identchar", None)))
             ])
@@ -306,12 +288,11 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
-         [(Star (
+         [(Star
              (Group
                 [(Not
                     (Terminal ("\n", None)));
-                  (Any None)]),
-             None))
+                  (Any None)]))
            ])
          ]
        });
@@ -320,8 +301,8 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
-         [(Star (
-             (NonTerminal ("white", None)), None));
+         [(Star
+             (NonTerminal ("white", None)));
            (NonTerminal ("eee", None))])
          ]
        });
@@ -330,8 +311,8 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
-         [(Plus (
-             (NonTerminal ("eolchar", None)), None))
+         [(Plus
+             (NonTerminal ("eolchar", None)))
            ]);
          ("", "", [EOF])]
        });

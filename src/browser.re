@@ -72,6 +72,7 @@ let getLS name => {
 };
 
 let rawGrammar = ref (switch (getLS "grammar") {
+  | Some "" => defaultGrammar
   | Some text => text
   | None => defaultGrammar
 });
@@ -79,6 +80,7 @@ let rawGrammar = ref (switch (getLS "grammar") {
 let defaultInput = "fun x -> 10";
 
 let rawInput = ref (switch (getLS "input") {
+  | Some "" => defaultInput
   | Some text => text
   | None => defaultInput
 });
@@ -86,29 +88,53 @@ let rawInput = ref (switch (getLS "input") {
 setValue grammarEl !rawGrammar;
 setValue inputEl !rawInput;
 
-let unwrap = GrammarOfGrammar.unwrap;
+let unwrap = ResultUtils.unwrap;
 let result = ref None;
 let bounce = 200;
+let waiting = ref None;
+let sendIt = ref (fun x => ());
 
 let onMessage: (BrowserTypes.fromWorker => unit) = fun x => {
   switch x {
-    | BrowserTypes.GrammarGood parse convert => setText grammarStatus (Printf.sprintf "Grammar parsed in %f and converted in %f" parse convert)
+    | BrowserTypes.GrammarGood parse convert => {
+      setText grammarStatus (Printf.sprintf "Grammar parsed in %f and converted in %f" parse convert)
+    }
     | BrowserTypes.GrammarBad partial => setText grammarStatus "Grammar failed to parse"
+    | BrowserTypes.InputPretty newInput time => {
+      print_endline ("New pretty! " ^ newInput);
+      if (newInput != !rawInput) {
+        setValue inputEl newInput;
+      };
+    }
     | BrowserTypes.InputGood res parse => {
       setText inputStatus (Printf.sprintf "Input parsed in %f" parse);
       result := Some res;
     }
     | BrowserTypes.InputBad partial => setText inputStatus "Input failed to parse"
+  };
+  switch (!waiting) {
+    | None => ()
+    | Some x => !sendIt x
   }
 };
 
 let sendMessage: (BrowserTypes.fromMain => unit) = setupWorker "./worker.js" onMessage;
+sendIt := sendMessage;
+let maybeSend message => {
+  switch (!waiting) {
+    | None => {
+      waiting := None;
+      !sendIt message
+    }
+    | Some x => waiting := Some message
+  }
+};
 
 onGrammar (debounce (fun text => {
   if (text != !rawGrammar)  {
     rawGrammar := text;
     setA localStorage "grammar" text;
-    sendMessage ((text, !rawInput));
+    maybeSend ((text, !rawInput));
   }
 }) 200);
 
@@ -116,6 +142,6 @@ onInput (debounce (fun text => {
   if (text != !rawInput) {
     rawInput := text;
     setA localStorage "input" text;
-    sendMessage ((!rawGrammar, text));
+    maybeSend ((!rawGrammar, text));
   }
 }) 200);

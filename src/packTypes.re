@@ -18,9 +18,9 @@ let module Parsing = {
   /* -> add "pass-through" and "ignore-whitespace" */
   and choice = (string, string, list parsing) /* choice name, comment, sequence */
   and parsing =
-    | Star parsing (option string)      /* e* */
-    | Plus parsing (option string)      /* e+ */
-    | Optional parsing (option string)  /* e? */
+    | Star parsing       /* e* */
+    | Plus parsing       /* e+ */
+    | Optional parsing   /* e? */
     | Any (option string) /* any */
     | NoSpaceAfter parsing /* a printing rule, suppresses space */
     | NoSpaceBefore parsing /* a printing rule, suppresses space */
@@ -34,23 +34,7 @@ let module Parsing = {
     | Terminal string (option string)   /* terminal */
     | Chars char char (option string)   /* [a-z] */
     | Empty              /* epsilon */[@@deriving show];
-
 };
-
-/* let module NewParsing = {
-  open Parsing;
-  type grammar = {
-    lineComment: option string,
-    blockComment: option (string, string),
-    rules: list (string, rule)
-  }
-  and rule = {
-    passThrough: bool,
-    ignoreNewlines: ignoreNewlines,
-    leaf: bool,
-    choices: list choice,
-  }[@@deriving show];
-}; */
 
 let unwrapOr a b => {
   switch a {
@@ -77,9 +61,9 @@ let module Error = {
       | Parsing.Chars start cend label => Printf.sprintf "Expected %c..%c" start cend
       | Parsing.NonTerminal name label => name
       | Parsing.Any label => "Any"
-      | Parsing.Star _ label => "Star"
-      | Parsing.Plus _ label => "Plus"
-      | Parsing.Optional _ label => "Optional"
+      | Parsing.Star _ => "Star"
+      | Parsing.Plus _ => "Plus"
+      | Parsing.Optional _ => "Optional"
       | Parsing.EOF => "End of Input"
       | Parsing.CommentEOL => "Expected a newline (with optional comments)"
       | _ => "Unknown problem"

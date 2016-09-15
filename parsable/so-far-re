@@ -13,13 +13,13 @@ ModuleDesc =
 
 @passThrough
 @ignoreNewlines(false)
-ModuleBody = __comment_eol? ([structure]&Structure __comment_eol)*
+ModuleBody = EOL? ([structure]&Structure EOL)*
 
 Structure =
   | "let" "module" capIdent "=" ModuleDesc -- let_module
-  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" (__comment_eol "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
-  | "let" [rec]"rec"? [bindings]ValueBinding (__comment_eol "and" [bindings]ValueBinding)* -- value
-  | "type" TypeDeclaration (__comment_eol+ "and" TypeDeclaration)* -- type
+  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" (EOL "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
+  | "let" [rec]"rec"? [bindings]ValueBinding (EOL "and" [bindings]ValueBinding)* -- value
+  | "type" TypeDeclaration (EOL+ "and" TypeDeclaration)* -- type
   | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type
   | "exception" capIdent "of" Type
   | "import" "*" "from" longCap -- open
@@ -50,7 +50,7 @@ TypeDecl =
 
 @ignoreNewlines(false)
 TypeVariant = 
-  | "enum" "{" __comment_eol? (TypeVariantItem __comment_eol)* TypeVariantItem? "}"
+  | "enum" "{" EOL? (TypeVariantItem EOL)* TypeVariantItem? "}"
   | capIdent ("|" capIdent)+ ; should I have this?
 
 TypeVariantItem =
@@ -136,7 +136,7 @@ Attribute = "[@@" lowerIdent Expr? "]"
 
 @ignoreNewlines(false)
 Statement =
-  | "let" [rec]"rec"? ValueBinding (__comment_eol "and" ValueBinding)* -- value
+  | "let" [rec]"rec"? ValueBinding (EOL "and" ValueBinding)* -- value
   | "let" "module" capIdent "=" ModuleDesc
   | "import" "*" "from" longCap
   | Expression

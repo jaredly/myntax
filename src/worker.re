@@ -14,7 +14,7 @@ let grammarText = ref "";
 let inputText = ref "";
 let grammar = ref None;
 let sendMessage : ref (BrowserTypes.fromWorker => unit) = ref (fun x => ());
-/* let input = ref None; */
+let inputResult = ref None;
 
 let rec parseGrammar text sendMessage => {
   let start = perfNow();
@@ -32,14 +32,16 @@ let rec parseGrammar text sendMessage => {
   }
 };
 
-let parseInput text grammar sendMessage => {
+let parseInput fromGrammar text grammar sendMessage => {
   let start = perfNow();
   switch (Runtime.parse grammar "Start" text) {
     | PackTypes.Result.Success result => {
       sendMessage (BrowserTypes.InputGood result (perfNow() -. start));
+      inputResult := Some result;
       /* Some result */
     }
     | PackTypes.Result.Failure maybeResult partial => {
+      inputResult := None;
       sendMessage (BrowserTypes.InputBad partial); /** TODO send over result? */
       /* None */
     }
@@ -52,7 +54,15 @@ let onMessage : (BrowserTypes.fromMain => unit) = fun (newGrammar, newInput) => 
     switch (parseGrammar newGrammar !sendMessage) {
       | Some made => {
         grammar := Some made;
-        parseInput newInput made !sendMessage;
+        switch (!inputResult) {
+          | None => parseInput true newInput made !sendMessage;
+          | Some result => {
+            switch (PrettyPrint.toString made result) {
+              | Some x => !sendMessage (BrowserTypes.InputPretty x 0.0)
+              | None => ()
+            }
+          }
+        };
       }
       | None => ()
     };
@@ -60,7 +70,7 @@ let onMessage : (BrowserTypes.fromMain => unit) = fun (newGrammar, newInput) => 
     inputText := newInput;
     switch (!grammar) {
       | Some grammar => {
-        parseInput newInput grammar !sendMessage;
+        parseInput false newInput grammar !sendMessage;
         ()
       }
       | None => ()
