@@ -16,6 +16,11 @@ external onGrammar : (string => unit) => unit = "window.onGrammar" [@@bs.val];
 external onInput : (string => unit) => unit = "window.onInput" [@@bs.val];
 external now : unit => int = "Date.now" [@@bs.val];
 
+
+/* workers */
+external setupWorker : string => ('a => unit) => ('b => unit) = "window.setupWorker" [@@bs.val];
+
+
 let getValue node => getA node "value";
 let setValue node text => setA node "value" text;
 
@@ -83,31 +88,9 @@ setValue grammarEl !rawGrammar;
 setValue inputEl !rawInput;
 
 
-let parseGrammar text => {
-  switch (Runtime.parse GrammarGrammar.grammar "Start" text) {
-    | Runtime.Complete result => {
-      setText grammarStatus "Parsed grammar";
-      Some (GrammarOfGrammar.convert result)
-    }
-    | _ => {
-      setText grammarStatus "Failed to parse!";
-      None
-    }
-  }
-};
+let sendMessage: (BrowserTypes.fromMain => unit) = setupWorker "./worker.js" (fun (x: BrowserTypes.fromWorker) => {
 
-let parseInput text grammar => {
-  switch (Runtime.parse grammar "Start" text) {
-    | Runtime.Complete result => {
-      setText inputStatus "Parsed input";
-      Some result
-    }
-    | _ => {
-      setText inputStatus "Failed to parse input";
-      None
-    }
-  }
-};
+});
 
 let unwrap = GrammarOfGrammar.unwrap;
 
@@ -119,30 +102,18 @@ let result = ref (switch !grammar {
 
 let bounce = 200;
 
-onGrammar (debounce (fun text => {
+onGrammar (fun text => {
   if (text != !rawGrammar)  {
     rawGrammar := text;
     setA localStorage "grammar" text;
-    let newG = (parseGrammar text);
-    grammar := newG;
-    switch newG {
-      | Some newG => {
-        result := parseInput text newG;
-      }
-      | None => ()
-    }
+    sendMessage ((text, !rawInput));
   }
-}) bounce);
+});
 
-onInput (debounce (fun text => {
+onInput (fun text => {
   if (text != !rawInput) {
     rawInput := text;
     setA localStorage "input" text;
-    switch (!grammar) {
-      | Some g => {
-        result := (parseInput text g)
-      }
-      | None => ()
-    }
+    sendMessage ((text, !rawInput));
   }
-}) bounce);
+});
