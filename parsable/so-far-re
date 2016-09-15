@@ -2,12 +2,13 @@
 @blockComment("/*", "*/")
 Start = ModuleBody
 
+@passThrough
 @ignoreNewlines(false)
-ModuleBody = __comment_eol? (Structure __comment_eol)* Structure? __comment_eol?
+ModuleBody = __comment_eol? ([structures]Structure __comment_eol)* [structures]Structure? __comment_eol?
 
 Structure =
-  | "let" "module" capIdent "=" "{" ModuleBody "}"
-  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" ("\n" "and" capIdent "=" "{" ModuleBody "}")*
+  | "let" "module" capIdent "=" "{" ModuleBody "}" -- let_module
+  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" ("\n" "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
   | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
   | "type" TypeDeclaration ("\n"+ "and" TypeDeclaration)* -- type
   | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type

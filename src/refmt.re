@@ -1,4 +1,3 @@
-
 let (grammarFile, input) = switch Sysop.argv {
   | [|_, grammarFile, input|] =>  (grammarFile, input)
   | _ => failwith "Usage: run grammarfile inputfile"
@@ -10,6 +9,10 @@ let contents = switch input {
 };
 
 let grammarRaw = Sysop.readFile grammarFile;
+
+let printImpl implementation => {
+  Printast.implementation Format.std_formatter implementation;
+};
 
 let start = Unix.gettimeofday();
 let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
@@ -36,7 +39,7 @@ switch (Runtime.parse grammar "Start" contents) {
   }
   | PackTypes.Result.Success result => {
     /* print_endline "Good"; */
+    printImpl (OcamlOfReason.convert result);
     /* Json.result_to_string result |> print_endline; */
-    print_endline (PackTypes.show_result result);
   }
 };

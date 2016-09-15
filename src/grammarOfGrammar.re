@@ -1,100 +1,7 @@
 
 open PackTypes.Result;
 let module P = PackTypes.Parsing;
-
-let debug_type typ => {
-  typ |> Json.resultType_to_string;
-};
-
-let optOr a b => {
-  switch a {
-    | Some a => a
-    | None => b
-  };
-};
-
-let rec getChild children needle => {
-  switch children {
-    | [{label: Some label, _} as child, ..._] when label == needle => Some child
-    | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest]
-    | [{typ: Iter, _} as child, ...rest] => {
-      switch (getChild child.children needle) {
-        | Some x => Some x
-        | None => getChild rest needle
-      }
-    }
-    | [_, ...rest] => getChild rest needle
-    | [] => None
-  }
-};
-
-let rec getChildren children needle => {
-  /* print_endline ("Getting children " ^ needle); */
-  switch children {
-    | [{label: Some label, _} as child, ...rest] when label == needle => [child, ...(getChildren rest needle)]
-    | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest]
-    | [{typ: Iter, _} as child, ...rest] => {
-      List.concat [(getChildren child.children needle), getChildren rest needle]
-    }
-    | [_, ...rest] => getChildren rest needle
-    | [] => []
-  }
-};
-
-let getContents result => {
-  switch result.typ {
-    | Lexical name contents passThrough => contents
-    | _ => failwith "Not a lexical"
-  }
-};
-
-exception ConversionFailure string;
-
-let unwrap opt => {
-  switch opt {
-    | Some x => x
-    | None => raise (ConversionFailure "Unwrapping none")
-  }
-};
-
-let assertEq one two => {
-  if (one != two) {
-    raise (ConversionFailure "Assertion error")
-  }
-};
-
-let contentsOrEmpty node => {
-  switch node {
-    | None => ""
-    | Some x => getContents x
-  };
-};
-
-let maybeContents node => {
-  switch node {
-    | None => None
-    | Some x => Some (getContents x)
-  }
-};
-
-let unescapeString x => {
-  let contents = String.sub x 1 (String.length x - 2);
-  if (String.length contents == 1) {
-    contents
-  } else {
-    Scanf.unescaped contents
-  }
-};
-
-let unescapeChar x => {
-  if (String.length x == 1) {
-    String.get x 0
-  } else {
-    String.get (unescapeString x) 0
-  }
-};
+open ResultUtils;
 
 let debug result => {
   /* print_endline (Yojson.Safe.to_string (PackTypes.Result.result_to_yojson result)) */
@@ -203,7 +110,7 @@ let convert (result: result) => {
           | ("ignoreNewlines", []) => (P.Yes, pass)
           | ("passThrough", []) => (white, true)
           | _ => {
-            print_endline ("Ignoring decorator " ^ name);
+            /* Printf.eprintf "Ignoring decorator %s\n" name; */
             (white, pass)
           }
         }

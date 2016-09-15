@@ -1,2 +1,2 @@
-<src/*>: package(ppx_deriving.std), package(ppx_deriving_yojson), package(unix), package(str)
+<src/*>: package(ppx_deriving.std), package(ppx_deriving_yojson), package(unix), package(str), package(compiler-libs.common)
 true: debug

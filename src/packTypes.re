@@ -45,7 +45,7 @@ let module Result = {
     | Terminal string
     | Lexical string string bool
     | Iter
-    | Nonlexical string bool [@@deriving yojson];
+    | Nonlexical string bool [@@deriving (yojson, show)];
 
   let resultTypeDescription rt => switch rt {
     | Terminal s => "Terminal(" ^ s ^ ")"
@@ -60,12 +60,12 @@ let module Result = {
     typ: resultType,
     label: option string,
     children: list result,
-  } [@@deriving yojson];
+  } [@@deriving (yojson, show)];
 
   type pathItem =
     | Item Parsing.parsing int
     | Iter int
-    | Choice int string;
+    | Choice int string [@@deriving show];
 
   /* type partial = {
     path: list string,
@@ -75,8 +75,8 @@ let module Result = {
     cno: int,
   } [@@deriving yojson]; */
 
-  type errors = (int, list (bool, list pathItem));
-  type partial = (int, errors);
+  type errors = (int, list (bool, list pathItem)) [@@deriving show];
+  type partial = (int, errors) [@@deriving show];
 
   type parserMatch =
     | Success result

@@ -147,5 +147,6 @@ switch Sys.argv {
   | [|_, "dump-base"|] => print_endline (printGrammar (GrammarGrammar.grammar) "baseGrammarGrammar.re")
   | [|_, "dump", filename|] => main dump::true file::filename ()
   | [|_, "dump", filename, destination|] => main dump::true file::filename dest::destination ()
+  | [|_, filename|] => main dump::false file::filename ()
   | _ => main()
 };
