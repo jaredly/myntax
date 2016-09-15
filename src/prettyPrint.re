@@ -40,7 +40,8 @@ type iterim =
 let rec outputToString config indentLevel output => {
   switch output {
     | Output.EOL => ("\n" ^ (pad (indentLevel - 1) config.indentStr), true) /* TODO need to account for current indent level too */
-    | Output.NoSpace => ("NOSPACE", false)
+    | Output.NoSpace => failwith "unhandled nospace"
+    /* ("", false) /* TODO make sure this isn't happening much... */ */
     /* failwith "NoSpace should be handled by the parent" */
     | Output.Text str => (str, false) /* TODO check for newlines? */
     /** TODO multiline strings -- should I be aware of that? Also lexical things that span multiple lines.. for some reason */
@@ -50,6 +51,7 @@ let rec outputToString config indentLevel output => {
 
         switch items {
           | [] => ("", false)
+          | [Output.NoSpace, ...rest] => loop rest
           | [child] => outputToString config indentLevel child
           | [child, Output.NoSpace, ...rest] => {
             let (restext, multi) = loop rest;
@@ -123,6 +125,7 @@ let rec outputToString config indentLevel output => {
       let rec loop items => {
         switch items {
           | [] => ("", false)
+          | [Output.NoSpace, ...rest] => loop rest
           | [child] => outputToString config (indentLevel + 1) child
           | [child, Output.NoSpace, ...rest] => {
             let (restext, multi) = loop rest;
@@ -427,12 +430,12 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
 let toString (grammar: grammar) result => {
   switch (resultToOutput false grammar result) {
     | Some output => {
-        print_endline (Output.show_outputT output);
-        Some (fst (outputToString {
-        indentWidth: 4,
-        indentStr: "----",
+        /* print_endline (Output.show_outputT output); */
+        Some (String.trim (fst (outputToString {
+        indentWidth: 2,
+        indentStr: "  ",
         maxWidth: 50
-      } (-1) output))
+      } (-1) output)))
     }
     | None => None
   }
