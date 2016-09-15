@@ -9,7 +9,7 @@ Expr =
   | [left]Expr "+" [right]Expr -- add
   | constant
 
-Patt = ident
+Patt = id % ent
 
 constant =
   | ident

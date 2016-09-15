@@ -108,6 +108,7 @@ let unescapeChar x => {
 
 let debug result => {
   /* print_endline (Yojson.Safe.to_string (PackTypes.Result.result_to_yojson result)) */
+  ()
 };
 
 let rec parseItem item => {

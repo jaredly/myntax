@@ -1,3 +1,24 @@
+let module Parsing = {
+  type grammar = list production[@@deriving show]
+  and production = (string, list choice)[@@deriving show] /* rule name -> e1 | e2 | ... */
+  and choice = (string, string, list parsing)[@@deriving show] /* choice name, comment, sequence */
+  and parsing =
+    | Star parsing (option string)      /* e* */
+    | Plus parsing (option string)      /* e+ */
+    | Optional parsing (option string)  /* e? */
+    | Any (option string) /* any */
+    | EOF /* EOF */
+    | Group (list parsing)  /* ( e ... ) */
+    | Lookahead parsing  /* &e */
+    | Not parsing        /* !e */
+    | Lexify parsing     /* # somelexrule */
+    | NonTerminal string (option string)/* nonterminal 'name' */
+    | Terminal string (option string)   /* terminal */
+    | Chars char char (option string)   /* [a-z] */
+    | Empty              /* epsilon */[@@deriving show];
+};
+include Parsing;
+
 let module Result = {
   type resultType =
     | Terminal string
@@ -21,7 +42,8 @@ let module Result = {
     cno: int,
   } [@@deriving yojson]; */
 
-  type partial = int;
+  type errs = list (bool, parsing);
+  type partial = (int, (int, errs));
 
   type parserMatch =
     | Success result
@@ -29,24 +51,3 @@ let module Result = {
 
 };
 include Result;
-
-let module Parsing = {
-  type grammar = list production[@@deriving show]
-  and production = (string, list choice)[@@deriving show] /* rule name -> e1 | e2 | ... */
-  and choice = (string, string, list parsing)[@@deriving show] /* choice name, comment, sequence */
-  and parsing =
-    | Star parsing (option string)      /* e* */
-    | Plus parsing (option string)      /* e+ */
-    | Optional parsing (option string)  /* e? */
-    | Any (option string) /* any */
-    | EOF /* EOF */
-    | Group (list parsing)  /* ( e ... ) */
-    | Lookahead parsing  /* &e */
-    | Not parsing        /* !e */
-    | Lexify parsing     /* # somelexrule */
-    | NonTerminal string (option string)/* nonterminal 'name' */
-    | Terminal string (option string)   /* terminal */
-    | Chars char char (option string)   /* [a-z] */
-    | Empty              /* epsilon */[@@deriving show];
-};
-include Parsing;

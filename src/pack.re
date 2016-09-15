@@ -15,15 +15,15 @@ let getStdin () => {
 let main () => {
   let initialRule = "Start";
   let state = Runtime.initialState (getStdin ());
-  let (i, result) = Runtime.apply_rule GrammarGrammar.grammar state initialRule 0;
+  let (i, result, errs) = Runtime.apply_rule GrammarGrammar.grammar state initialRule 0;
 
   if (i == (-1)) {
     /* TODO: report errors! */
     Printf.eprintf "parse error: parsing failed\n";
     exit 1
-  } else if (i < state.len) {
+  } else if (i < state.Runtime.len) {
     Printf.printf "%s\n" (Json.result_to_string result);
-    Printf.eprintf "parse error: extra characters after end of input \"%s\"\n" (String.sub state.input i (state.len - i));
+    Printf.eprintf "parse error: extra characters after end of input \"%s\"\n" (String.sub state.Runtime.input i (state.Runtime.len - i));
     exit 1
   } else {
     Printf.printf "%s" (Json.result_to_string result);
@@ -36,7 +36,7 @@ let tests cases => {
   (List.iter
   (fun (rule, text) => {
     let state = Runtime.initialState text;
-    let (i, result) = Runtime.apply_rule GrammarGrammar.grammar state rule 0;
+    let (i, result, errs) = Runtime.apply_rule GrammarGrammar.grammar state rule 0;
     if (i == -1) {
       Printf.eprintf ">>>>\n";
       Printf.eprintf "parse error: parsing failed for '%s' \"%s\"\n" rule text;
