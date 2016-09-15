@@ -70,6 +70,8 @@ let getSuffix children => RU.getChild children (fun child => {
   }
 });
 
+let unwrapString txt => unescapeString (String.sub txt 1 (String.length txt - 2));
+
 let rec parseInner label ((_, sub), children, loc) => {
   if (sub == "nested") {
     if (isSome label) {
@@ -82,13 +84,17 @@ let rec parseInner label ((_, sub), children, loc) => {
           | _ => failwith "Nested child expected to be non-leaf"
         }
       } else {
+        Printf.eprintf "umm %s %s\n" label (PackTypes.Result.show_result child);
         None
       }
     }))
   } else {
     RU.getChild children (fun (_, child) => {
       switch child {
-        | Leaf ("string", _) contents _ => Some (P.Terminal contents label)
+        | Leaf ("string", _) contents _ => Some (P.Terminal (unwrapString contents) label)
+        | Leaf ("ident", _) "any" _ => Some (P.Any label)
+        | Leaf ("ident", _) "EOF" _ => Some (P.EOF )
+        | Leaf ("ident", _) "__comment_eol" _ => Some (P.CommentEOL)
         | Leaf ("ident", _) contents _ => Some (P.NonTerminal contents label)
         | Node ("char", _) children _ => RU.getChild children (fun (_, child) => switch child {
             | Leaf ("single", _) contents _ => Some (P.Terminal (unescapeString contents) label)

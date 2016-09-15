@@ -13,7 +13,7 @@ let module StringSet = Set.Make String;
 type lr = {mutable seed: ans, mutable rulename: string, mutable head: option head}
 and memoentry = {mutable ans: ans_or_lr, mutable pos: int}
 and ans_or_lr = | Answer ans | LR lr
-and ans = (int, PackTypes.Result.result, PackTypes.Error.errors)
+and ans = (int, (PackTypes.Result.result, bool), PackTypes.Error.errors)
 and head = {
   mutable hrule: string,
   mutable involved_set: StringSet.t,
@@ -22,7 +22,7 @@ and head = {
 
 exception Found ans;
 
-let emptyResult pos name isLexical => R.Leaf (name, "") "" (pos, pos);
+let emptyResult pos name isLexical => (R.Leaf (name, "") "" (pos, pos), false);
  /* {
   R.start: pos,
   cend: pos,
@@ -391,10 +391,14 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
             }
 
             | [(P.NonTerminal n label) as item, ...rest] => {
-                let (i', result, errs) = apply_rule grammar state n i ignoringNewlines isNegated [RP.Item item loopIndex, ...path];
+                let (i', (result, passThrough), errs) = apply_rule grammar state n i ignoringNewlines isNegated [RP.Item item loopIndex, ...path];
                 if (i' >= i) {
                   let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
-                  (i'', [(label |> optOr "", result), ...children], mergeErrs errs rest_errs)
+                  let children = passThrough ? (switch result {
+                    | Node _ subchildren _ => List.concat [subchildren, children]
+                    | Leaf _ => failwith "Passthrough can't have a leaf node"
+                  }) : [(label |> optOr "", result), ...children];
+                  (i'', children, mergeErrs errs rest_errs)
                 } else {
                   (-1, [], errs)
                 }
@@ -495,7 +499,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
         if (i' >= i) {
           let name = (rulename, sub_name);
           let loc = (i, i');
-          let result = leaf ? R.Leaf name (String.sub state.input i (i' - i)) loc : R.Node name children loc;
+          let result = ((leaf ? R.Leaf name (String.sub state.input i (i' - i)) loc : R.Node name children loc), passThrough);
           /* let children = leaf ? [] : children; */
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
           /* let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex)  passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough; */
@@ -522,7 +526,7 @@ let initialState input => {
 let parse (grammar: PackTypes.Parsing.grammar) start input => {
   let state = initialState input;
   /* TODO ignoringNewlines should be configurable? */
-  let (i, result, errs) = apply_rule grammar state start 0 false false [];
+  let (i, (result, _), errs) = apply_rule grammar state start 0 false false [];
   if (i == -1) {
     R.Failure None (0, errs)
   } else if (i < state.len) {
