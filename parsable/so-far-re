@@ -138,11 +138,11 @@ Expression =
   | SwitchExp -- switch
   | TryExp -- try
   | "("& TupleBody &")" -- tuple
-  | "[|"& (Expression &",")* Expression? &"|]" -- list
+  | "[|"& (Expression &",")* Expression? &"|]" -- array
   | Block -- block
   | "{"& RecordBody &"}" -- record
-  | "["& (Expression &",")* Expression? &"]" -- list
-  | "`"&? longCap (&"("& Commas &")")? -- constructor
+  | "["& Commas &"]" -- list
+  | [isVariant]"`"&? longCap (&"("& Commas &")")? -- constructor
   | Expression &"."& longIdent "=" Expression -- set_attr
   | Expression &"."& longIdent -- get_attr
   | Expression "?" Expression ":" Expression -- ternary
@@ -221,7 +221,10 @@ longCap_ =
   | longCap_ "." capIdent -- dot
   | capIdent -- lident
 
+@passThrough
+@ignoreNewlines
 Commas = (Expression &",")* Expression?
+
 FnArg =
   | "::"& lowerIdent -- punned
   | lowerIdent &"::"& Expression -- named

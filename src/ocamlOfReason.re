@@ -542,6 +542,29 @@ let unwrapm message::message="" opt => {
   }
 };
 
+let fromLet fromOcaml isRec values => {
+  let bindings = List.map (emptyLabeled (fromValueBinding fromOcaml)) values;
+  Node ("Statement", "value")
+  (isRec == Recursive ? [("rec", Leaf ("", "") "rec" mLoc), ...bindings] : bindings)
+  mLoc
+};
+
+let rec unwrapSequence fromOcaml exp => {
+  switch exp.pexp_desc {
+    | Pexp_sequence first second => {
+      List.concat [unwrapSequence fromOcaml first, unwrapSequence fromOcaml second]
+      /* [fromOcaml.fromExpression fromOcaml first, ...unwrapSequence fromOcaml second] */
+    }
+    | Pexp_let isRec values exp => {
+      [fromLet fromOcaml isRec values, ...unwrapSequence fromOcaml exp]
+    }
+    | Pexp_letmodule {txt, _} modexp exp => {
+      failwith "letmodule not yet"
+    }
+    | _ => [Node ("Statement", "expr") [("", fromOcaml.fromExpression fromOcaml exp)] mLoc]
+  }
+};
+
 let parseExpression toOcaml (sub, children, loc) => {
   let oloc = ocamlLoc loc;
   switch sub {
@@ -579,30 +602,20 @@ let parseExpression toOcaml (sub, children, loc) => {
       });
       H.Exp.record items extends
     }
+    | "get_attr" => {
+      H.Exp.field (RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml) (Location.mkloc (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent) oloc)
+    }
     | _ => failwith ("not impl - expression - " ^ sub)
   }
 };
 
-let fromLet fromOcaml isRec values => {
-  let bindings = List.map (emptyLabeled (fromValueBinding fromOcaml)) values;
-  Node ("Statement", "value")
-  (isRec == Recursive ? [("rec", Leaf ("", "") "rec" mLoc), ...bindings] : bindings)
-  mLoc
-};
-
-let rec unwrapSequence fromOcaml exp => {
-  switch exp.pexp_desc {
-    | Pexp_sequence first second => {
-      List.concat [unwrapSequence fromOcaml first, unwrapSequence fromOcaml second]
-      /* [fromOcaml.fromExpression fromOcaml first, ...unwrapSequence fromOcaml second] */
+let rec unwrapList fromOcaml ({pexp_desc, _} as expression) => {
+  switch pexp_desc {
+    | Pexp_construct {txt: Lident "[]", _} None => []
+    | Pexp_construct {txt: Lident "::", _} (Some {pexp_desc: Pexp_tuple [first, second], _}) => {
+      [fromOcaml.fromExpression fromOcaml first, ...unwrapList fromOcaml second]
     }
-    | Pexp_let isRec values exp => {
-      [fromLet fromOcaml isRec values, ...unwrapSequence fromOcaml exp]
-    }
-    | Pexp_letmodule {txt, _} modexp exp => {
-      failwith "letmodule not yet"
-    }
-    | _ => [Node ("Statement", "expr") [("", fromOcaml.fromExpression fromOcaml exp)] mLoc]
+    | _ => [fromOcaml.fromExpression fromOcaml expression]
   }
 };
 
@@ -643,6 +656,24 @@ let fromExpression fromOcaml ({pexp_desc, _} as expression) => {
     }
     | Pexp_tuple items => {
       ("tuple", (List.map (emptyLabeled (fromOcaml.fromExpression fromOcaml)) items))
+    }
+    | Pexp_field expr {txt, _} => {
+      ("get_attr", [("", fromOcaml.fromExpression fromOcaml expr), ("", fromLongIdent txt)])
+    }
+    | Pexp_construct {txt: Lident "[]", _} None => ("list", [])
+    | Pexp_construct {txt: Lident "::", _} (Some {pexp_desc: Pexp_tuple [first, second], _}) => {
+      ("list", [("", (fromOcaml.fromExpression fromOcaml first)), ...List.map withEmptyLabels (unwrapList fromOcaml second)])
+    }
+    | Pexp_construct {txt, _} maybeValue => {
+      let first = ("", fromLongCap txt);
+      let children = switch maybeValue {
+        | None => [first]
+        | Some {pexp_desc: Pexp_tuple items} => {
+          [first, ...List.map (emptyLabeled (fromOcaml.fromExpression fromOcaml)) items]
+        }
+        | Some x => [first, ("", fromOcaml.fromExpression fromOcaml x)]
+      };
+      ("constructor", children)
     }
     | _ => {
       Printast.expression 0 Format.std_formatter expression;

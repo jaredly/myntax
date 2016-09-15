@@ -58,7 +58,7 @@ let parseOptions options => {
   htbl
 };
 
-let examples filename ruleName options => {
+let getGrammar filename => {
   let contents = Sysop.readFile filename;
   switch (Runtime.parse GrammarGrammar.grammar "Start" contents) {
     | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
@@ -66,11 +66,38 @@ let examples filename ruleName options => {
       exit 1;
     }
     | PackTypes.Result.Success result => {
-      let grammar = GrammarOfGrammar.convert result;
-      let table = parseOptions options;
-      print_endline (ExampleGenerator.generateExamples grammar ruleName table);
+      GrammarOfGrammar.convert result;
     }
+  }
+};
+
+let examples filename ruleName options => {
+  let grammar = getGrammar filename;
+  let table = parseOptions options;
+  print_endline (ExampleGenerator.generateExamples grammar ruleName table);
+};
+
+let ocamlBinaryParser use_stdin filename => {
+  let chan = switch use_stdin {
+    | true => stdin
+    | false => {
+        let file_chan = open_in filename;
+        seek_in file_chan 0;
+        file_chan;
+      }
   };
+  ignore (really_input_string chan (String.length Config.ast_impl_magic_number));
+  ignore (input_value chan);
+  input_value chan;
+};
+
+let optOr orr opt => switch opt { | None => orr | Some x => x };
+
+let prettyBin filename binName => {
+  let ast = ocamlBinaryParser false binName;
+  let grammar = getGrammar filename;
+  let result = OcamlOfReason.convertFrom ast;
+  print_endline (PrettyPrint.toString grammar result |> optOr "Unable to pretty print this");
 };
 
 let tests cases => {
@@ -175,6 +202,7 @@ switch (Array.to_list Sys.argv) {
   | [_, "dump", filename] => main dump::true file::filename ()
   | [_, "dump", filename, destination] => main dump::true file::filename dest::destination ()
   | [_, "examples", filename, ruleName, ...rest] => examples filename ruleName rest
+  | [_, "pretty-bin", filename, binName] => prettyBin filename binName
   | [_, filename] => main dump::false file::filename ()
   | _ => main()
 };
