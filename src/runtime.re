@@ -302,7 +302,7 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines i
 
 and parse grammar state rulename i isLexical ignoringNewlines isNegated path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
-  let {ignoreNewlines, choices, passThrough} =
+  let {ignoreNewlines, choices, passThrough, leaf} =
     try (List.assoc rulename grammar.rules) {
     | Not_found =>
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
@@ -403,7 +403,11 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                   let sub = String.sub state.input i slen;
                   if (sub == target_string) {
                     let (i'', children, err) = loop (i + slen) rest path (loopIndex + 1) isNegated; /* TODO line / col num */
-                    (i'', [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children], err)
+                    let children = switch label {
+                      | Some x => [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children]
+                      | None => children
+                    };
+                    (i'', children, err)
                   } else {
                     (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
                   }

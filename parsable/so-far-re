@@ -24,14 +24,14 @@ Structure =
   | "exception" capIdent "of" Type
   | "import" "*" "from" longCap -- open
   | "include" "*" "from" longCap -- include
-  | "[@@@" ident "]" -- attribute
-  | "[%%" ident "]" -- extension
+  | "[@@@" lowerIdent "]" -- attribute
+  | "[%%" lowerIdent "]" -- extension
   | [expr]Statement [attrs]Attribute* -- eval
   ; class, class type
   ; typeext
   ; external "primitive"
 
-ModuleTypeDeclaration = ident ; TODO
+ModuleTypeDeclaration = lowerIdent ; TODO
 
 ; TODO class field
 ; TODO class expr
@@ -64,8 +64,8 @@ TypesCommad = (Type ",")* Type?
 TypeRecord = "{" "\n"* (lowerIdent ":" Type "," "\n"*)* (lowerIdent ":" Type)? "\n"* "}"
 
 ValueBinding =
-  | [name]ident "(" ValueArgs ")" "=>" Expression -- func
-  | [name]ident Arg "=>" Expression -- func
+  | [name]lowerIdent "(" ValueArgs ")" "=>" Expression -- func
+  | [name]lowerIdent Arg "=>" Expression -- func
   | Pattern "=" Expression -- value
 
 @passThrough
@@ -73,8 +73,8 @@ ValueBinding =
 ValueArgs = (Arg "," "\n"?)* Arg?
 
 Arg =
-  | "::" ident ArgValue? -- punned
-  | ident "::" Pattern ArgValue? -- named
+  | "::" lowerIdent ArgValue? -- punned
+  | lowerIdent "::" Pattern ArgValue? -- named
   | Pattern -- anon
 
 ArgValue =
@@ -82,17 +82,17 @@ ArgValue =
   | "=" Expression -- expr
 
 Pattern =
-  | Pattern "as" ident
+  | Pattern "as" lowerIdent
   | Pattern ":" Type
   | "()"
   | "_"
   | "(" Pattern ("," Pattern)+ ","? ")" -- tuple
   | "[" (Pattern ",")* Pattern? "]" -- list
-  | "{" (ident (":" Pattern)? ",")* (ident (":" Pattern)?)? "}" -- record
-  | ident -- ident
+  | "{" (longIdent (":" Pattern)? ",")* (longIdent (":" Pattern)?)? "}" -- record
+  | lowerIdent -- ident
 
 MatchPattern =
-  | MatchPattern "as" ident
+  | MatchPattern "as" lowerIdent
   | MatchPattern ":" Type
   | "()"
   | "_"
@@ -100,14 +100,14 @@ MatchPattern =
   | "(" MatchPattern ":" Type ")" -- constraint
   | "lazy" MatchPattern -- lazy
   | "exception" MatchPattern -- exception
-  | "[%" ident "]" -- extension
+  | "[%" lowerIdent "]" -- extension
   | char ".." char -- interval
   | "(" MatchPattern ("," MatchPattern)+ ","? ")" -- tuple
   | "[|" (MatchPattern ",")* MatchPattern? "|]" -- array
   | "[" (MatchPattern ",")* MatchPattern? "]" -- list ; TODO ...rest
   | "`"? capIdent ("(" (MatchPattern ",")* MatchPattern? ")")? 
-  | "{" (ident (":" MatchPattern)? ",")* (ident (":" MatchPattern)?)? "}" ; TODO _ for open flag
-  | ident
+  | "{" (longident (":" MatchPattern)? ",")* (longident (":" MatchPattern)?)? "}" ; TODO _ for open flag
+  | lowerIdent
   | constant
   ; Ppat_type
   ; Ppat_unpack
@@ -131,7 +131,7 @@ TupleTypes = Type ("," Type)+ ","?
 
 typeVar = "'" lowerIdent
 
-Attribute = "[@@" ident Expr? "]"
+Attribute = "[@@" lowerIdent Expr? "]"
 
 @ignoreNewlines(false)
 Statement =
@@ -166,7 +166,7 @@ Expression =
   | constant -- const
   | "()" -- unit
   | "(" WrappedExpression ")" -- wrapped ; or constraint
-  | "[%" ident "]" -- extension
+  | "[%" lowerIdent "]" -- extension
   ; TODO coerce
   ; TODO override
   ; TODO poly
@@ -224,7 +224,6 @@ FnArg =
   | lowerIdent "::" Expression
   | Expression
 
-@leaf
 constant =
   | int64 -- int
   | string -- string
@@ -235,18 +234,21 @@ capIdent = ~reserved 'A..Z' identchar*
 @leaf
 lowerIdent = ~reserved 'a..z' identchar*
 
-ident = ~reserved ~digit identchar+
 identchar =
   | alpha
   | digit
   | "_"
 
+@leaf
 int64 =  digit+ ~identchar
+
+@leaf
 string = "\"" strchar* "\""
 strchar =
   | "\\" any
   | ~"\"" ~"\n" ~"\\" any
 
+@leaf
 char = "'" charchar "'"
 charchar =
   | "\\" any
