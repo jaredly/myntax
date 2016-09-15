@@ -14,9 +14,9 @@ Structure =
   | "[@@@" ident "]" -- attribute
   | "[%%" ident "]" -- extension
   | [expr]Statement [attrs]Attribute* -- eval
-; class, class type
-; typeext
-; external "primitive"
+  ; class, class type
+  ; typeext
+  ; external "primitive"
 
 ModuleTypeDeclaration = ident ; TODO
 
@@ -35,7 +35,7 @@ TypeDecl =
   | TypeRecord
   | Type
 
-TypeVariant =
+TypeVariant = 
   | "enum" "{" "\n"* (TypeVariantItem "\n"+)* TypeVariantItem? "}"
   | capIdent ("|" capIdent)+ ; should I have this?
 
@@ -64,8 +64,9 @@ Pattern =
   | Pattern ":" Type
   | "()"
   | "_"
-  | "[" (Pattern ",")* Pattern? "]"
-  | "{" (ident (":" Pattern)? ",")* (ident (":" Pattern)?)? "}"
+  | "(" Pattern ("," Pattern)+ ","? ")" -- tuple
+  | "[" (Pattern ",")* Pattern? "]" -- list
+  | "{" (ident (":" Pattern)? ",")* (ident (":" Pattern)?)? "}" -- record
   | ident
 
 MatchPattern =
@@ -73,14 +74,36 @@ MatchPattern =
   | MatchPattern ":" Type
   | "()"
   | "_"
-  | "[" (MatchPattern ",")* MatchPattern? "]"
-  | "{" (ident (":" MatchPattern)? ",")* (ident (":" MatchPattern)?)? "}"
+  | MatchPattern "|" MatchPattern -- or
+  | "(" MatchPattern ":" Type ")" -- constraint
+  | "lazy" MatchPattern -- lazy
+  | "exception" MatchPattern -- exception
+  | "[%" ident "]" -- extension
+  | char ".." char -- interval
+  | "(" MatchPattern ("," MatchPattern)+ ","? ")" -- tuple
+  | "[|" (MatchPattern ",")* MatchPattern? "|]" -- array
+  | "[" (MatchPattern ",")* MatchPattern? "]" -- list ; TODO ...rest
+  | "`"? capIdent ("(" (MatchPattern ",")* MatchPattern? ")")? 
+  | "{" (ident (":" MatchPattern)? ",")* (ident (":" MatchPattern)?)? "}" ; TODO _ for open flag
   | ident
   | constant
+  ; Ppat_type
+  ; Ppat_unpack
 
 Type =
-  | lowerIdent
-  | "(" (Type ",")+ Type? ")"
+  | Type "as" typeVar -- alias
+  | "(" Type ("," Type)+ ","? ")" -- tuple
+  | "_" -- any
+  | typeVar
+  | (lowerIdent "?"? "::") Type "=>" Type
+  | longident ("<" (Type ",")* Type? ">")? -- constructor
+  ; TODO object
+  ; TODO class
+  ; TODO alias?
+  ; TODO package
+  ; TODO extension
+
+typeVar = "'" lowerIdent
 
 Attribute = "[@@" ident Expr? "]"
 
@@ -97,12 +120,11 @@ Expression =
   | FunExpr
   | SwitchExp
   | TryExp
-  | "(" (Expression ",")+ Expression ","? ")" -- tuple
-  | capIdent ("(" Commas ")")? -- constructor
-  | "`" capIdent ("(" Commas ")")? -- variant
+  | "(" Expression ("," Expression)+ ","? ")" -- tuple
+  | "`"? capIdent ("(" Commas ")")? -- constructor
   | "{" (RecordItem ",")+ RecordItem? "}"
-  | "[|" (Expression ",")+ Expression ","? "|]" -- list
-  | "[" (Expression ",")+ Expression ","? "]" -- list
+  | "[|" (Expression ",")* Expression? "|]" -- list
+  | "[" (Expression ",")* Expression? "]" -- list
   | Expression "." longIdent "=" Expression -- set_attr
   | Expression "." longIdent -- get_attr
   | Expression "?" Expression ":" Expression -- ternary
@@ -119,12 +141,12 @@ Expression =
   | "(" Expression ':' Type ")" -- constraint
   | "(" Expression ")" -- wrapped
   | "[%" ident "]" -- extension
-; TODO coerce
-; TODO override
-; TODO poly
-; TODO object
-; TODO newtype
-; TODO pack
+  ; TODO coerce
+  ; TODO override
+  ; TODO poly
+  ; TODO object
+  ; TODO newtype
+  ; TODO pack
 
 
 RecordItem = lowerIdent (":" Expression)?
