@@ -11,7 +11,7 @@ Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemIn
 ItemInner =
   | string
   | ident
-  | "(" [:nested]Item+ ")"
+  | "(" [:nested]Item+ ")" -- nested
   | char_range
   | char
 
@@ -50,4 +50,3 @@ eol = white* "\n"
 white =
   | " "
   | "\t"
-  | "\v"

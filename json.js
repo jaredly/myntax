@@ -8,7 +8,7 @@ var readStdin = done => {
   process.stdin.on('readable', () => {
     var chunk = process.stdin.read();
     if (chunk !== null) {
-      text = chunk.toString('utf8')
+      text += chunk.toString('utf8')
     }
   });
 

@@ -1,5 +1,5 @@
 
-open PackTypes;
+open PackTypes.Parsing;
 
 let nt label::label=? name => NonTerminal name label;
 let t label::label=? name => Terminal name label;
@@ -57,7 +57,7 @@ let grammar: grammar = [
     ("", "", [nt "char_range"]),
     ("", "", [nt "char"]),
     ("", "", [nt "ident"]),
-    ("", "", [t "(", pl (nt label::"nested" "Item"), t ")"]),
+    ("nested", "", [t "(", pl (nt label::"nested" "Item"), t ")"]),
   ]),
 
   ("char_range", [
@@ -65,7 +65,7 @@ let grammar: grammar = [
       t "'",
       nt label::"start" "single",
       t "..",
-      nt label::"start" "single",
+      nt label::"end" "single",
       t "'",
     ])
   ]),
