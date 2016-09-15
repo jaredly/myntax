@@ -1,8 +1,19 @@
 Start = Rule*
 
+Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? Comment_eol
+
+decarg =
+  | bool
+  | string
+  | number
+
+bool =
+  | "true"
+  | "false"
+
 Rule =
-  | Comment_eol? [name]ident "=" [choices]Choice Comment_eol
-  | Comment_eol? [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
+  | Comment_eol? Decorator? [name]ident "=" [choices]Choice Comment_eol
+  | Comment_eol? Decorator? [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
 
 Choice = [children]Item+ ("--" [name]ident)? (";" [comment]rest_of_line)?
 
@@ -22,6 +33,7 @@ single =
   | "\\" any
   | ~"'" ~'\n' any
 
+
 string = '"' [@contents]strchar* '"'
 strchar =
   | "\\" any
@@ -37,16 +49,25 @@ suffix =
   | "*" -- star
   | "?" -- opt
 
-ident = ~"0" identchar+
+ident = ~digit identchar+
 identchar =
   | 'a..z'
   | 'A..Z'
   | '0..9'
   | '_'
 
+number =
+  | "0" ~identchar
+  | ~"0" digit+ ~identchar
+digit = '0..9'
+
 rest_of_line = (~"\n" any)*
 
-Comment_eol = ((";" rest_of_line)? eee)+
+Comment_eol = One_comment
+
+One_comment =
+  | (";" rest_of_line eee)+
+  | eee
 
 eol = white* eee
 eee =
