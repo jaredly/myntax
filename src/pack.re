@@ -1,34 +1,45 @@
 
-let getStdin () => {
-  let lines = ref [];
-  try (
-    while true {
-      lines := [read_line (), ...!lines]
-    }
-  ) {
-  | End_of_file => ()
-  };
-  let lines = List.rev !lines;
-  String.concat "\n" lines
+let rx = Str.regexp "PackTypes\\.Parsing\\.";
+let replaceModule = Str.global_replace rx "";
+
+let printGrammar grammar name => {
+  Printf.printf {|(** This grammar definition was generated from %s **)
+
+open PackTypes.Parsing
+
+let grammar = %s;
+
+|} name (replaceModule (PackTypes.Parsing.show_grammar grammar));
+
 };
 
-let main () => {
-  let initialRule = "Start";
-  let state = Runtime.initialState (getStdin ());
-  let (i, result, errs) = Runtime.apply_rule GrammarGrammar.grammar state initialRule 0;
-
-  if (i == (-1)) {
-    /* TODO: report errors! */
-    Printf.eprintf "parse error: parsing failed\n";
-    exit 1
-  } else if (i < state.Runtime.len) {
-    Printf.printf "%s\n" (Json.result_to_string result);
-    Printf.eprintf "parse error: extra characters after end of input \"%s\"\n" (String.sub state.Runtime.input i (state.Runtime.len - i));
-    exit 1
-  } else {
-    Printf.printf "%s" (Json.result_to_string result);
-    /* Printf.printf "parsed OK\n" */
-  }
+let main dump::dump=false file::file=? unit => {
+  let contents = switch file {
+    | Some name => Sysop.readFile name
+    | None => Sysop.readStdin()
+  };
+  switch (Runtime.parse GrammarGrammar.grammar "Start" contents) {
+    | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
+      /* switch maybeResult {
+        | Some result => Json.result_to_string result |> print_endline
+        | None => ()
+      }; */
+      print_string (PackTypes.Result.genErrorText contents failure);
+      exit 1;
+    }
+    | PackTypes.Result.Success result => {
+      let name = switch file {
+        | Some name => name
+        | None => "stdin"
+      };
+      if dump {
+        let grammar = GrammarOfGrammar.convert result;
+        printGrammar grammar name;
+      } else {
+        print_endline (Json.result_to_string result);
+      }
+    }
+  };
 };
 
 let tests cases => {
@@ -36,7 +47,7 @@ let tests cases => {
   (List.iter
   (fun (rule, text) => {
     let state = Runtime.initialState text;
-    let (i, result, errs) = Runtime.apply_rule GrammarGrammar.grammar state rule 0;
+    let (i, result, errs) = Runtime.apply_rule GrammarGrammar.grammar state rule 0 [];
     if (i == -1) {
       Printf.eprintf ">>>>\n";
       Printf.eprintf "parse error: parsing failed for '%s' \"%s\"\n" rule text;
@@ -133,8 +144,10 @@ white =
   ("Item", "Hello"),
 ];
 
-if (Array.length Sys.argv >= 2 && Sys.argv.(1) == "test") {
-  tests testCases;
-} else {
-  main();
+switch Sys.argv {
+  | [|_, "test"|] => tests testCases;
+  | [|_, "dump"|] => main dump::true ()
+  | [|_, "dump-base"|] => printGrammar (GrammarGrammar.grammar) "baseGrammarGrammar.re"
+  | [|_, "dump", filename|] => main dump::true file::filename ()
+  | _ => main()
 };

@@ -25,8 +25,6 @@ let grammar: grammar = [
     ])
   ]),
 
-  ("Comment", [("", "", [t ";", nt "rest_of_line"])]),
-
   ("Choice", [
     ("", "", [
       pl (nt label::"children" "Item"),

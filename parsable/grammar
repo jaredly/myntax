@@ -1,10 +1,10 @@
 Start = Rule*
 
 Rule =
-  | eol? ([name]ident "=" [choices]Choice #eol
-  | eol? [name]ident "=" #eol ("|" [choices]Choice #eol)+
+  | Comment_eol? [name]ident "=" [choices]Choice Comment_eol
+  | Comment_eol? [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
 
-Choice = [children]Item+ ("--" [name]ident)? (";" #[comment]rest_of_line)?
+Choice = [children]Item+ ("--" [name]ident)? (";" [comment]rest_of_line)?
 
 Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemInner [suffix]suffix?
 
@@ -33,9 +33,9 @@ flag =
   | "@" -- string ; contents
 
 suffix =
-  | "+"
-  | "*"
-  | "?"
+  | "+" -- plus
+  | "*" -- star
+  | "?" -- opt
 
 ident = ~"0" identchar+
 identchar =
@@ -45,6 +45,8 @@ identchar =
   | '_'
 
 rest_of_line = (~"\n" any)*
+
+Comment_eol = ((";" rest_of_line)? eee)+
 
 eol = white* eee
 eee =

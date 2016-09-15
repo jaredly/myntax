@@ -11,7 +11,7 @@ let module StringSet = Set.Make String;
 type lr = {mutable seed: ans, mutable rulename: string, mutable head: option head}
 and memoentry = {mutable ans: ans_or_lr, mutable pos: int}
 and ans_or_lr = | Answer ans | LR lr
-and ans = (int, result, (int, list (bool, parsing)))
+and ans = (int, result, PackTypes.Result.errors)
 and head = {
   mutable hrule: string,
   mutable involved_set: StringSet.t,
@@ -65,30 +65,30 @@ let mergeErrs (i1, errs1) (i2, errs2) => {
   }
 };
 
-let rec greedy loop min max subr i => {
+let rec greedy loop min max subr i path greedyCount => {
   /* implements e* e+ e? */
   switch max {
     | Some 0 => (i, [], (-1, []))
     | _ =>
     if (min > 0) {
       /* we must match at least min or fail */
-      let (i', found, err) = loop i [subr];
+      let (i', found, err) = loop i [subr] [Iter greedyCount, ...path] 0;
       if (i' >= i) {
-        let (i'', children, merr) = greedy loop (min - 1) max subr i';
+        let (i'', children, merr) = greedy loop (min - 1) max subr i' path (greedyCount + 1);
         (i'', List.concat [found, children], mergeErrs err merr)
       } else {
         (-1, [], err)
       }
     } else {
       /* try matching, doesn't matter if we fail */
-      let (i', children, err) = loop i [subr];
+      let (i', children, err) = loop i [subr] [Iter greedyCount, ...path] 0;
       if (i' >= i) {
         let max =
         switch max {
           | None => None
           | Some n => Some (n - 1)
         };
-        let (i'', more, merr) = greedy loop 0 max subr i';
+        let (i'', more, merr) = greedy loop 0 max subr i' path (greedyCount + 1);
         (i'', List.concat [children, more], mergeErrs err merr)
       } else {
         (i, [], err) /* don't fail, return longest match */
@@ -100,21 +100,21 @@ let rec greedy loop min max subr i => {
 /* Apply rule 'rulename' at position 'i' in the input.  Returns the new
  * position if the rule can be applied, else -1 if fails.
  */
-let rec apply_rule grammar state rulename i => {
+let rec apply_rule grammar state rulename i path => {
   /* print_endline ("Apply rule" ^ rulename); */
   let isLexical = (Char.uppercase (String.get rulename 0)) != (String.get rulename 0);
-  switch (recall grammar state rulename i isLexical) {
+  switch (recall grammar state rulename i isLexical path) {
   | None =>
     let lr = {seed: (-1, emptyResult i rulename isLexical, (-1, [])), rulename, head: None};
     state.lrstack = [lr, ...state.lrstack];
     let memoentry = {ans: LR lr, pos: i};
     Hashtbl.add state.memo (rulename, i) memoentry;
-    let answer = parse grammar state rulename i isLexical;
+    let answer = parse grammar state rulename i isLexical path;
     state.lrstack = List.tl state.lrstack;
     memoentry.pos = state.cpos;
     if (lr.head != None) {
       lr.seed = answer;
-      lr_answer grammar state rulename i memoentry isLexical
+      lr_answer grammar state rulename i memoentry isLexical path
     } else {
       memoentry.ans = Answer answer;
       answer
@@ -147,7 +147,7 @@ and setup_lr state rulename lr => {
   loop state.lrstack
 }
 
-and lr_answer grammar state rulename i memoentry isLexical => {
+and lr_answer grammar state rulename i memoentry isLexical path => {
   let lr =
     switch memoentry.ans {
     | Answer _ => assert false
@@ -165,12 +165,12 @@ and lr_answer grammar state rulename i memoentry isLexical => {
     if (fst lr.seed == -1) {
       (-1, emptyResult i rulename isLexical, (-1, []))
     } else {
-      grow_lr grammar state rulename i memoentry head isLexical
+      grow_lr grammar state rulename i memoentry head isLexical path
     }
   }
 }
 
-and recall grammar state rulename i isLexical => {
+and recall grammar state rulename i isLexical path => {
   let maybeEntry =
     try (Some (Hashtbl.find state.memo (rulename, i))) {
     | Not_found => None
@@ -187,7 +187,7 @@ and recall grammar state rulename i isLexical => {
     } else {
       if (StringSet.mem rulename head.eval_set) {
         head.eval_set = StringSet.remove rulename head.eval_set;
-        let answer = parse grammar state rulename i isLexical;
+        let answer = parse grammar state rulename i isLexical path;
         /* Original paper RECALL function seems to have a bug ... */
         let memoentry = unwrap maybeEntry;
         memoentry.ans = Answer answer;
@@ -198,12 +198,12 @@ and recall grammar state rulename i isLexical => {
   }
 }
 
-and grow_lr grammar state rulename i memoentry head isLexical => {
+and grow_lr grammar state rulename i memoentry head isLexical path => {
   Hashtbl.replace state.heads i head; /* A */
   let rec loop () => {
     state.cpos = i;
     head.eval_set = head.involved_set; /* B */
-    let ans = parse grammar state rulename i isLexical;
+    let ans = parse grammar state rulename i isLexical path;
     let oans = switch (memoentry.ans) {
       | Answer (i, _, _) => i
       | LR _ => -1
@@ -225,7 +225,7 @@ and grow_lr grammar state rulename i memoentry head isLexical => {
   }
 }
 
-and parse grammar state rulename i isLexical => {
+and parse grammar state rulename i isLexical path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
   let choices =
     try (List.assoc rulename grammar) {
@@ -235,11 +235,11 @@ and parse grammar state rulename i isLexical => {
     };
   let numChoices = List.length choices;
   /* Try each choice in turn until one matches. */
-  let rec process choices prevErrors => {
+  let rec process choices prevErrors choiceIndex => {
     switch choices {
       | [] => (-1, emptyResult i rulename isLexical, prevErrors)
       | [(sub_name, comment, rs), ...otherChoices] => {
-        let rec loop i items => {
+        let rec loop i items path loopIndex => {
           /* If in a NonLexical context, skip whitespace before trying to match a rule */
           let (i, items) = if isLexical {
             (i, items)
@@ -251,58 +251,58 @@ and parse grammar state rulename i isLexical => {
           };
 
           switch items {
-            | [Lexify p, ...rest] => loop i [p, ...rest]
-            | [Empty, ...rest] => loop i rest
+            | [Lexify p, ...rest] => loop i [p, ...rest] path loopIndex
+            | [Empty, ...rest] => loop i rest path (loopIndex + 1)
             | [Lookahead p, ...rest] => {
-              let (i', _, err) = loop i [p];
+              let (i', _, err) = loop i [p] path (loopIndex + 1);
               if (i' >= i) {
-                loop i rest /* propagate errors */
+                loop i rest path (loopIndex + 1)/* propagate errors */
               } else {
                 (-1, [], err)
               }
             }
 
-            | [Group g, ...rest] => loop i (List.concat [g, rest])
+            | [Group g, ...rest] => loop i (List.concat [g, rest]) path loopIndex
             | [Not p, ...rest] => {
-              let (i', _, err) = loop i [p];
+              let (i', _, err) = loop i [p] [Item (Not p) loopIndex, ...path] 0;
               if (i' >= i) {
                 (-1, [], err)
               } else {
-                loop i rest /* propagate errors */
+                loop i rest path (loopIndex + 1)/* propagate errors */
               }
             }
 
-            | [NonTerminal n label, ...rest] => {
-                let (i', result, errs) = apply_rule grammar state n i;
+            | [(NonTerminal n label) as item, ...rest] => {
+                let (i', result, errs) = apply_rule grammar state n i [Item item loopIndex, ...path];
                 if (i' >= i) {
-                  let (i'', children, rest_errs) = loop i' rest;
+                  let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1);
                   (i'', [{...result, label}, ...children], mergeErrs errs rest_errs)
                 } else {
                   (-1, [], errs)
                 }
               }
 
-            | [Terminal target_string label, ...rest] => {
+            | [(Terminal target_string label) as item, ...rest] => {
                 let slen = String.length target_string;
                 if (i + slen > state.len) {
-                  (-1, [], (i, [(true, Terminal target_string label)])) /* TODO path */
+                  (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
                 } else {
                   let sub = String.sub state.input i slen;
                   if (sub == target_string) {
-                    let (i'', children, err) = loop (i + slen) rest;
+                    let (i'', children, err) = loop (i + slen) rest path (loopIndex + 1);
                     /* TODO line / col num */
                     (i'', [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children], err)
                   } else {
-                    (-1, [], (i, [(true, Terminal target_string label)])) /* TODO path */
+                    (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
                   }
                 }
               }
 
-            | [Any label, ...rest] =>
+            | [(Any label) as item, ...rest] =>
               if (i >= state.len) {
-                (-1, [], (i, [(true, Any label)]))
+                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               } else {
-                let (i'', children, err) = loop (i + 1) rest;
+                let (i'', children, err) = loop (i + 1) rest path (loopIndex + 1);
                 (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], err)
               }
 
@@ -310,44 +310,44 @@ and parse grammar state rulename i isLexical => {
               if (i >= state.len) {
                 (i, [{label: None, start: i, cend: i, children: [], typ: Terminal ""}], (-1, []))
               } else {
-                (-1, [], (i, [(true, EOF)]))
+                (-1, [], (i, [(true, [Item EOF loopIndex, ...path])]))
               }
             }
 
-            | [Chars c1 c2 label, ...rest] =>
+            | [(Chars c1 c2 label) as item, ...rest] =>
               if (i >= state.len) {
-                (-1, [], (i, [(true, Chars c1 c2 label)]))
+                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               } else if (state.input.[i] >= c1 && state.input.[i] <= c2) {
-                let (i'', children, errs) = loop (i + 1) rest;
+                let (i'', children, errs) = loop (i + 1) rest path (loopIndex + 1);
                 (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], errs)
               } else {
-                (-1, [], (i, [(true, Chars c1 c2 label)]))
+                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               }
 
-            | [Star subr label, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 0 None subr i;
+            | [(Star subr label) as item, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 0 None subr i [Item item loopIndex, ...path] 0;
                 if (i' >= i) {
-                  let (i'', children, more_errs) = loop i' rest;
+                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1);
                   (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
                 }
               }
 
-            | [Plus subr label, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 1 None subr i;
+            | [(Plus subr label) as item, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 1 None subr i [Item item loopIndex, ...path] 0;
                 if (i' >= i) {
-                  let (i'', children, more_errs) = loop i' rest;
+                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1);
                   (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
                 }
               }
 
-            | [Optional subr label, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i;
+            | [(Optional subr label) as item, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [Item item loopIndex, ...path] 0;
                 if (i' >= i) {
-                  let (i'', children, more_errs) = loop i' rest;
+                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1);
                   (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
@@ -358,7 +358,8 @@ and parse grammar state rulename i isLexical => {
         }
         ;
 
-        let (i', children, err) = loop i rs;
+        let subPath = numChoices === 1 ? path : [Choice choiceIndex sub_name, ...path];
+        let (i', children, err) = loop i rs subPath 0;
         let errs = mergeErrs prevErrors err;
         if (i' >= i) {
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
@@ -366,12 +367,12 @@ and parse grammar state rulename i isLexical => {
           let typ = isLexical ? (Lexical name (String.sub state.input i (i' - i))) : Nonlexical name;
           (i', {start: i, cend: i', children, label: None, typ}, errs)
         } else {
-          process otherChoices errs
+          process otherChoices errs (choiceIndex + 1)
         }
       }
     }
   };
-  process choices (-1, [])
+  process choices (-1, []) 0
 };
 
 let initialState input => {
@@ -385,7 +386,7 @@ let initialState input => {
 
 let parse grammar start input => {
   let state = initialState input;
-  let (i, result, errs) = apply_rule grammar state start 0;
+  let (i, result, errs) = apply_rule grammar state start 0 [];
   if (i == -1) {
     Failure None (0, errs)
   } else if (i < state.len) {
