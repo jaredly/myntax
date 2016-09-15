@@ -2,7 +2,10 @@
 
 open PackTypes.Parsing
 
-let grammar = [("Start",
+let grammar = {
+  lineComment= Some ";";
+  blockComment=None;
+  rules=[("Start",
   { passThrough = false;
     ignoreNewlines = Inherit;
     choices =
@@ -343,5 +346,5 @@ let grammar = [("Start",
      [("", "", [(Terminal (" ", None))]);
        ("", "", [(Terminal ("\t", None))])]
      })
-  ];
-
+  ]
+};

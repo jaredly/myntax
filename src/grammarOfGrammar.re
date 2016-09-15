@@ -187,7 +187,7 @@ let parseDecorator decorator => {
 let convert (result: result) => {
   /* print_endline "Converting"; */
   assertEq result.typ (Nonlexical "Start" false);
-  (List.map
+  let rules = (List.map
   (fun rule => {
     if (rule.typ != Nonlexical "Rule_" false) {
       failwith ("Not a rule?" ^ (PackTypes.Result.resultTypeDescription rule.typ));
@@ -218,4 +218,18 @@ let convert (result: result) => {
     })
   })
   (List.hd result.children).children);
+  let firstDecorators = getChildren (List.hd (List.hd result.children).children).children "decorators";
+  let (lineComment, blockComment) = (List.fold_left
+    (fun (lineComment, blockComment) decorator => {
+      let {name, args} = parseDecorator decorator;
+      switch (name, args) {
+        | ("lineComment", [String line]) => (Some line, blockComment)
+        | ("blockComment", [String first, String last]) => (lineComment, Some (first, last))
+        | _ => (lineComment, blockComment)
+      }
+    })
+    (None, None)
+    firstDecorators);
+  let open PackTypes.Parsing;
+  {lineComment, blockComment, rules}
 };

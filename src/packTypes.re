@@ -3,7 +3,11 @@ let module Parsing = {
     | Yes
     | No
     | Inherit [@@deriving show];
-  type grammar = list (string, rule) /* CommentChar */
+  type grammar = {
+    lineComment: option string,
+    blockComment: option (string, string),
+    rules: list (string, rule)
+  }
   and rule = {
     passThrough: bool,
     ignoreNewlines: ignoreNewlines,

@@ -230,7 +230,7 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines p
 and parse grammar state rulename i isLexical ignoringNewlines path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
   let {ignoreNewlines, choices, passThrough} =
-    try (List.assoc rulename grammar) {
+    try (List.assoc rulename grammar.rules) {
     | Not_found =>
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
       exit 1
