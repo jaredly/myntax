@@ -1,0 +1,43 @@
+Start = Statements
+
+@ignoreNewlines(false)
+Statements = EOL? (Statement EOL)* Statement?
+
+Statement =
+  | "let" [rec]"rec"? Patt "=" Expr -- let
+  | Expr -- expr
+
+Expr =
+  | Patt "=>" Expr -- fun
+  | Block -- block
+  | "("& Wrapped &")" -- wrapped
+  | [left]Expr "+" [right]Expr -- add
+  | constant -- const
+
+Block = "{" Statements "}"
+
+@ignoreNewlines
+Wrapped = Expr
+
+Patt = ident
+
+constant =
+  | ident -- ident
+  | int64 -- int
+
+@leaf
+ident = ~reserved ~digit identchar+
+@leaf
+int64 =  digit+
+
+reserved =
+  | "fun"
+  | "function"
+  | "let"
+
+identchar =
+  | 'a..z'
+  | 'A..Z'
+  | digit
+  | '_'
+digit = '0..9'
