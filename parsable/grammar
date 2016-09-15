@@ -3,17 +3,17 @@ Start = Rule*
 Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? Comment_eol
 
 decarg =
-  | bool
-  | string
-  | number
+  | bool -- bool
+  | string -- string
+  | number -- number
 
 bool =
   | "true"
   | "false"
 
 Rule =
-  | Comment_eol? Decorator? [name]ident "=" [choices]Choice Comment_eol
-  | Comment_eol? Decorator? [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
+  | Comment_eol? [decorators]Decorator* [name]ident "=" [choices]Choice Comment_eol
+  | Comment_eol? [decorators]Decorator* [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
 
 Choice = [children]Item+ ("--" [name]ident)? (";" [comment]rest_of_line)?
 
@@ -32,7 +32,6 @@ char = "'" [char]single "'"
 single =
   | "\\" any
   | ~"'" ~'\n' any
-
 
 string = '"' [@contents]strchar* '"'
 strchar =

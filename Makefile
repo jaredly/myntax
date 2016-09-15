@@ -3,10 +3,10 @@ ocaml:
 	rebuild src/run.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules
 	rebuild src/browserTypes.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules
 
-regen-grammar:
+regen-grammar: dump pack
+
+dump:
 	./pack.native dump parsable/grammar > src/grammarGrammar.ml
-	# Now you've got to fix the places where Variant output doesn't have
-	# enough parenthesis
 
 pack:
 	rebuild src/pack.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules

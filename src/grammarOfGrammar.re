@@ -172,6 +172,28 @@ let parseChoice choice => {
   (name, comment, (List.map parseItem (getChildren choice.children "children")))
 };
 
+type decoratorArg =
+  | Bool bool
+  | String string
+  | Number int;
+
+type parsedDecorator = {name: string, args: list decoratorArg};
+
+let parseDecorator decorator => {
+  let name = getChild decorator.children "name" |> unwrap |> getContents;
+  let args = (List.map
+    (fun arg => {
+      switch (List.hd arg.children).typ  {
+        | Lexical "decarg_bool" contents => Bool (contents == "true" ? true : false)
+        | Lexical "decarg_string" contents => String (Scanf.unescaped (String.sub contents 1 ((String.length contents) - 2)))
+        | Lexical "decarg_number" contents => Number (int_of_string contents)
+        | _ => failwith "Invalid decorator arg"
+      }
+    })
+  (getChildren decorator.children "args"));
+  {name, args};
+};
+
 let convert (result: result) => {
   /* print_endline "Converting"; */
   assertEq result.typ (Nonlexical "Start");
@@ -180,12 +202,27 @@ let convert (result: result) => {
     if (rule.typ != Nonlexical "Rule_") {
       failwith ("Not a rule?" ^ (PackTypes.Result.resultTypeDescription rule.typ));
     };
+    let decorators = getChildren rule.children "decorators";
+    let (newlines, passThrough) = (List.fold_left
+      (fun (white, pass) decorator => {
+        let {name, args} = parseDecorator decorator;
+        switch (name, args) {
+          | ("ignoreNewlines", [Bool whether]) => (whether ? P.Yes : P.No, pass)
+          | ("passThrough", []) => (white, true)
+          | _ => {
+            print_endline ("Ignoring decorator " ^ name);
+            (white, pass)
+          }
+        }
+      })
+      (P.Inherit, false)
+      decorators);
     let name = getChild rule.children "name" |> unwrap |> getContents;
     /* print_endline ("Rule " ^ name); */
     let choices = getChildren rule.children "choices";
     (name, {
-      P.passThrough: false,
-      P.ignoreWhitespace: P.Inherit,
+      P.passThrough: passThrough,
+      P.ignoreNewlines: newlines,
       P.choices: (List.map parseChoice choices),
     })
   })

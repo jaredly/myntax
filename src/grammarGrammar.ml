@@ -4,7 +4,7 @@ open PackTypes.Parsing
 
 let grammar = [("Start",
   { passThrough = false;
-    ignoreWhitespace = Inherit;
+    ignoreNewlines = Inherit;
     choices =
     [("", "",
       [(Star (
@@ -14,7 +14,7 @@ let grammar = [("Start",
     });
   ("Decorator",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("@", None));
@@ -38,28 +38,30 @@ let grammar = [("Start",
      });
   ("decarg",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
-     [("", "", [(NonTerminal ("bool", None))]);
-       ("", "", [(NonTerminal ("string", None))]);
-       ("", "", [(NonTerminal ("number", None))])]
+     [("bool", "", [(NonTerminal ("bool", None))]);
+       ("string", "", [(NonTerminal ("string", None))]);
+       ("number", "", [(NonTerminal ("number", None))])]
      });
   ("bool",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "", [(Terminal ("true", None))]);
        ("", "", [(Terminal ("false", None))])]
      });
   ("Rule",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Optional (
            (NonTerminal ("Comment_eol", None)), None));
-         (Optional (
-            (NonTerminal ("Decorator", None)), None));
+         (Star (
+            (NonTerminal ("Decorator", Some ("decorators")
+               )),
+            None));
          (NonTerminal ("ident", Some ("name")));
          (Terminal ("=", None));
          (NonTerminal ("Choice", Some ("choices")));
@@ -67,8 +69,10 @@ let grammar = [("Start",
        ("", "",
         [(Optional (
             (NonTerminal ("Comment_eol", None)), None));
-          (Optional (
-             (NonTerminal ("Decorator", None)), None));
+          (Star (
+             (NonTerminal ("Decorator", Some ("decorators")
+                )),
+             None));
           (NonTerminal ("ident", Some ("name")));
           (Terminal ("=", None));
           (NonTerminal ("Comment_eol", None));
@@ -84,7 +88,7 @@ let grammar = [("Start",
      });
   ("Choice",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Plus (
@@ -107,7 +111,7 @@ let grammar = [("Start",
      });
   ("Item",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Optional (
@@ -132,7 +136,7 @@ let grammar = [("Start",
      });
   ("ItemInner",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "", [(NonTerminal ("string", None))]);
        ("", "", [(NonTerminal ("ident", None))]);
@@ -147,7 +151,7 @@ let grammar = [("Start",
      });
   ("char_range",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("'", None));
@@ -159,7 +163,7 @@ let grammar = [("Start",
      });
   ("char",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("'", None));
@@ -169,7 +173,7 @@ let grammar = [("Start",
      });
   ("single",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("\\", None));
@@ -182,7 +186,7 @@ let grammar = [("Start",
      });
   ("string",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("\"", None));
@@ -194,7 +198,7 @@ let grammar = [("Start",
      });
   ("strchar",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("\\", None));
@@ -207,7 +211,7 @@ let grammar = [("Start",
      });
   ("flag",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("bool", "exists", [(Terminal ("?", None))]);
        ("array", "", [(Terminal (":", None))]);
@@ -215,7 +219,7 @@ let grammar = [("Start",
      });
   ("suffix",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("plus", "", [(Terminal ("+", None))]);
        ("star", "", [(Terminal ("*", None))]);
@@ -223,7 +227,7 @@ let grammar = [("Start",
      });
   ("ident",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Not
@@ -235,7 +239,7 @@ let grammar = [("Start",
      });
   ("identchar",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "", [(Chars ('a', 'z', None))]);
        ("", "", [(Chars ('A', 'Z', None))]);
@@ -244,7 +248,7 @@ let grammar = [("Start",
      });
   ("number",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Terminal ("0", None));
@@ -262,11 +266,11 @@ let grammar = [("Start",
      });
   ("digit",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices = [("", "", [(Chars ('0', '9', None))])] });
   ("rest_of_line",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Star (
@@ -280,12 +284,12 @@ let grammar = [("Start",
      });
   ("Comment_eol",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "", [(NonTerminal ("One_comment", None))])] });
   ("One_comment",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Plus (
@@ -299,7 +303,7 @@ let grammar = [("Start",
      });
   ("eol",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Star (
@@ -309,7 +313,7 @@ let grammar = [("Start",
      });
   ("eee",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "",
        [(Plus (
@@ -319,14 +323,14 @@ let grammar = [("Start",
      });
   ("eolchar",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "", [(Terminal ("\n", None))]);
        ("", "", [(Terminal ("\r", None))])]
      });
   ("white",
    { passThrough = false;
-     ignoreWhitespace = Inherit;
+     ignoreNewlines = Inherit;
      choices =
      [("", "", [(Terminal (" ", None))]);
        ("", "", [(Terminal ("\t", None))])]

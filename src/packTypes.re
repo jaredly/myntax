@@ -1,12 +1,12 @@
 let module Parsing = {
-  type ignoreWhitespace =
+  type ignoreNewlines =
     | Yes
     | No
     | Inherit [@@deriving show];
   type grammar = list (string, rule) /* CommentChar */
   and rule = {
     passThrough: bool,
-    ignoreWhitespace: ignoreWhitespace,
+    ignoreNewlines: ignoreNewlines,
     choices: list choice
   }
    /* rule name -> e1 | e2 | ... */
@@ -44,9 +44,9 @@ let module Result = {
 
   let resultTypeDescription rt => switch rt {
     | Terminal s => "Terminal(" ^ s ^ ")"
-    | Lexical s l => "Lexical(" ^ l ^ "," ^ l ^ ")"
+    | Lexical name text => "Lexical(" ^ name ^ "," ^ text ^ ")"
     | Iter => "Iter"
-    | Nonlexical s => "Nonlexical(" ^ s ^ ")"
+    | Nonlexical name => "Nonlexical(" ^ name ^ ")"
   };
 
   type result = {
