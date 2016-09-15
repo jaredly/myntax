@@ -1,10 +1,10 @@
 Start = Rule*
 
 Rule =
-  | [name]ident "=" [choices]Choice #eol
-  | [name]ident "=" #eol ("|" [choices]Choice #eol)+
+  | eol? [name]ident "=" [choices]Choice #eol
+  | eol? [name]ident "=" #eol ("|" [choices]Choice #eol)+
 
-Choice = [:children]Item+ ("--" [name]ident)? (";" #[comment]rest_of_line)?
+Choice = [children]Item+ ("--" [name]ident)? (";" #[comment]rest_of_line)?
 
 Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemInner [suffix]suffix?
 
@@ -46,7 +46,13 @@ identchar =
 
 rest_of_line = (~"\n" any)*
 
-eol = white* "\n"
+eol = white* eee
+eee =
+  | eolchar+
+  | EOF
+eolchar =
+  | "\n"
+  | "\r"
 white =
   | " "
   | "\t"

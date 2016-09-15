@@ -16,9 +16,9 @@ let module Result = {
 include Result;
 
 let module Parsing = {
-  type grammar = list production
-  and production = (string, list choice) /* rule name -> e1 | e2 | ... */
-  and choice = (string, string, list parsing) /* choice name, comment, sequence */
+  type grammar = list production[@@deriving show]
+  and production = (string, list choice)[@@deriving show] /* rule name -> e1 | e2 | ... */
+  and choice = (string, string, list parsing)[@@deriving show] /* choice name, comment, sequence */
   and parsing =
     | Star parsing (option string)      /* e* */
     | Plus parsing (option string)      /* e+ */
@@ -32,6 +32,6 @@ let module Parsing = {
     | NonTerminal string (option string)/* nonterminal 'name' */
     | Terminal string (option string)   /* terminal */
     | Chars char char (option string)   /* [a-z] */
-    | Empty              /* epsilon */;
+    | Empty              /* epsilon */[@@deriving show];
 };
 include Parsing;

@@ -25,10 +25,6 @@ let grammar: grammar = [
     ])
   ]),
 
-  ("Newl", [
-    ("", "", [nt label::"name" "ident", Lexify (nt "eol"), nt "ident"])
-  ]),
-
   ("Choice", [
     ("", "", [
       pl (nt label::"children" "Item"),

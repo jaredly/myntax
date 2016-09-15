@@ -59,7 +59,7 @@ let rec skipWhite i text len => {
  * position if the rule can be applied, else -1 if fails.
  */
 let rec apply_rule grammar state rulename i => {
-  print_endline ("Apply rule" ^ rulename);
+  /* print_endline ("Apply rule" ^ rulename); */
   let isLexical = (Char.uppercase (String.get rulename 0)) != (String.get rulename 0);
   switch (recall grammar state rulename i isLexical) {
   | None =>

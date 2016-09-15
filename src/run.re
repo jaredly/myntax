@@ -25,15 +25,20 @@ let contents = readFile (switch input {
 let grammarRaw = open_in grammar |> readFile;
 
 let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
-  | Failed message => failwith "Unable to parse grammar"
-  | Incomplete _ => failwith "Grammar only partially parsed"
-  | Complete result => GrammarOfGrammar.convert result
+  | Runtime.Failed message => failwith "Unable to parse grammar"
+  | Runtime.Incomplete _ => failwith "Grammar only partially parsed"
+  | Runtime.Complete result => GrammarOfGrammar.convert result
 };
 
+/* print_endline(PackTypes.Parsing.show_grammar grammar); */
+
 switch (Runtime.parse grammar "Start" contents) {
-  | Failed message => failwith "Unable to parse input file"
-  | Incomplete _ => failwith "Incomplete parse of input file"
-  | Complete result => {
+  | Runtime.Failed message => failwith "Unable to parse input file"
+  | Runtime.Incomplete (i, result) => {
+    PackTypes.Result.result_to_yojson result |> Yojson.Safe.to_string |> print_endline;
+    failwith "Incomplete parse of input file"
+  }
+  | Runtime.Complete result => {
     PackTypes.Result.result_to_yojson result |> Yojson.Safe.to_string |> print_endline;
   }
 }

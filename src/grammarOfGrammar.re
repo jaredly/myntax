@@ -123,8 +123,8 @@ let rec parseItem item => {
   };
   let node = switch (getChild item.children "suffix") {
     | None => node
-    | Some {typ: Lexical "suffix_star" _, _} => P.Plus node None
-    | Some {typ: Lexical "suffix_plus" _, _} => P.Star node None
+    | Some {typ: Lexical "suffix_star" _, _} => P.Star node None
+    | Some {typ: Lexical "suffix_plus" _, _} => P.Plus node None
     | Some {typ: Lexical "suffix_opt" _, _} => P.Optional node None
     | _ => failwith "Unrecognized suffix"
   };
@@ -143,6 +143,8 @@ and parseInner maybeName inner => {
         | Lexical "ident" contents => {
           if (contents == "any") {
             P.Any name
+          } else if (contents == "EOF") {
+            P.EOF
           } else {
             P.NonTerminal contents name
           }
