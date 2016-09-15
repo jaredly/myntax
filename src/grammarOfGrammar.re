@@ -48,8 +48,15 @@ let getFlag children => RU.getChild children (fun child => {
   }
 });
 
-let unescapeChar txt => (String.get (Scanf.unescaped txt) 0);
-let unescapeString = Scanf.unescaped;
+let unescapeString txt => try {
+  String.length txt == 1 ? txt : Scanf.unescaped txt
+} {
+  | Scanf.Scan_failure message => {
+    failwith ("Unescape fail --" ^ txt ^ "--")
+  }
+};
+
+let unescapeChar txt => (String.get (String.length txt == 1 ? txt : (unescapeString txt)) 0);
 let isSome x => switch x {
   | Some _ => true
   | None => false

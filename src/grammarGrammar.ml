@@ -279,7 +279,7 @@ let grammar = { lineComment = Some (";");
        choices = [("", "", [(Chars ('0', '9', None))])] });
     ("rest_of_line",
      { passThrough = false;
-       ignoreNewlines = Inherit; leaf = false;
+       ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
          [(Star (
@@ -327,4 +327,3 @@ let grammar = { lineComment = Some (";");
        })
     ]
   };
-
