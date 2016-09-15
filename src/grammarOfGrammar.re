@@ -178,7 +178,7 @@ let convert (result: result) => {
   (List.map
   (fun rule => {
     if (rule.typ != Nonlexical "Rule_") {
-      failwith "Not a rule?"
+      failwith ("Not a rule?" ^ (PackTypes.Result.resultTypeDescription rule.typ));
     };
     let name = getChild rule.children "name" |> unwrap |> getContents;
     /* print_endline ("Rule " ^ name); */

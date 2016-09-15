@@ -19,12 +19,26 @@ let module Parsing = {
 };
 include Parsing;
 
+let unwrapOr a b => {
+  switch a {
+    | Some x => x
+    | None => b
+  }
+};
+
 let module Result = {
   type resultType =
     | Terminal string
     | Lexical string string
     | Iter
     | Nonlexical string [@@deriving yojson];
+
+  let resultTypeDescription rt => switch rt {
+    | Terminal s => "Terminal(" ^ s ^ ")"
+    | Lexical s l => "Lexical(" ^ l ^ "," ^ l ^ ")"
+    | Iter => "Iter"
+    | Nonlexical s => "Nonlexical(" ^ s ^ ")"
+  };
 
   type result = {
     start: int,

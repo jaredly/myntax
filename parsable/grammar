@@ -1,7 +1,7 @@
 Start = Rule*
 
-Rule = ;hi
-  | eol? [name]ident "=" [choices]Choice #eol
+Rule =
+  | eol? ([name]ident "=" [choices]Choice #eol
   | eol? [name]ident "=" #eol ("|" [choices]Choice #eol)+
 
 Choice = [children]Item+ ("--" [name]ident)? (";" #[comment]rest_of_line)?

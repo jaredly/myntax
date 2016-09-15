@@ -233,145 +233,145 @@ and parse grammar state rulename i isLexical => {
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
       exit 1
     };
+  let numChoices = List.length choices;
   /* Try each choice in turn until one matches. */
-  try {
-    List.iter
-      (
-        fun (sub_name, comment, rs) => {
+  let rec process choices prevErrors => {
+    switch choices {
+      | [] => (-1, emptyResult i rulename isLexical, prevErrors)
+      | [(sub_name, comment, rs), ...otherChoices] => {
+        let rec loop i items => {
           /* If in a NonLexical context, skip whitespace before trying to match a rule */
-          let rec loop i items => {
-            let (i, items) = if isLexical {
-              (i, items)
-            } else {
-              switch items {
-                | [Lexify p, ...rest] => (i, [p, ...rest])
-                | _ => (skipWhite i state.input state.len, items)
-              }
-            };
-
+          let (i, items) = if isLexical {
+            (i, items)
+          } else {
             switch items {
-              | [Lexify p, ...rest] => loop i [p, ...rest]
-              | [Empty, ...rest] => loop i rest
-              | [Lookahead p, ...rest] => {
-                let (i', _, err) = loop i [p];
-                if (i' >= i) {
-                  loop i rest /* propagate errors */
-                } else {
-                  (-1, [], err)
-                }
-              }
-
-              | [Group g, ...rest] => loop i (List.concat [g, rest])
-              | [Not p, ...rest] => {
-                let (i', _, err) = loop i [p];
-                if (i' >= i) {
-                  (-1, [], err)
-                } else {
-                  loop i rest /* propagate errors */
-                }
-              }
-
-              | [NonTerminal n label, ...rest] => {
-                  let (i', result, errs) = apply_rule grammar state n i;
-                  if (i' >= i) {
-                    let (i'', children, rest_errs) = loop i' rest;
-                    (i'', [{...result, label}, ...children], mergeErrs errs rest_errs)
-                  } else {
-                    (-1, [], errs)
-                  }
-                }
-
-              | [Terminal target_string label, ...rest] => {
-                  let slen = String.length target_string;
-                  if (i + slen > state.len) {
-                    (-1, [], (i, [(true, Terminal target_string label)])) /* TODO path */
-                  } else {
-                    let sub = String.sub state.input i slen;
-                    if (sub == target_string) {
-                      let (i'', children, err) = loop (i + slen) rest;
-                      /* TODO line / col num */
-                      (i'', [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children], err)
-                    } else {
-                      (-1, [], (i, [(true, Terminal target_string label)])) /* TODO path */
-                    }
-                  }
-                }
-
-              | [Any label, ...rest] =>
-                if (i >= state.len) {
-                  (-1, [], (i, [(true, Any label)]))
-                } else {
-                  let (i'', children, err) = loop (i + 1) rest;
-                  (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], err)
-                }
-
-              | [EOF, ...rest] => {
-                if (i >= state.len) {
-                  (i, [{label: None, start: i, cend: i, children: [], typ: Terminal ""}], (-1, []))
-                } else {
-                  (-1, [], (i, [(true, EOF)]))
-                }
-              }
-
-              | [Chars c1 c2 label, ...rest] =>
-                if (i >= state.len) {
-                  (-1, [], (i, [(true, Chars c1 c2 label)]))
-                } else if (state.input.[i] >= c1 && state.input.[i] <= c2) {
-                  let (i'', children, errs) = loop (i + 1) rest;
-                  (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], errs)
-                } else {
-                  (-1, [], (i, [(true, Chars c1 c2 label)]))
-                }
-
-              | [Star subr label, ...rest] => {
-                  let (i', subchildren, errs) = greedy loop 0 None subr i;
-                  if (i' >= i) {
-                    let (i'', children, more_errs) = loop i' rest;
-                    (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
-                  } else {
-                    (-1, [], errs)
-                  }
-                }
-
-              | [Plus subr label, ...rest] => {
-                  let (i', subchildren, errs) = greedy loop 1 None subr i;
-                  if (i' >= i) {
-                    let (i'', children, more_errs) = loop i' rest;
-                    (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
-                  } else {
-                    (-1, [], errs)
-                  }
-                }
-
-              | [Optional subr label, ...rest] => {
-                  let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i;
-                  if (i' >= i) {
-                    let (i'', children, more_errs) = loop i' rest;
-                    (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
-                  } else {
-                    (-1, [], errs)
-                  }
-                }
-              | [] => (i, [], (-1, []))
+              | [Lexify p, ...rest] => (i, [p, ...rest])
+              | _ => (skipWhite i state.input state.len, items)
             }
-          }
+          };
 
-          ;
+          switch items {
+            | [Lexify p, ...rest] => loop i [p, ...rest]
+            | [Empty, ...rest] => loop i rest
+            | [Lookahead p, ...rest] => {
+              let (i', _, err) = loop i [p];
+              if (i' >= i) {
+                loop i rest /* propagate errors */
+              } else {
+                (-1, [], err)
+              }
+            }
 
-          let (i', children, err) = loop i rs;
-          if (i' >= i) {
-            /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
-            let name = if ((List.length choices) === 1) { rulename } else {(rulename ^ "_" ^ sub_name)};
-            let typ = isLexical ? (Lexical name (String.sub state.input i (i' - i))) : Nonlexical name;
-            raise (Found (i', {start: i, cend: i', children, label: None, typ}, err))
+            | [Group g, ...rest] => loop i (List.concat [g, rest])
+            | [Not p, ...rest] => {
+              let (i', _, err) = loop i [p];
+              if (i' >= i) {
+                (-1, [], err)
+              } else {
+                loop i rest /* propagate errors */
+              }
+            }
+
+            | [NonTerminal n label, ...rest] => {
+                let (i', result, errs) = apply_rule grammar state n i;
+                if (i' >= i) {
+                  let (i'', children, rest_errs) = loop i' rest;
+                  (i'', [{...result, label}, ...children], mergeErrs errs rest_errs)
+                } else {
+                  (-1, [], errs)
+                }
+              }
+
+            | [Terminal target_string label, ...rest] => {
+                let slen = String.length target_string;
+                if (i + slen > state.len) {
+                  (-1, [], (i, [(true, Terminal target_string label)])) /* TODO path */
+                } else {
+                  let sub = String.sub state.input i slen;
+                  if (sub == target_string) {
+                    let (i'', children, err) = loop (i + slen) rest;
+                    /* TODO line / col num */
+                    (i'', [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children], err)
+                  } else {
+                    (-1, [], (i, [(true, Terminal target_string label)])) /* TODO path */
+                  }
+                }
+              }
+
+            | [Any label, ...rest] =>
+              if (i >= state.len) {
+                (-1, [], (i, [(true, Any label)]))
+              } else {
+                let (i'', children, err) = loop (i + 1) rest;
+                (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], err)
+              }
+
+            | [EOF, ...rest] => {
+              if (i >= state.len) {
+                (i, [{label: None, start: i, cend: i, children: [], typ: Terminal ""}], (-1, []))
+              } else {
+                (-1, [], (i, [(true, EOF)]))
+              }
+            }
+
+            | [Chars c1 c2 label, ...rest] =>
+              if (i >= state.len) {
+                (-1, [], (i, [(true, Chars c1 c2 label)]))
+              } else if (state.input.[i] >= c1 && state.input.[i] <= c2) {
+                let (i'', children, errs) = loop (i + 1) rest;
+                (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], errs)
+              } else {
+                (-1, [], (i, [(true, Chars c1 c2 label)]))
+              }
+
+            | [Star subr label, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 0 None subr i;
+                if (i' >= i) {
+                  let (i'', children, more_errs) = loop i' rest;
+                  (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
+                } else {
+                  (-1, [], errs)
+                }
+              }
+
+            | [Plus subr label, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 1 None subr i;
+                if (i' >= i) {
+                  let (i'', children, more_errs) = loop i' rest;
+                  (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
+                } else {
+                  (-1, [], errs)
+                }
+              }
+
+            | [Optional subr label, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i;
+                if (i' >= i) {
+                  let (i'', children, more_errs) = loop i' rest;
+                  (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
+                } else {
+                  (-1, [], errs)
+                }
+              }
+            | [] => (i, [], (-1, []))
           }
         }
-      )
-      choices;
-    (-1, emptyResult i rulename isLexical, (-1, [])) /* TODO Use a loop to collect errors from the options? */
-  } {
-  | Found ans => ans
-  }
+        ;
+
+        let (i', children, err) = loop i rs;
+        let errs = mergeErrs prevErrors err;
+        if (i' >= i) {
+          /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
+          let name = if (numChoices === 1) { rulename } else {(rulename ^ "_" ^ sub_name)};
+          let typ = isLexical ? (Lexical name (String.sub state.input i (i' - i))) : Nonlexical name;
+          (i', {start: i, cend: i', children, label: None, typ}, errs)
+        } else {
+          process otherChoices errs
+        }
+      }
+    }
+  };
+  process choices (-1, [])
 };
 
 let initialState input => {
