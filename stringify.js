@@ -162,6 +162,10 @@ module.exports = {
     return ['Const_string', child.asRe.slice(1, -1), delim]
   },
 
+  Block(_, exps, __, last, ___) {
+    return makeSequences(exps.asRe.concat(last.asRe), makeLoc(this.source))
+  },
+
   _nonterminal(children) {
     // this is a variant
     if (this.ctorName.indexOf('_') !== -1 || variants.indexOf(this.ctorName) !== -1) {

@@ -7,6 +7,7 @@ Exprs = (Expr #"\n")* Expr?
 
 Expr =
   | Expr "ha" -- application
+  ; thing
   | "fun" Patt "->" Expr -- fun ; function
   | "(" [contents]Expr ")" -- parens
   | [left]Expr "+" [right]Expr -- add

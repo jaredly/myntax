@@ -57,6 +57,81 @@ let rec skipWhite i text len ignoreNewlines => {
   }
 };
 
+let skipALineComment i start text len => {
+  let sl = String.length start;
+  /* TODO maybe iterate? */
+  if (sl + i < len && String.sub text i sl == start) {
+    let i' = try {String.index_from text i '\n'}
+    {
+      | Not_found => len /* go to end */
+    };
+    i'
+  } else {
+    i
+  }
+};
+
+let skipABlockComment i (first, last) text len => {
+  let fl = String.length first;
+  /* this might be a lot faster with a regex */
+  if (fl + i < len && String.sub text i fl == first) {
+    let fc = String.get last 0;
+    let ll = String.length last;
+    let rec loop i => {
+      if (i + ll >= len) {
+        failwith "Unterminated comment"
+      } else if (String.get text i == fc && String.sub text i ll == last) {
+        i + ll;
+      } else {
+        loop (i + 1)
+      }
+    };
+    loop i
+  } else {
+    i
+  }
+};
+
+/* If we're skipping line comments, we can also skip newlines */
+let rec skipLineComments i start text len => {
+  let i' = skipALineComment i start text len;
+  if (i' == len || i == i') {
+    i'
+  } else {
+    let i'' = (skipWhite i' text len true);
+    if (i'' > i') {
+      skipLineComments i'' start text len
+    } else {
+      i''
+    }
+  }
+};
+
+let rec skipBlockComments i ends text len skipNewlines => {
+  let i' = skipABlockComment i ends text len;
+  if (i' == len || i == i') {
+    i'
+  } else {
+    let i'' = (skipWhite i' text len skipNewlines);
+    if (i'' > i') {
+      skipBlockComments i'' ends text len skipNewlines
+    } else {
+      i''
+    }
+  }
+};
+
+let rec skipBlockAndLineComments i ends line text len => {
+  let i' = skipABlockComment i ends text len;
+  let i' = skipWhite i' text len true;
+  let i' = skipALineComment i' line text len;
+  if (i' == i) {
+    i'
+  } else {
+    skipBlockAndLineComments i' ends line text len;
+  }
+};
+
 let mergeErrs (i1, errs1) (i2, errs2) => {
   if (i1 == i2) {
     (i1, List.concat [errs1, errs2])
@@ -67,30 +142,30 @@ let mergeErrs (i1, errs1) (i2, errs2) => {
   }
 };
 
-let rec greedy loop min max subr i path greedyCount => {
+let rec greedy loop min max subr i path greedyCount isNegated => {
   /* implements e* e+ e? */
   switch max {
     | Some 0 => (i, [], (-1, []))
     | _ =>
     if (min > 0) {
       /* we must match at least min or fail */
-      let (i', found, err) = loop i [subr] [Iter greedyCount, ...path] 0;
+      let (i', found, err) = loop i [subr] [Iter greedyCount, ...path] 0 isNegated;
       if (i' >= i) {
-        let (i'', children, merr) = greedy loop (min - 1) max subr i' path (greedyCount + 1);
+        let (i'', children, merr) = greedy loop (min - 1) max subr i' path (greedyCount + 1) isNegated;
         (i'', List.concat [found, children], mergeErrs err merr)
       } else {
         (-1, [], err)
       }
     } else {
       /* try matching, doesn't matter if we fail */
-      let (i', children, err) = loop i [subr] [Iter greedyCount, ...path] 0;
+      let (i', children, err) = loop i [subr] [Iter greedyCount, ...path] 0 isNegated;
       if (i' >= i) {
         let max =
         switch max {
           | None => None
           | Some n => Some (n - 1)
         };
-        let (i'', more, merr) = greedy loop 0 max subr i' path (greedyCount + 1);
+        let (i'', more, merr) = greedy loop 0 max subr i' path (greedyCount + 1) isNegated;
         (i'', List.concat [children, more], mergeErrs err merr)
       } else {
         (i, [], err) /* don't fail, return longest match */
@@ -102,21 +177,21 @@ let rec greedy loop min max subr i path greedyCount => {
 /* Apply rule 'rulename' at position 'i' in the input.  Returns the new
  * position if the rule can be applied, else -1 if fails.
  */
-let rec apply_rule grammar state rulename i ignoringNewlines path => {
+let rec apply_rule grammar state rulename i ignoringNewlines isNegated path => {
   /* print_endline ("Apply rule" ^ rulename); */
   let isLexical = (Char.uppercase (String.get rulename 0)) != (String.get rulename 0);
-  switch (recall grammar state rulename i isLexical ignoringNewlines path) {
+  switch (recall grammar state rulename i isLexical ignoringNewlines isNegated path) {
   | None =>
     let lr = {seed: (-1, emptyResult i rulename isLexical, (-1, [])), rulename, head: None};
     state.lrstack = [lr, ...state.lrstack];
     let memoentry = {ans: LR lr, pos: i};
     Hashtbl.add state.memo (rulename, i) memoentry;
-    let answer = parse grammar state rulename i isLexical ignoringNewlines path;
+    let answer = parse grammar state rulename i isLexical ignoringNewlines isNegated path;
     state.lrstack = List.tl state.lrstack;
     memoentry.pos = state.cpos;
     if (lr.head != None) {
       lr.seed = answer;
-      lr_answer grammar state rulename i memoentry isLexical ignoringNewlines path
+      lr_answer grammar state rulename i memoentry isLexical ignoringNewlines isNegated path
     } else {
       memoentry.ans = Answer answer;
       answer
@@ -149,7 +224,7 @@ and setup_lr state rulename lr => {
   loop state.lrstack
 }
 
-and lr_answer grammar state rulename i memoentry isLexical ignoringNewlines path => {
+and lr_answer grammar state rulename i memoentry isLexical ignoringNewlines isNegated path => {
   let lr =
     switch memoentry.ans {
     | Answer _ => assert false
@@ -167,12 +242,12 @@ and lr_answer grammar state rulename i memoentry isLexical ignoringNewlines path
     if (fst lr.seed == -1) {
       (-1, emptyResult i rulename isLexical, (-1, []))
     } else {
-      grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines path
+      grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines isNegated path
     }
   }
 }
 
-and recall grammar state rulename i isLexical ignoringNewlines path => {
+and recall grammar state rulename i isLexical ignoringNewlines isNegated path => {
   let maybeEntry =
     try (Some (Hashtbl.find state.memo (rulename, i))) {
     | Not_found => None
@@ -189,7 +264,7 @@ and recall grammar state rulename i isLexical ignoringNewlines path => {
     } else {
       if (StringSet.mem rulename head.eval_set) {
         head.eval_set = StringSet.remove rulename head.eval_set;
-        let answer = parse grammar state rulename i isLexical ignoringNewlines path;
+        let answer = parse grammar state rulename i isLexical ignoringNewlines isNegated path;
         /* Original paper RECALL function seems to have a bug ... */
         let memoentry = unwrap maybeEntry;
         memoentry.ans = Answer answer;
@@ -200,12 +275,12 @@ and recall grammar state rulename i isLexical ignoringNewlines path => {
   }
 }
 
-and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines path => {
+and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines isNegated path => {
   Hashtbl.replace state.heads i head; /* A */
   let rec loop () => {
     state.cpos = i;
     head.eval_set = head.involved_set; /* B */
-    let ans = parse grammar state rulename i isLexical ignoringNewlines path;
+    let ans = parse grammar state rulename i isLexical ignoringNewlines isNegated path;
     let oans = switch (memoentry.ans) {
       | Answer (i, _, _) => i
       | LR _ => -1
@@ -227,7 +302,7 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines p
   }
 }
 
-and parse grammar state rulename i isLexical ignoringNewlines path => {
+and parse grammar state rulename i isLexical ignoringNewlines isNegated path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
   let {ignoreNewlines, choices, passThrough} =
     try (List.assoc rulename grammar.rules) {
@@ -247,43 +322,55 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
     switch choices {
       | [] => (-1, emptyResult i rulename isLexical, prevErrors)
       | [(sub_name, comment, rs), ...otherChoices] => {
-        let rec loop i items path loopIndex => {
+        let rec loop i items path loopIndex isNegated => {
           /* If in a NonLexical context, skip whitespace before trying to match a rule */
           let (i, items) = if isLexical {
             (i, items)
           } else {
             switch items {
               | [Lexify p, ...rest] => (i, [p, ...rest])
-              | _ => (skipWhite i state.input state.len ignoringNewlines, items)
+              | _ => {
+                let i = skipWhite i state.input state.len ignoringNewlines;
+                let i' = switch (ignoringNewlines, grammar.blockComment, grammar.lineComment) {
+                  | (false, Some x, _) => skipBlockComments i x state.input state.len false
+                  | (true, Some x, None) => skipBlockComments i x state.input state.len true
+                  | (true, Some x, Some y) => skipBlockAndLineComments i x y state.input state.len
+                  | (true, None, Some x) => skipLineComments i x state.input state.len
+                  | (false, None, Some _)
+                  | (_, None, None) => i
+                };
+                /* Printf.printf "Skipped comments %d %d\n" i i'; */
+                (i', items)
+              }
             }
           };
 
           switch items {
-            | [Lexify p, ...rest] => loop i [p, ...rest] path loopIndex
-            | [Empty, ...rest] => loop i rest path (loopIndex + 1)
+            | [Lexify p, ...rest] => loop i [p, ...rest] path loopIndex isNegated
+            | [Empty, ...rest] => loop i rest path (loopIndex + 1) isNegated
             | [Lookahead p, ...rest] => {
-              let (i', _, err) = loop i [p] path (loopIndex + 1);
+              let (i', _, err) = loop i [p] path (loopIndex + 1) isNegated;
               if (i' >= i) {
-                loop i rest path (loopIndex + 1)/* propagate errors */
+                loop i rest path (loopIndex + 1) isNegated/* propagate errors */
               } else {
                 (-1, [], err)
               }
             }
 
-            | [Group g, ...rest] => loop i (List.concat [g, rest]) path loopIndex
+            | [Group g, ...rest] => loop i (List.concat [g, rest]) path loopIndex isNegated
             | [Not p, ...rest] => {
-              let (i', _, err) = loop i [p] [Item (Not p) loopIndex, ...path] 0;
+              let (i', _, err) = loop i [p] [Item (Not p) loopIndex, ...path] 0 (not isNegated);
               if (i' >= i) {
                 (-1, [], err)
               } else {
-                loop i rest path (loopIndex + 1)/* propagate errors */
+                loop i rest path (loopIndex + 1) isNegated/* propagate errors */
               }
             }
 
             | [(NonTerminal n label) as item, ...rest] => {
-                let (i', result, errs) = apply_rule grammar state n i ignoringNewlines [Item item loopIndex, ...path];
+                let (i', result, errs) = apply_rule grammar state n i ignoringNewlines isNegated [Item item loopIndex, ...path];
                 if (i' >= i) {
-                  let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1);
+                  let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', [{...result, label}, ...children], mergeErrs errs rest_errs)
                 } else {
                   (-1, [], errs)
@@ -297,11 +384,23 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
                 } else {
                   let sub = String.sub state.input i slen;
                   if (sub == target_string) {
-                    let (i'', children, err) = loop (i + slen) rest path (loopIndex + 1);
-                    /* TODO line / col num */
+                    let (i'', children, err) = loop (i + slen) rest path (loopIndex + 1) isNegated; /* TODO line / col num */
                     (i'', [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children], err)
                   } else {
-                    (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                    if ((not isNegated) && target_string == "\n" && grammar.lineComment != None) {
+                      let line = unwrap grammar.lineComment;
+                      let i' = skipALineComment i line state.input state.len;
+                      if (i' == i) {
+                        (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                      } else {
+                        Printf.printf "skipped line from newline %d %d\n" i i';
+                        /** TODO code duplication :( **/
+                        let (i'', children, err) = loop i' rest path (loopIndex + 1) isNegated; /* TODO line / col num */
+                        (i'', [{label, start: i' - slen, cend: i', children: [], typ: Terminal sub}, ...children], err)
+                      }
+                    } else {
+                      (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                    };
                   }
                 }
               }
@@ -310,7 +409,7 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
               if (i >= state.len) {
                 (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               } else {
-                let (i'', children, err) = loop (i + 1) rest path (loopIndex + 1);
+                let (i'', children, err) = loop (i + 1) rest path (loopIndex + 1) isNegated;
                 (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], err)
               }
 
@@ -326,16 +425,16 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
               if (i >= state.len) {
                 (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               } else if (state.input.[i] >= c1 && state.input.[i] <= c2) {
-                let (i'', children, errs) = loop (i + 1) rest path (loopIndex + 1);
+                let (i'', children, errs) = loop (i + 1) rest path (loopIndex + 1) isNegated;
                 (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], errs)
               } else {
                 (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               }
 
             | [(Star subr label) as item, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 0 None subr i [Item item loopIndex, ...path] 0;
+                let (i', subchildren, errs) = greedy loop 0 None subr i [Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
-                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1);
+                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
@@ -343,9 +442,9 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
               }
 
             | [(Plus subr label) as item, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 1 None subr i [Item item loopIndex, ...path] 0;
+                let (i', subchildren, errs) = greedy loop 1 None subr i [Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
-                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1);
+                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
@@ -353,9 +452,9 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
               }
 
             | [(Optional subr label) as item, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [Item item loopIndex, ...path] 0;
+                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
-                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1);
+                  let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
@@ -367,7 +466,7 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
         ;
 
         let subPath = numChoices === 1 ? path : [Choice choiceIndex sub_name, ...path];
-        let (i', children, err) = loop i rs subPath 0;
+        let (i', children, err) = loop i rs subPath 0 isNegated;
         let errs = mergeErrs prevErrors err;
         if (i' >= i) {
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
@@ -396,7 +495,7 @@ let initialState input => {
 let parse (grammar: PackTypes.grammar) start input => {
   let state = initialState input;
   /* TODO ignoringNewlines should be configurable? */
-  let (i, result, errs) = apply_rule grammar state start 0 false [];
+  let (i, result, errs) = apply_rule grammar state start 0 false false [];
   if (i == -1) {
     Failure None (0, errs)
   } else if (i < state.len) {

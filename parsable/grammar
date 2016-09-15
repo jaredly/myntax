@@ -1,3 +1,5 @@
+@lineComment(";")
+@blockComment("/*", "*/")
 Start = Rule*
 
 Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? Comment_eol
