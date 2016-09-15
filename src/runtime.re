@@ -367,6 +367,23 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
               }
             }
 
+            | [CommentEOL as item, ...rest] => {
+              let i' = skipLineComments i (unwrap grammar.lineComment) state.input state.len;
+              let i' = if (i' > i || i' >= state.len || String.get state.input i != '\n') {
+                i'
+              } else {
+                i' + 1
+              };
+              if (i' > i || i' >= state.len) {
+                let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
+                /* TODO collect comments */
+                (i'', children, rest_errs)
+              } else {
+                /* Printf.printf "No actual skippage %d %d \"%s\"\n" i i' (String.sub state.input i 10); */
+                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+              }
+            }
+
             | [(NonTerminal n label) as item, ...rest] => {
                 let (i', result, errs) = apply_rule grammar state n i ignoringNewlines isNegated [Item item loopIndex, ...path];
                 if (i' >= i) {
@@ -387,20 +404,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                     let (i'', children, err) = loop (i + slen) rest path (loopIndex + 1) isNegated; /* TODO line / col num */
                     (i'', [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children], err)
                   } else {
-                    if ((not isNegated) && target_string == "\n" && grammar.lineComment != None) {
-                      let line = unwrap grammar.lineComment;
-                      let i' = skipALineComment i line state.input state.len;
-                      if (i' == i) {
-                        (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
-                      } else {
-                        Printf.printf "skipped line from newline %d %d\n" i i';
-                        /** TODO code duplication :( **/
-                        let (i'', children, err) = loop i' rest path (loopIndex + 1) isNegated; /* TODO line / col num */
-                        (i'', [{label, start: i' - slen, cend: i', children: [], typ: Terminal sub}, ...children], err)
-                      }
-                    } else {
-                      (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
-                    };
+                    (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
                   }
                 }
               }

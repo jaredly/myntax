@@ -22,6 +22,7 @@ let module Parsing = {
     | Optional parsing (option string)  /* e? */
     | Any (option string) /* any */
     | EOF /* EOF */
+    | CommentEOL
     | Group (list parsing)  /* ( e ... ) */
     | Lookahead parsing  /* &e */
     | Not parsing        /* !e */
@@ -92,6 +93,7 @@ let module Result = {
       | Parsing.Plus _ label => "Plus"
       | Parsing.Optional _ label => "Optional"
       | Parsing.EOF => "End of Input"
+      | Parsing.CommentEOL => "Expected a newline (with optional comments)"
       | _ => "Unknown problem"
     }
   };

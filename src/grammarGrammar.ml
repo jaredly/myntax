@@ -37,7 +37,7 @@ let grammar = { lineComment = Some (";");
                       None));
                    (Terminal (")", None))]),
               None));
-           (NonTerminal ("Comment_eol", None))])
+           CommentEOL])
          ]
        });
     ("decarg",
@@ -60,8 +60,7 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit;
        choices =
        [("", "",
-         [(Optional (
-             (NonTerminal ("Comment_eol", None)), None));
+         [(Optional (CommentEOL, None));
            (Star (
               (NonTerminal ("Decorator",
                  Some ("decorators"))),
@@ -69,23 +68,22 @@ let grammar = { lineComment = Some (";");
            (NonTerminal ("ident", Some ("name")));
            (Terminal ("=", None));
            (NonTerminal ("Choice", Some ("choices")));
-           (NonTerminal ("Comment_eol", None))]);
+           CommentEOL]);
          ("", "",
-          [(Optional (
-              (NonTerminal ("Comment_eol", None)), None));
+          [(Optional (CommentEOL, None));
             (Star (
                (NonTerminal ("Decorator",
                   Some ("decorators"))),
                None));
             (NonTerminal ("ident", Some ("name")));
             (Terminal ("=", None));
-            (NonTerminal ("Comment_eol", None));
+            CommentEOL;
             (Plus (
                (Group
                   [(Terminal ("|", None));
                     (NonTerminal ("Choice",
                        Some ("choices")));
-                    (NonTerminal ("Comment_eol", None))]),
+                    CommentEOL]),
                None))
             ])
          ]
@@ -294,25 +292,6 @@ let grammar = { lineComment = Some (";");
              None))
            ])
          ]
-       });
-    ("Comment_eol",
-     { passThrough = false;
-       ignoreNewlines = Inherit;
-       choices =
-       [("", "", [(NonTerminal ("One_comment", None))])] });
-    ("One_comment",
-     { passThrough = false;
-       ignoreNewlines = Inherit;
-       choices =
-       [("", "",
-         [(Plus (
-             (Group
-                [(Terminal (";", None));
-                  (NonTerminal ("rest_of_line", None));
-                  (NonTerminal ("eee", None))]),
-             None))
-           ]);
-         ("", "", [(NonTerminal ("eee", None))])]
        });
     ("eol",
      { passThrough = false;

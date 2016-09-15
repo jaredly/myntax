@@ -136,6 +136,8 @@ and parseInner maybeName inner => {
             P.Any name
           } else if (contents == "EOF") {
             P.EOF
+          } else if (contents == "__comment_eol") {
+            P.CommentEOL
           } else {
             P.NonTerminal contents name
           }

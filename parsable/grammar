@@ -2,7 +2,7 @@
 @blockComment("/*", "*/")
 Start = Rule*
 
-Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? Comment_eol
+Decorator = "@" [name]ident ("(" ([args]decarg ",")* [args]decarg? ")")? __comment_eol
 
 decarg =
   | bool -- bool
@@ -14,8 +14,8 @@ bool =
   | "false"
 
 Rule =
-  | Comment_eol? [decorators]Decorator* [name]ident "=" [choices]Choice Comment_eol
-  | Comment_eol? [decorators]Decorator* [name]ident "=" Comment_eol ("|" [choices]Choice Comment_eol)+
+  | __comment_eol? [decorators]Decorator* [name]ident "=" [choices]Choice __comment_eol
+  | __comment_eol? [decorators]Decorator* [name]ident "=" __comment_eol ("|" [choices]Choice __comment_eol)+
 
 Choice = [children]Item+ (
   "--" [name]ident
@@ -71,12 +71,6 @@ number =
 digit = '0..9'
 
 rest_of_line = (~"\n" any)*
-
-Comment_eol = One_comment
-
-One_comment =
-  | (";" rest_of_line eee)+
-  | eee
 
 eol = white* eee
 eee =
