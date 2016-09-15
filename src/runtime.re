@@ -23,13 +23,6 @@ and head = {
 exception Found ans;
 
 let emptyResult pos name isLexical => (R.Leaf (name, "") "" (pos, pos), false);
- /* {
-  R.start: pos,
-  cend: pos,
-  typ: isLexical ? Lexical (name, "", 0) "" false : Nonlexical (name, "", 0) false,
-  label: None,
-  children: [],
-}; */
 
 type state = {
   mutable lrstack: list lr,
@@ -315,9 +308,9 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
     };
   let wasIgnoringNewlines = ignoringNewlines;
   let ignoringNewlines = switch (ignoreNewlines, ignoringNewlines) {
-    | (Inherit, x) => x
-    | (No, _) => false
-    | (Yes, _) => true
+    | (P.Inherit, x) => x
+    | (P.No, _) => false
+    | (P.Yes, _) => true
   };
   let numChoices = List.length choices;
   /* Try each choice in turn until one matches. */
@@ -362,7 +355,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
 
             | [P.Group g, ...rest] => loop i (List.concat [g, rest]) path loopIndex isNegated
             | [P.Not p, ...rest] => {
-              let (i', _, err) = loop i [p] [RP.Item (Not p) loopIndex, ...path] 0 (not isNegated);
+              let (i', _, err) = loop i [p] [RP.Item (P.Not p) loopIndex, ...path] 0 (not isNegated);
               if (i' >= i) {
                 (-1, [], err)
               } else {
@@ -371,12 +364,12 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
             }
 
             | [P.CommentEOL as item, ...rest] => {
-              let i' = skipLineComments i (unwrap grammar.lineComment) state.input state.len;
+              let i' = skipLineComments i (unwrap grammar.P.lineComment) state.input state.len;
               let i' = if (i' > i || i' >= state.len || String.get state.input i != '\n') {
                 i'
               } else {
                 let i' = skipWhite i' state.input state.len true;
-                let i' = skipLineComments i' (unwrap grammar.lineComment) state.input state.len;
+                let i' = skipLineComments i' (unwrap grammar.P.lineComment) state.input state.len;
                 i'
                 /* i' + 1 */
               };
@@ -395,8 +388,8 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 if (i' >= i) {
                   let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   let children = passThrough ? (switch result {
-                    | Node _ subchildren _ => List.concat [subchildren, children]
-                    | Leaf _ => failwith "Passthrough can't have a leaf node"
+                    | R.Node _ subchildren _ => List.concat [subchildren, children]
+                    | R.Leaf _ => failwith "Passthrough can't have a leaf node"
                   }) : [(label |> optOr "", result), ...children];
                   (i'', children, mergeErrs errs rest_errs)
                 } else {
@@ -440,7 +433,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
               if (i >= state.len) {
                 (i, [], (-1, [])) /* TODO should I have a leaf here? */
               } else {
-                (-1, [], (i, [(true, [RP.Item EOF loopIndex, ...path])]))
+                (-1, [], (i, [(true, [RP.Item P.EOF loopIndex, ...path])]))
               }
             }
 
@@ -490,8 +483,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
               }
             | [] => (i, [], (-1, []))
           }
-        }
-        ;
+        };
 
         let subPath = numChoices === 1 ? path : [RP.Choice choiceIndex sub_name, ...path];
         let (i', children, err) = loop i rs subPath 0 isNegated;
