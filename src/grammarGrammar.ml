@@ -50,7 +50,7 @@ let grammar = { lineComment = Some (";");
        });
     ("bool",
      { passThrough = false;
-       ignoreNewlines = Inherit; leaf = false;
+       ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "", [(Terminal ("true", None))]);
          ("", "", [(Terminal ("false", None))])]
@@ -182,7 +182,7 @@ let grammar = { lineComment = Some (";");
        });
     ("single",
      { passThrough = false;
-       ignoreNewlines = Inherit; leaf = false;
+       ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
          [(Terminal ("\\", None));
@@ -195,7 +195,7 @@ let grammar = { lineComment = Some (";");
        });
     ("string",
      { passThrough = false;
-       ignoreNewlines = Inherit; leaf = false;
+       ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
          [(Terminal ("\"", None));
@@ -236,7 +236,7 @@ let grammar = { lineComment = Some (";");
        });
     ("ident",
      { passThrough = false;
-       ignoreNewlines = Inherit; leaf = false;
+       ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
          [(Not
@@ -257,7 +257,7 @@ let grammar = { lineComment = Some (";");
        });
     ("number",
      { passThrough = false;
-       ignoreNewlines = Inherit; leaf = false;
+       ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
          [(Terminal ("0", None));

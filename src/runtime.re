@@ -478,6 +478,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
         let (i', children, err) = loop i rs subPath 0 isNegated;
         let errs = mergeErrs prevErrors err;
         if (i' >= i) {
+          let children = leaf ? [] : children;
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
           let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex) (String.sub state.input i (i' - i)) passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough;
           (i', {start: i, cend: i', children, label: None, typ}, errs)

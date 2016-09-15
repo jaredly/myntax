@@ -74,6 +74,25 @@ type toOcaml = {
   /* binding: converter => result => value_binding, */
 };
 
+let nonLex typ children => {typ, children, label: None, start: 0, cend: 0};
+
+let module ReasonOfOcaml = {
+  let fromOcaml = {
+  };
+
+  let rec convertPattern pattern => {
+    switch pattern.ppat_desc {
+      | Ppat_var {txt, _} => {
+        nonLex (Nonlexical ("Pattern", "ident", 0) false) [nonLex ( Lexical ("", "", 0) txt false) []]
+      }
+      | Ppat_tuple items => {
+        nonLex (Nonlexical ("Pattern", "tuple", 0) false) (List.map convertPattern items)
+      }
+      | _ => failwith "fail"
+    }
+  }
+};
+
 let rec parsePattern result => {
   switch (result) {
     | {typ: Nonlexical (_, "ident", _) _, children: [{typ: Lexical _ contents _, _}], _} => {

@@ -58,25 +58,33 @@ let unwrapOr a b => {
 };
 
 let module Result = {
-  type resultType =
+  /* type resultType =
     | Terminal string
     | Lexical (string, string, int) string bool
-    | Nonlexical (string, string, int) bool [@@deriving (yojson, show)];
+    | Nonlexical (string, string, int) bool [@@deriving (yojson, show)]; */
 
-  let resultTypeDescription rt => switch rt {
+  type rule = (string, string) [@@deriving (yojson, show)];
+  type loc = (int, int) [@@deriving (yojson, show)];
+  type result =
+    | Leaf rule string loc
+    | Node rule (list (string, result)) loc /* label, child */
+  [@@deriving (yojson, show)]
+  ;
+
+  /* let resultTypeDescription rt => switch rt {
     | Terminal s => "Terminal(" ^ s ^ ")"
     | Lexical (name, sub, index) text passThrough => "Lexical(" ^ name ^ "," ^ text ^ "," ^ (string_of_int index) ^ ")"
     | Nonlexical (name, sub, index) passThrough => "Nonlexical(" ^ name ^ "," ^ (string_of_int index) ^ ")"
-  };
+  }; */
 
-  type result = {
+  /* type result = {
     start: int,
     cend: int,
     typ: resultType,
     label: option string,
     children: list result,
   } [@@deriving (yojson, show)];
-
+ */
   type pathItem =
     | Item Parsing.parsing int
     | Iter int
@@ -166,5 +174,5 @@ let module Result = {
   };
 };
 
-include Parsing;
-include Result;
+/* include Parsing; */
+/* include Result; */

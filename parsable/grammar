@@ -75,6 +75,7 @@ number =
   | ~"0" digit+ ~identchar
 digit = '0..9'
 
+@leaf
 rest_of_line = (~"\n" any)*
 
 eol = white* eee

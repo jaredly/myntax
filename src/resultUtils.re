@@ -2,91 +2,149 @@
 open PackTypes.Result;
 let module P = PackTypes.Parsing;
 
-let optOr a b => {
-  switch a {
-    | Some a => a
-    | None => b
-  };
-};
-
-let rec getChildByType children needle => {
+let rec getChild children mapper => {
   switch children {
-    | [{typ: Nonlexical (base, sub, _) _, _} as child, ...rest]
-    | [{typ: Lexical (base, sub, _) _ _, _} as child, ...rest] when base == needle => Some child
-    | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
-      switch (getChildByType child.children needle) {
-        | Some x => Some x
-        | None => getChildByType rest needle
+    | [] => None
+    | [child, ...rest] => {
+      switch (mapper child) {
+        | None => getChild rest mapper
+        | x => x
       }
     }
-    | [_, ...rest] => getChildByType rest needle
-    | [] => None
   }
 };
 
-let rec getChildrenByType children needle => {
-  /* print_endline ("Getting children " ^ needle); */
+let rec getChildren children mapper => {
   switch children {
-    | [{typ: Nonlexical (base, sub, _) _, _} as child, ...rest]
-    | [{typ: Lexical (base, sub, _) _ _, _} as child, ...rest] when base == needle => [child, ...(getChildrenByType rest needle)]
-    | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
-      List.concat [(getChildrenByType child.children needle), getChildrenByType rest needle]
-    }
-    | [_, ...rest] => getChildrenByType rest needle
     | [] => []
-  }
-};
-
-let rec getChild children needle => {
-  switch children {
-    | [{label: Some label, _} as child, ..._] when label == needle => Some child
-    | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
-      switch (getChild child.children needle) {
-        | Some x => Some x
-        | None => getChild rest needle
+    | [child, ...rest] => {
+      switch (mapper child) {
+        | None => getChildren rest mapper
+        | Some x => [x, ...(getChildren rest mapper)]
       }
     }
-    | [_, ...rest] => getChild rest needle
-    | [] => None
   }
 };
 
-let rec getChildren children needle => {
-  /* print_endline ("Getting children " ^ needle); */
-  switch children {
-    | [{label: Some label, _} as child, ...rest] when label == needle => [child, ...(getChildren rest needle)]
-    | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
-      List.concat [(getChildren child.children needle), getChildren rest needle]
+let getContentsByLabel children needle => {
+  getChild children (fun (label, child) => {
+    if (needle != label) {
+      None
+    } else {
+      switch child {
+        | Leaf _ contents _ => Some contents
+        | Node _ => failwith "expected a leaf"
+      }
     }
-    | [_, ...rest] => getChildren rest needle
+  })
+};
+
+let getContentsByType children needle => {
+  getChild children (fun child => {
+    switch child {
+      | (_, Leaf (name, _) contents _) when name == needle => Some contents
+      | (_, Node (name, _) _ _) when name == needle => failwith "expected a leaf"
+      | _ => None
+    }
+  })
+};
+
+let rec getPresence children mapper => {
+  switch children {
+    | [] => false
+    | [child, ...rest] => {
+      switch (mapper child) {
+        | false => getPresence rest mapper
+        | x => x
+      }
+    }
+  }
+};
+
+let getPresenceByLabel children needle => {
+  getPresence children (fun child => {
+    switch child {
+      | (name, _) when name == needle => true
+      | _ => false
+    }
+  })
+};
+
+let getPresenceByType children needle => {
+  getPresence children (fun child => {
+    switch child {
+      | (_, Leaf (name, _) _ _)
+      | (_, Node (name, _) _ _) when name == needle => true
+      | _ => false
+    }
+  })
+};
+
+let getNodeByType children needle => {
+  getChild children (fun (label, child) => {
+    switch child {
+      | Node (name, sub) children loc when name == label => Some ((name, sub), children, loc)
+      | _ => None
+    }
+  })
+};
+
+let getNodeByLabel children needle => {
+  getChild children (fun (label, child) => {
+    if (label == needle) {
+      switch child {
+        | Node rule children loc => Some (rule, children, loc)
+        | Leaf _ => failwith ("Expected node for label " ^ needle)
+      }
+    } else {
+      None
+    }
+  })
+};
+
+let getLeafByType children needle => {
+  getChild children (fun (label, child) => {
+    switch child {
+      | Leaf (name, sub) contents loc when name == label => Some ((name, sub), contents, loc)
+      | _ => None
+    }
+  })
+};
+
+/*
+let rec getChild children mapper => {
+  switch children {
+    | [] => None
+    | [child, ...rest] => {
+      switch (mapper child) {
+        | None => switch child {
+          | (_, Leaf _) => getChild rest mapper
+          | (_, Node _ children _) => switch (getChild children mapper) {
+            | None => getChild rest mapper
+            | x => x
+          }
+        }
+        | x => x
+      }
+    }
+  }
+};
+
+let rec getChildren children mapper => {
+  switch children {
     | [] => []
+    | [child, ...rest] => {
+      switch (mapper child) {
+        | None => switch child {
+          | (_, Leaf _) => getChildren rest mapper
+          | (_, Node _ children _) => List.concat [getChildren children mapper, getChildren rest mapper]
+        }
+        | Some x => [x, ...(getChildren rest mapper)]
+      }
+    }
   }
 };
-
-let getContents result => {
-  switch result.typ {
-    | Lexical name contents passThrough => contents
-    | _ => failwith "Not a lexical"
-  }
-};
-
-let contentsOrEmpty node => {
-  switch node {
-    | None => ""
-    | Some x => getContents x
-  };
-};
-
-let maybeContents node => {
-  switch node {
-    | None => None
-    | Some x => Some (getContents x)
-  }
-};
+ */
 
 let unescapeString x => {
   let contents = String.sub x 1 (String.length x - 2);
