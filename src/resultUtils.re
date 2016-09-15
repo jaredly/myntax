@@ -83,8 +83,30 @@ let getPresenceByType children needle => {
 let getNodeByType children needle => {
   getChild children (fun (label, child) => {
     switch child {
-      | Node (name, sub) children loc when name == label => Some ((name, sub), children, loc)
+      | Node (name, sub) children loc when name == needle => Some (sub, children, loc)
       | _ => None
+    }
+  })
+};
+
+let getNodesByType children needle nodeMapper => {
+  getChildren children (fun (label, child) => {
+    switch child {
+      | Node (name, sub) children loc when name == needle => Some (nodeMapper (sub, children, loc))
+      | _ => None
+    }
+  })
+};
+
+let getNodesByLabel children needle nodeMapper => {
+  getChildren children (fun (label, child) => {
+    if (label == needle) {
+      switch child {
+        | Node (name, sub) children loc => Some (nodeMapper (sub, children, loc))
+        | _ => None
+      }
+    } else {
+      None
     }
   })
 };
@@ -105,7 +127,7 @@ let getNodeByLabel children needle => {
 let getLeafByType children needle => {
   getChild children (fun (label, child) => {
     switch child {
-      | Leaf (name, sub) contents loc when name == label => Some ((name, sub), contents, loc)
+      | Leaf (name, sub) contents loc when name == needle => Some ((name, sub), contents, loc)
       | _ => None
     }
   })

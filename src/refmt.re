@@ -20,7 +20,7 @@ let printImpl implementation => {
 let start = Unix.gettimeofday();
 let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
   | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
-    print_string (PackTypes.Result.genErrorText grammarRaw failure);
+    print_string (PackTypes.Error.genErrorText grammarRaw failure);
     failwith "Unable to parse grammar"
   }
   | PackTypes.Result.Success result => {
@@ -43,7 +43,7 @@ switch (Runtime.parse grammar "Start" contents) {
       | Some result => Json.result_to_string result |> print_endline
       | None => ()
     }; */
-    print_string (PackTypes.Result.genErrorText contents failure);
+    print_string (PackTypes.Error.genErrorText contents failure);
     exit 1;
   }
   | PackTypes.Result.Success result => {
@@ -51,7 +51,14 @@ switch (Runtime.parse grammar "Start" contents) {
     switch printType {
       | Bin => out_binary (OcamlOfReason.convert result);
       | Debug => printImpl (OcamlOfReason.convert result);
-      | Pretty => print_endline (PrettyPrint.toString grammar result);
+      | Pretty => {
+      /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
+        /* failwith "no impl" */
+        switch (PrettyPrint.toString grammar result) {
+          | Some x => print_endline x
+          | None => failwith "Failed to pretty print :("
+        }
+      }
     }
     /* Json.result_to_string result |> print_endline; */
   }

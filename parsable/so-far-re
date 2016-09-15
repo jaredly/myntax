@@ -13,7 +13,7 @@ ModuleDesc =
 
 @passThrough
 @ignoreNewlines(false)
-ModuleBody = __comment_eol? ([structure]Structure __comment_eol)* [structure]Structure? __comment_eol?
+ModuleBody = __comment_eol? ([structure]Structure __comment_eol)*
 
 Structure =
   | "let" "module" capIdent "=" ModuleDesc -- let_module
@@ -136,7 +136,7 @@ Attribute = "[@@" lowerIdent Expr? "]"
 @ignoreNewlines(false)
 Statement =
   | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
-  | "let" "module" capIdent "=" "{" ModuleBody "}"
+  | "let" "module" capIdent "=" ModuleDesc
   | "import" "*" "from" longCap
   | Expression
 
@@ -191,7 +191,7 @@ SwitchCase = "case" MatchPattern ("with" [guard]Expression)? ":" "\n"* Expressio
 TryExp = "try" Block "catch" SwitchBody
 
 FunExpr =
-  | "(" "\n"* (Arg "," "\n"?)* Arg? "\n"* ")" "=>" Expression
+  | "(" ValueArgs ")" "=>" Expression
   | Arg "=>" Expression
 
 @ignoreNewlines(true)
@@ -225,9 +225,9 @@ FnArg =
   | Expression
 
 constant =
-  | int64 -- int
-  | string -- string
-  | char -- char
+  | [val]int64 -- int
+  | [val]string -- string
+  | [val]char -- char
 
 @leaf
 capIdent = ~reserved 'A..Z' identchar*
