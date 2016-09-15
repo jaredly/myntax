@@ -6,6 +6,7 @@ let module X = {
   10
   220
 }
+import * from PackTypes.Parsing
 let z = {z}
 let z = {z,}
 let z = {
@@ -13,10 +14,11 @@ let z = {
   hi: 10,
   ho: 20,
   me: {mo, more, evenmore,},
-  ratherlongnamehere,
+  P.ratherlongnamehere,
   howlongdowehavetogo,
 }
 
+let m = a.B.c
 let m x => 10 // TODO short let
 
 let m n => {

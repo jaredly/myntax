@@ -69,7 +69,6 @@ let rec parseLongIdent (_, children, _) => {
   let rec loop leafs current => switch leafs {
     | [contents, ...rest] => loop rest (Ldot current contents)
     | [] => current
-    | _ => failwith "invalid longcap"
   };
   switch leafs {
     | [leftMost, ...rest] => {
@@ -95,23 +94,56 @@ let fromLongIdent longident => {
   Node ("longIdent", "") (fromIdents longident []) mLoc;
 };
 
-let parseLongCap children => {
+let _parseLongCap children => {
   let leafs = RU.getChildren children (fun (_, child) => {
     switch child {
       | Leaf ("capIdent", _) contents _ => Some contents
       | _ => None
     }
   });
-  let rec loop leafs => switch leafs {
+  /* let rec loop leafs => switch leafs {
     | [contents] => Lident contents
     | [contents, ...rest] => Ldot (loop rest) contents
     | _ => failwith "invalid longcap"
+  }; */
+  let rec loop leafs current => switch leafs {
+    | [contents, ...rest] => loop rest (Ldot current contents)
+    | [] => current
   };
-  loop leafs
+  switch leafs {
+    | [leftMost, ...rest] => {
+      loop rest (Lident leftMost)
+    }
+    | [] => failwith "empty longident"
+  }
+  /* loop leafs */
+};
+
+let rec parseLongCap_ (sub, children, _) => {
+  switch sub {
+    | "lident" => Lident (RU.getContentsByType children "capIdent" |> unwrap)
+    | "dot" => Ldot (RU.getNodeByType children "longCap_" |> unwrap |> parseLongCap_) (RU.getContentsByType children "capIdent" |> unwrap)
+    | _ => failwith ("Invalid longCap_ sub " ^ sub)
+  }
+};
+
+let parseLongCap (_, children, _) => {
+  RU.getNodeByType children "longCap_" |> unwrap |> parseLongCap_
+};
+
+let rec fromLongCap_ longident => {
+  /* Node ("longCap", "") (fromIdents longident []) mLoc; */
+  switch longident {
+    /* TODO lower vs caps */
+    | Lident x => Node ("longCap_", "lident") [("", Leaf ("capIdent", "") x mLoc)] mLoc
+    | Ldot a b => Node ("longCap_", "dot") [("", fromLongCap_ a), ("", Leaf ("capIdent", "") b mLoc)] mLoc
+    | Lapply a b => failwith "long cap can't have an lapply"
+    /* List.concat [(fromIdents a []), (fromIdents b [])] */
+  }
 };
 
 let fromLongCap longident => {
-  Node ("longCap", "") (fromIdents longident []) mLoc;
+  Node ("longCap", "") [("", fromLongCap_ longident)] mLoc
 };
 
 let nodeWrap rulename (sub, children, loc) => Node (rulename, sub) children loc;
@@ -208,32 +240,6 @@ let rec parsePattern toOcaml (sub, children, loc) => {
   }
 };
 
-/* let makeFunction toOcaml args expr => {
-  List.fold_left
-  (fun expr arg => {
-    switch arg {
-      | {typ: Nonlexical (_, "anon", _) _, children, _} => {
-        H.Exp.fun_ "" None (parsePattern (unwrap (getChildByType children "Pattern"))) expr
-      }
-      | {typ: Nonlexical (_, "punned", _) _, children, _} => {
-        let name = getChildByType children "ident" |> unwrap |> getContents;
-        let pat = H.Pat.var (Location.mkloc name loc);
-        let (name, value) = parseArgValue toOcaml name (getChildByType children "ArgValue");
-        H.Exp.fun_ name value pat expr
-      }
-      | {typ: Nonlexical (_, "named", _) _, children, _} => {
-        let name = getChildByType children "ident" |> unwrap |> getContents;
-        let pat = getChildByType children "Pattern" |> unwrap |> parsePattern;
-        let (name, value) = parseArgValue toOcaml name (getChildByType children "ArgValue");
-        H.Exp.fun_ name value pat expr
-      }
-      | _ => failwith "unso"
-    }
-  })
-  (parseExpression toOcaml expr)
-  args
-}; */
-
 let parseModuleDesc toOcaml (sub, children, loc) => {
   /* RU.getChildren children (convertStructures toOcaml) */
   switch sub {
@@ -241,8 +247,8 @@ let parseModuleDesc toOcaml (sub, children, loc) => {
       Pmod_structure (RU.getNodesByType children "Structure" (toOcaml.structure toOcaml));
     }
     | "ident" => {
-      let (_, children, loc) = RU.getNodeByLabel children "ident" |> unwrap;
-      Pmod_ident (Location.mkloc (parseLongCap children) (ocamlLoc loc))
+      let ident = RU.getNodeByLabel children "ident" |> unwrap |> parseLongCap;
+      Pmod_ident (Location.mkloc ident (ocamlLoc loc))
     }
     | _ => failwith "not impl"
   }
@@ -406,6 +412,12 @@ let parseStructure toOcaml (sub, children, loc) => {
     | "type" => {
       H.Str.type_ (RU.getNodesByType children "TypeDeclaration" (parseTypeDeclaration toOcaml))
     }
+    | "open" => H.Str.open_ {
+      popen_lid: (Location.mkloc (RU.getNodeByType children "longCap" |> unwrap |> parseLongCap) oloc),
+      popen_override: Fresh,
+      popen_loc: oloc,
+      popen_attributes: [],
+    }
     | _ => failwith ("Unknown structure type - " ^ sub)
   }
 };
@@ -424,6 +436,9 @@ let fromStructure fromOcaml structure => {
       Node ("Structure", "let_module")
       [("", Leaf ("capIdent", "") txt mLoc), ("", fromModuleDesc fromOcaml pmod_desc)]
       mLoc
+    }
+    | Pstr_open {popen_lid, _} => {
+      Node ("Structure", "open") [("", fromLongCap popen_lid.txt)] mLoc
     }
     /* TODO let_module, type */
     | _ => failwith "no parse structure"
@@ -650,11 +665,11 @@ let fromOcaml = {
 
 let convert result => {
   switch result {
-    | Node ("Start", _) children _ => RU.getNodesByLabel children "structure" (toOcaml.structure toOcaml)
+    | Node ("Start", _) children _ => RU.getNodesByType children "Structure" (toOcaml.structure toOcaml)
     | _ => failwith ""
   }
 };
 
 let convertFrom structures => {
-  Node ("Start", "") (List.map (labeled "structure" (fromOcaml.fromStructure fromOcaml)) structures) (0, 0)
+  Node ("Start", "") (List.map (labeled "" (fromOcaml.fromStructure fromOcaml)) structures) (0, 0)
 };

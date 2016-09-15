@@ -82,10 +82,14 @@ let getPresenceByType children needle => {
 
 let getNodeByType children needle => {
   getChild children (fun (label, child) => {
+    if (label != "") {
+      None
+    } else {
     switch child {
       | Node (name, sub) children loc when name == needle => Some (sub, children, loc)
       | _ => None
     }
+  }
   })
 };
 

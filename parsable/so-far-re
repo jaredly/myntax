@@ -13,7 +13,7 @@ ModuleDesc =
 
 @passThrough
 @ignoreNewlines(false)
-ModuleBody = EOL? ([structure]Structure EOL)*
+ModuleBody = EOL? (Structure EOL)*
 
 Structure =
   | "let" "module" capIdent "=" ModuleDesc -- let_module
@@ -26,7 +26,7 @@ Structure =
   | "include" "*" "from" longCap -- include
   | "[@@@"& lowerIdent &"]" -- attribute
   | "[%%"& lowerIdent &"]" -- extension
-  | [expr]Expression [attrs]Attribute* -- eval
+  | Expression Attribute* -- eval
   ; class, class type
   ; typeext
   ; external "primitive"
@@ -138,11 +138,11 @@ Expression =
   | SwitchExp -- switch
   | TryExp -- try
   | "("& TupleBody &")" -- tuple
-  | "`"&? longCap (&"("& Commas &")")? -- constructor
   | "[|"& (Expression &",")* Expression? &"|]" -- list
   | Block -- block
   | "{"& RecordBody &"}" -- record
   | "["& (Expression &",")* Expression? &"]" -- list
+  | "`"&? longCap (&"("& Commas &")")? -- constructor
   | Expression &"."& longIdent "=" Expression -- set_attr
   | Expression &"."& longIdent -- get_attr
   | Expression "?" Expression ":" Expression -- ternary
@@ -215,7 +215,11 @@ binOp =
   | "==="
 
 longIdent = (capIdent ".")* lowerIdent
-longCap = (capIdent ".")* capIdent ~"."
+longCap = longCap_ ~"."
+
+longCap_ =
+  | longCap_ "." capIdent -- dot
+  | capIdent -- lident
 
 Commas = (Expression &",")* Expression?
 FnArg =
@@ -267,6 +271,9 @@ reserved =
   | "import"
   | "try"
   | "catch"
+  | "from"
 
-alpha = 'a..z'
+alpha =
+  | 'a..z'
+  | 'A..Z'
 digit = '0..9'

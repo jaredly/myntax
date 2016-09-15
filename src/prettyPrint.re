@@ -417,7 +417,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
   let (success, res, unused) = (loop ignoringNewlines items children);
   switch unused {
     | [] => Some (switch res {
-      | [EOL] => Output.NoSpace /* suppress orphan EOLs */
+      | [Output.EOL] => Output.NoSpace /* suppress orphan EOLs */
       | [sub] => sub
       | _ => if (isLexical) {
           Output.Lexical res
