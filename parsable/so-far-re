@@ -142,22 +142,22 @@ Statement =
   | Expression -- expr
 
 Expression =
-  | Block
-  | BinExp
+  | BinExp -- binexp
   | Application -- application
   | FunExpr -- funexpr
-  | SwitchExp
-  | TryExp
+  | SwitchExp -- switch
+  | TryExp -- try
   | "("& TupleBody &")" -- tuple
   | "`"&? longCap (&"("& Commas &")")? -- constructor
-  | "{"& RecordBody &"}" -- record
   | "[|"& (Expression &",")* Expression? &"|]" -- list
+  | "{"& RecordBody &"}" -- record
+  | Block -- block
   | "["& (Expression &",")* Expression? &"]" -- list
   | Expression &"."& longIdent "=" Expression -- set_attr
   | Expression &"."& longIdent -- get_attr
   | Expression "?" Expression ":" Expression -- ternary
   | "while" Expression Block -- while
-  | "for" -- for ; maybe ditch?
+  ; | "for" -- for ; maybe ditch?
   | "new" longIdent -- new
   | Expression &"#"& lowerIdent -- send
   | lowerIdent "=" Expression -- instance_var

@@ -230,10 +230,13 @@ let makeStraightWithEOLs res => {
     }
   };
   let res = loop res;
-  switch res {
+  let result = switch res {
     | [items] => Output.Straight items
+    | [] => Output.Straight []
     | _ => Output.Newlined (List.map (fun x => Output.Straight x) res)
-  }
+  };
+  /* print_endline (Output.show_outputT result); */
+  result
 };
 
 let rec resultToOutput: bool => grammar => result => option Output.outputT = fun ignoringNewlines grammar result => {
@@ -410,6 +413,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
   let (success, res, unused) = (loop ignoringNewlines items children);
   switch unused {
     | [] => Some (switch res {
+      | [EOL] => Output.NoSpace /* suppress orphan EOLs */
       | [sub] => sub
       | _ => if (isLexical) {
           Output.Lexical res

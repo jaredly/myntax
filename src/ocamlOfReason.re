@@ -7,13 +7,8 @@ open Location;
 open Lexing;
 open Asttypes;
 let module H = Ast_helper;
-let unwrap = ResultUtils.unwrap;
-/* let getChildByType = ResultUtils.getChildByType;
-let getChildrenByType = ResultUtils.getChildrenByType;
-let getChild = ResultUtils.getChild;
-let getChildren = ResultUtils.getChildren;
-let getContents = ResultUtils.getContents; */
 let module RU = ResultUtils;
+let unwrap = ResultUtils.unwrap;
 
 let loc = !H.default_loc;
 let str = H.Str.eval (H.Exp.array []);
@@ -25,19 +20,21 @@ type fromOcaml = {
   fromExpression: fromOcaml => expression => result,
 };
 
-let mLoc = (0, 0);
-let mLeaf = Leaf ("", "") "" mLoc;
-
 type toOcaml = {
   expression: toOcaml => (string, list (string, result), loc) => expression,
   structure: toOcaml => (string, list (string, result), loc) => structure_item,
 };
+
+let mLoc = (0, 0);
+let mLeaf = Leaf ("", "") "" mLoc;
 
 let isPresent opt => switch opt { | Some _ => true | None => false };
 
 let stripQuotes str => {
   String.sub str 1 (String.length str - 2)
 };
+
+let isLower x => (Char.uppercase (String.get x 0)) != (String.get x 0);
 
 /** LEXICAL THINGS **/
 let processString str => {
@@ -67,16 +64,17 @@ let rec parseLongIdent (_, children, _) => {
   loop leafs
 };
 
+let rec fromIdents longident coll => {
+  switch longident {
+    /* TODO lower vs caps */
+    | Lident x => [("", Leaf (isLower x ? "lowerIdent" : "capIdent", "") x mLoc), ...coll]
+    | Ldot a b => fromIdents a [("", Leaf (isLower b ? "lowerIdent" : "capIdent", "") b mLoc)]
+    | Lapply a b => List.concat [(fromIdents a []), (fromIdents b [])]
+  }
+};
+
 let fromLongIdent longident => {
-  let rec loop ident coll => {
-    switch longident {
-      /* TODO lower vs caps */
-      | Lident x => [("", Leaf ("lowerIdent", "") x mLoc), ...coll]
-      | Ldot a b => loop a [("", Leaf ("lowerIdent", "") b mLoc)]
-      | Lapply a b => List.concat [(loop a []), (loop b [])]
-    }
-  };
-  loop longident [];
+  Node ("longIdent", "") (fromIdents longident []) mLoc;
 };
 
 let parseLongCap children => {
@@ -94,6 +92,13 @@ let parseLongCap children => {
   loop leafs
 };
 
+let fromCapIdent longident => {
+  Node ("capIdent", "") (fromIdents longident []) mLoc;
+};
+
+let nodeWrap rulename (sub, children, loc) => Node (rulename, sub) children loc;
+let escapeString text => "\"" ^ (String.escaped text) ^ "\"";
+
 let parseConstant (sub, children, loc) => {
   let contents = RU.getContentsByLabel children "val" |> unwrap;
   switch sub {
@@ -105,86 +110,28 @@ let parseConstant (sub, children, loc) => {
   }
 };
 
-let nodeWrap rulename (sub, children, loc) => Node (rulename, sub) children loc;
-
-let escapeString text => "\"" ^ (String.escaped text) ^ "\"";
-
 let fromConstant constant => {
   switch constant {
     | Const_int value => ("int", [("", Leaf ("int64", "") (string_of_int value) mLoc)], mLoc)
     | Const_string text multi => ("string", [("", Leaf ("string", "") (escapeString text) mLoc)], mLoc)
+    | Const_float text => ("float", [("", Leaf ("float", "") text mLoc)], mLoc)
+    | Const_char chr => ("char", [("", Leaf ("char", "") (Printf.sprintf "'%c'" chr) mLoc)], mLoc)
     | _ => failwith "unsup const"
   }
-  /* let contents = RU.getContentsByLabel children "val" |> unwrap;
-  switch sub {
-    | "int" => Const_int (int_of_string contents)
-    | "string" => Const_string (processString contents) None /* TODO multiline string */
-    | "float" => Const_float contents
-    | "char" => Const_char (String.get (processString contents) 0)
-    | _ => failwith "nop"
-  } */
 };
-
-/* let parseConstant constant => {
-  switch (constant) {
-    | Lexical (_, "int", _) contents _ => Const_int (int_of_string contents)
-    | Lexical (_, "string", _) contents _ => Const_string (processString contents) None /* TODO multiline string */
-    | Lexical (_, "float", _) contents _ => Const_float contents
-    | Lexical (_, "char", _) contents _ => Const_char (String.get (processString contents) 0)
-    | _ => failwith "nop"
-  }
-};
-
-let parseLongCap longCap => {
-  let children = getChildrenByType longCap.children "capIdent";
-  let rec loop children =>
-  switch children {
-    | [{typ: Lexical _ contents _}] => Lident contents
-    | [{typ: Lexical _ contents _}, ...rest] => Ldot (loop rest) contents
-    | _ => failwith "invalid longcap"
-  };
-  loop children
-};
-
-let parseLongIdent ident => {
-  let children = getChildrenByType ident.children "capIdent";
-  let last = getChildByType ident.children "lowerIdent" |> unwrap |> getContents;
-  let rec loop children =>
-  switch children {
-    | [{typ: Lexical _ contents _}] => Lident contents
-    | [{typ: Lexical _ contents _}, ...rest] => Ldot (loop rest) contents
-    | _ => failwith "invalid longcap"
-  };
-  switch children {
-    | [] => Lident last
-    | _ => Ldot (loop children) last
-  }
-}; */
 
 let ocamlLoc loc => Location.none;
 
-/* let nonLex typ children => {typ, children, label: None, start: 0, cend: 0}; */
+let emptyLabeled fn x => ("", fn x);
 
-/* let module ReasonOfOcaml = {
-  let fromOcaml = {
-  };
-
-  let rec convertPattern pattern => {
-    switch pattern.ppat_desc {
-      | Ppat_var {txt, _} => {
-        nonLex (Nonlexical ("Pattern", "ident", 0) false) [nonLex ( Lexical ("", "", 0) txt false) []]
-      }
-      | Ppat_tuple items => {
-        nonLex (Nonlexical ("Pattern", "tuple", 0) false) (List.map convertPattern items)
-      }
-      | _ => failwith "fail"
-    }
-  }
-}; */
+let labeled label fn x => (label, fn x);
 
 let rec fromPattern {ppat_desc, _} => {
   switch ppat_desc {
     | Ppat_var {txt, _} => Node ("Pattern", "ident") [("", Leaf ("lowerIdent", "") txt mLoc)] mLoc
+    | Ppat_tuple items => {
+      Node ("Pattern", "tuple") (List.map (emptyLabeled fromPattern) items) mLoc
+    }
     | _ => failwith "nop pat"
   }
 };
@@ -478,7 +425,7 @@ let rec parseType (sub, children, loc) => {
   let oloc = ocamlLoc loc;
   switch sub {
     | "constructor" => {
-      let ident = RU.getNodeByType children "longident" |> unwrap |> parseLongIdent;
+      let ident = RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent;
       let types = RU.getNodesByType children "Type" parseType;
       H.Typ.constr (Location.mkloc ident oloc) types
     }
@@ -515,7 +462,7 @@ let parseStructure toOcaml (sub, children, loc) => {
 let fromStructure fromOcaml structure => {
   switch (structure.pstr_desc) {
     | Pstr_value recFlag valueBindings => {
-      let children = (List.map (fun x => ("", fromValueBinding fromOcaml x)) valueBindings);
+      let children = (List.map (emptyLabeled (fromValueBinding fromOcaml)) valueBindings);
       let children = recFlag == Recursive ? [("rec", mLeaf), ...children] : children;
       Node ("Structure", "value") children mLoc
     }
@@ -534,7 +481,7 @@ let parseExpression toOcaml (sub, children, loc) => {
       }
     }
     | "ident" => {
-      let ident = RU.getNodeByType children "longident" |> unwrap |> parseLongIdent;
+      let ident = RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent;
       H.Exp.ident (Location.mkloc ident oloc)
     }
     | "const" => {
@@ -551,7 +498,7 @@ let parseExpression toOcaml (sub, children, loc) => {
 
 let fromExpression fromOcaml {pexp_desc, _} => {
   switch pexp_desc {
-    | Pexp_ident {txt, _} => Node ("Expression", "ident") (fromLongIdent txt) mLoc
+    | Pexp_ident {txt, _} => Node ("Expression", "ident") [("", fromLongIdent txt)] mLoc
     | Pexp_constant constant => Node ("Expression", "const") [("", fromConstant constant |> nodeWrap "constant")] mLoc
     | _ => failwith "no exp"
   }
@@ -576,5 +523,5 @@ let convert result => {
 };
 
 let convertFrom structures => {
-  Node ("Start", "") (List.map (fun x => ("structure", fromOcaml.fromStructure fromOcaml x)) structures) (0, 0)
+  Node ("Start", "") (List.map (labeled "structure" (fromOcaml.fromStructure fromOcaml)) structures) (0, 0)
 };
