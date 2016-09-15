@@ -125,9 +125,8 @@ let convert (result: result) => {
       P.ignoreNewlines: newlines,
       P.choices: (List.map parseChoice choices),
     })
-  })
-  (List.hd result.children).children);
-  let firstDecorators = getChildren (List.hd (List.hd result.children).children).children "decorators";
+  }) result.children);
+  let firstDecorators = getChildren (List.hd result.children).children "decorators";
   let (lineComment, blockComment) = (List.fold_left
     (fun (lineComment, blockComment) decorator => {
       let {name, args} = parseDecorator decorator;

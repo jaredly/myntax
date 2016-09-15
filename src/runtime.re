@@ -436,31 +436,31 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
               }
 
-            | [(Star subr label) as item, ...rest] => {
+            | [(Star subr _) as item, ...rest] => {
                 let (i', subchildren, errs) = greedy loop 0 None subr i [Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
-                  (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
+                  (i'', List.concat [subchildren, children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
                 }
               }
 
-            | [(Plus subr label) as item, ...rest] => {
+            | [(Plus subr _) as item, ...rest] => {
                 let (i', subchildren, errs) = greedy loop 1 None subr i [Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
-                  (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
+                  (i'', List.concat [subchildren, children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
                 }
               }
 
-            | [(Optional subr label) as item, ...rest] => {
+            | [(Optional subr _) as item, ...rest] => {
                 let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
-                  (i'', [{label, start: i, cend: i', children: subchildren, typ: Iter}, ...children], mergeErrs errs more_errs)
+                  (i'', List.concat [subchildren, children], mergeErrs errs more_errs)
                 } else {
                   (-1, [], errs)
                 }

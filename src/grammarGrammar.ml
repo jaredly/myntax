@@ -60,21 +60,19 @@ let grammar = { lineComment = Some (";");
        ignoreNewlines = Inherit;
        choices =
        [("", "",
-         [(Optional (CommentEOL, None));
-           (Star (
-              (NonTerminal ("Decorator",
-                 Some ("decorators"))),
-              None));
+         [(Star (
+             (NonTerminal ("Decorator", Some ("decorators")
+                )),
+             None));
            (NonTerminal ("ident", Some ("name")));
            (Terminal ("=", None));
            (NonTerminal ("Choice", Some ("choices")));
            CommentEOL]);
          ("", "",
-          [(Optional (CommentEOL, None));
-            (Star (
-               (NonTerminal ("Decorator",
-                  Some ("decorators"))),
-               None));
+          [(Star (
+              (NonTerminal ("Decorator",
+                 Some ("decorators"))),
+              None));
             (NonTerminal ("ident", Some ("name")));
             (Terminal ("=", None));
             CommentEOL;
