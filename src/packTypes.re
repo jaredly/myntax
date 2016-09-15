@@ -1,6 +1,16 @@
 let module Parsing = {
-  type grammar = list production
-  and production = (string, list choice) /* rule name -> e1 | e2 | ... */
+  type ignoreWhitespace =
+    | Yes
+    | No
+    | Inherit [@@deriving show];
+  type grammar = list (string, rule) /* CommentChar */
+  and rule = {
+    passThrough: bool,
+    ignoreWhitespace: ignoreWhitespace,
+    choices: list choice
+  }
+   /* rule name -> e1 | e2 | ... */
+  /* -> add "pass-through" and "ignore-whitespace" */
   and choice = (string, string, list parsing) /* choice name, comment, sequence */
   and parsing =
     | Star parsing (option string)      /* e* */

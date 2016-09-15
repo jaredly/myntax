@@ -183,7 +183,11 @@ let convert (result: result) => {
     let name = getChild rule.children "name" |> unwrap |> getContents;
     /* print_endline ("Rule " ^ name); */
     let choices = getChildren rule.children "choices";
-    (name, List.map parseChoice choices)
+    (name, {
+      P.passThrough: false,
+      P.ignoreWhitespace: P.Inherit,
+      P.choices: (List.map parseChoice choices),
+    })
   })
   (List.hd result.children).children);
 };

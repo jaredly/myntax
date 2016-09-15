@@ -227,7 +227,7 @@ and grow_lr grammar state rulename i memoentry head isLexical path => {
 
 and parse grammar state rulename i isLexical path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
-  let choices =
+  let {ignoreWhitespace, choices, _} =
     try (List.assoc rulename grammar) {
     | Not_found =>
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
@@ -384,7 +384,7 @@ let initialState input => {
   input,
 };
 
-let parse grammar start input => {
+let parse (grammar: PackTypes.grammar) start input => {
   let state = initialState input;
   let (i, result, errs) = apply_rule grammar state start 0 [];
   if (i == -1) {
