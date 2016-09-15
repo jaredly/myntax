@@ -13,7 +13,7 @@ ModuleDesc =
 
 @passThrough
 @ignoreNewlines(false)
-ModuleBody = EOL? ([structure]&Structure EOL)*
+ModuleBody = EOL? ([structure]Structure EOL)*
 
 Structure =
   | "let" "module" capIdent "=" ModuleDesc -- let_module
@@ -137,20 +137,20 @@ Attribute = "[@@" lowerIdent Expr? "]"
 @ignoreNewlines(false)
 Statement =
   | "let" [rec]"rec"? ValueBinding (EOL "and" ValueBinding)* -- value
-  | "let" "module" capIdent "=" ModuleDesc
-  | "import" "*" "from" longCap
-  | Expression
+  | "let" "module" capIdent "=" ModuleDesc -- module
+  | "import" "*" "from" longCap -- import
+  | Expression -- expr
 
 Expression =
   | Block
   | BinExp
   | Application -- application
-  | FunExpr
+  | FunExpr -- funexpr
   | SwitchExp
   | TryExp
   | "("& TupleBody &")" -- tuple
   | "`"&? longCap (&"("& Commas &")")? -- constructor
-  | "{"& (RecordItem &",")+ RecordItem? &"}"
+  | "{"& RecordBody &"}" -- record
   | "[|"& (Expression &",")* Expression? &"|]" -- list
   | "["& (Expression &",")* Expression? &"]" -- list
   | Expression &"."& longIdent "=" Expression -- set_attr
@@ -183,6 +183,9 @@ WrappedExpression = Expression (&':' Type)?
 @passThrough
 TupleBody = Expression (&"," Expression)+ &","?
 
+@ignoreNewlines
+@passThrough
+RecordBody = (RecordItem &",")* RecordItem?
 RecordItem = lowerIdent (&":" Expression)?
 
 SwitchExp = "switch" Expression SwitchBody
@@ -192,11 +195,13 @@ SwitchCase = "case" MatchPattern ("with" [guard]Expression)? &":" "\n"* Expressi
 TryExp = "try" Block "catch" SwitchBody
 
 FunExpr =
-  | "("& ValueArgs &")" "=>" Expression
-  | Arg "=>" Expression
+  | "("& ValueArgs &")" "=>" Expression -- multi
+  | Arg "=>" Expression -- single
 
-@ignoreNewlines(true)
-Block = "{" Statement* "}"
+Block = "{" BlockBody "}"
+@ignoreNewlines(false)
+@passThrough
+BlockBody = EOL? (Statement EOL)* Statement?
 
 Application = Expression &"("& AppArgs &")"
 

@@ -12,6 +12,7 @@ let module Output = {
     | EOL
     | NoSpace
     | MaybeNewlined (list outputT)
+    | Newlined (list outputT)
     | Lexical (list outputT)
     | Straight (list outputT)
     /* | Newlined (list outputT) TODO I do think I want this... */
@@ -46,6 +47,7 @@ let rec outputToString config indentLevel output => {
     | Output.Lexical items => (String.concat "" (List.map (fun x => fst (outputToString config 0 x)) items), false)
     | Output.Straight items => {
       let rec loop items => {
+
         switch items {
           | [] => ("", false)
           | [child] => outputToString config indentLevel child
@@ -116,6 +118,28 @@ let rec outputToString config indentLevel output => {
         (loop items, false)
       }
     }
+    | Output.Newlined items => {
+      let padt = "\n" ^ (pad (indentLevel + 0) config.indentStr);
+      let rec loop items => {
+        switch items {
+          | [] => ("", false)
+          | [child] => outputToString config (indentLevel + 1) child
+          | [child, Output.NoSpace, ...rest] => {
+            let (restext, multi) = loop rest;
+            let (res, nmulti) = outputToString config (indentLevel + 1) child;
+            (res ^ restext, multi || nmulti)
+          }
+          | [child, ...rest] => {
+            let (restext, multi) = loop rest;
+            let (res, nmulti) = outputToString config (indentLevel + 1) child;
+            (res ^ padt ^ restext, multi || nmulti)
+          }
+        }
+      };
+
+      let (str, multi) = loop items;
+      (padt ^ str ^ ("\n" ^ (pad (indentLevel - 1) config.indentStr)), multi)
+    }
   }
 };
 
@@ -184,6 +208,31 @@ let passThroughChildren grammar name => {
   }
 };
 
+let makeStraightWithEOLs res => {
+  let rec loop items => {
+    switch items {
+      | [] => []
+      | [Output.EOL, ...rest] => {
+        loop rest
+      }
+      | [item, Output.EOL, ...rest] => {
+        [[item], ...(loop rest)]
+      }
+      | [item, ...rest] => {
+        switch (loop rest) {
+          | [firsts, ...others] => [[item, ...firsts], ...others]
+          | [] => [[item]]
+        }
+      }
+    }
+  };
+  let res = loop res;
+  switch res {
+    | [items] => Output.Straight items
+    | _ => Output.Newlined (List.map (fun x => Output.Straight x) res)
+  }
+};
+
 let rec resultToOutput: bool => grammar => result => option Output.outputT = fun ignoringNewlines grammar result => {
   switch result {
     | Leaf _ contents _ => Some (Output.Text contents)
@@ -245,10 +294,14 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
                     | res => if (ignoreNewlines == Yes) {
                       Output.MaybeNewlined res
                     } else {
-                      Output.Straight res
+                      makeStraightWithEOLs res
                     }
                   };
-                  (s2, [output, ...r2], u2)
+                  let children = switch output {
+                    | Output.Newlined x => [Output.NoSpace, output, Output.NoSpace, ...r2]
+                    | _ => [output, ...r2]
+                  };
+                  (s2, children, u2)
                 }
               }
               | None => {
@@ -265,7 +318,11 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
                     | None => (false, [], children)
                     | Some output => {
                       let (success, res, unused) = loop ignoringNewlines rest others;
-                      (success, [output, ...res], unused)
+                      let children = switch output {
+                        | Output.Newlined x => [Output.NoSpace, output, Output.NoSpace, ...res]
+                        | _ => [output, ...res]
+                      };
+                      (success, children, unused)
                     }
                   }
                 }
@@ -352,11 +409,11 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
     | [] => Some (switch res {
       | [sub] => sub
       | _ => if (isLexical) {
-          Lexical res
+          Output.Lexical res
       } else if (rule.ignoreNewlines == Yes) {
-          MaybeNewlined res
+          Output.MaybeNewlined res
         } else {
-          Straight res
+          makeStraightWithEOLs res
         }
       })
     | _ => {
@@ -370,12 +427,12 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
 let toString (grammar: grammar) result => {
   switch (resultToOutput false grammar result) {
     | Some output => {
-        /* print_endline (Output.show_outputT output); */
+        print_endline (Output.show_outputT output);
         Some (fst (outputToString {
-        indentWidth: 2,
-        indentStr: "  ",
+        indentWidth: 4,
+        indentStr: "----",
         maxWidth: 50
-      } 0 output))
+      } (-1) output))
     }
     | None => None
   }

@@ -366,22 +366,36 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
             }
 
             | [P.CommentEOL as item, ...rest] => {
-              let i' = skipLineComments i (unwrap grammar.P.lineComment) state.input state.len;
-              let i' = if (i' > i || i' >= state.len || String.get state.input i != '\n') {
-                i'
-              } else {
-                let i' = skipWhite i' state.input state.len true;
-                let i' = skipLineComments i' (unwrap grammar.P.lineComment) state.input state.len;
-                i'
-                /* i' + 1 */
-              };
-              if (i' > i || i' >= state.len) {
-                let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
-                /* TODO collect comments */
-                (i'', children, rest_errs)
-              } else {
-                /* Printf.printf "No actual skippage %d %d \"%s\"\n" i i' (String.sub state.input i 10); */
-                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+              switch grammar.P.lineComment {
+                | None => {
+                  if (i >= state.len || String.get state.input i == '\n') {
+                    let i' = skipWhite i state.input state.len true;
+                    let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
+                    /* TODO collect comments */
+                    (i'', children, rest_errs)
+                  } else {
+                    (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                  }
+                }
+                | Some lineComment => {
+                  let i' = skipLineComments i lineComment state.input state.len;
+                  let i' = if (i' > i || i' >= state.len || String.get state.input i != '\n') {
+                    i'
+                  } else {
+                    let i' = skipWhite i' state.input state.len true;
+                    let i' = skipLineComments i' lineComment state.input state.len;
+                    i'
+                    /* i' + 1 */
+                  };
+                  if (i' > i || i' >= state.len) {
+                    let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
+                    /* TODO collect comments */
+                    (i'', children, rest_errs)
+                  } else {
+                    /* Printf.printf "No actual skippage %d %d \"%s\"\n" i i' (String.sub state.input i 10); */
+                    (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                  }
+                }
               }
             }
 
