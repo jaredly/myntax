@@ -1,11 +1,10 @@
 
-external setupComm: ('a => unit) => ('b => unit) = "setupComm" [@@bs.val];
+/* external setupComm: ('a => unit) => ('b => unit) = "setupComm" [@@bs.val];
 
-let onMessage : (BrowserTypes.fromMain => unit) = fun message => {
-
-};
-
-let sendMessage : (BrowserTypes.fromWorker => unit) = setupComm onMessage;
+let grammarText = ref "";
+let inputText = ref "";
+let grammar = ref None;
+let input = ref None;
 
 let parseGrammar text => {
   switch (Runtime.parse GrammarGrammar.grammar "Start" text) {
@@ -32,3 +31,17 @@ let parseInput text grammar => {
     }
   }
 };
+
+let onMessage : (BrowserTypes.fromMain => unit) = fun (newGrammar, newInput) => {
+  if (newGrammar != !grammarText) {
+    grammarText := newGrammar;
+    switch (parseGrammar newGrammar) {
+      | Some made => {
+        grammar := Some made;
+      }
+      | None => ()
+    }
+  }
+};
+
+let sendMessage : (BrowserTypes.fromWorker => unit) = setupComm onMessage; */

@@ -162,7 +162,11 @@ and grow_lr grammar state rulename i m h isLexical => {
     state.cpos = i;
     h.eval_set = h.involved_set; /* B */
     let ans = parse grammar state rulename i isLexical;
-    if (fst ans == (-1) || state.cpos <= m.pos) {
+    let oans = switch (m.ans) {
+      | Answer (i, _) => i
+      | LR _ => -1
+    };
+    if (fst ans == -1 || (state.cpos <= m.pos && fst ans <= oans)) {
       ()
     } else {
       m.ans = Answer ans;

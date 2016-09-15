@@ -2342,7 +2342,10 @@
 	      state[/* cpos */3] = i;
 	      h[/* eval_set */2] = h[/* involved_set */1];
 	      var ans = parse(grammar, state, rulename, i, isLexical);
-	      if (fst(ans) === -1 || state[/* cpos */3] <= m[/* pos */1]) {
+	      var match = m[/* ans */0];
+	      var oans;
+	      oans = match.tag ? -1 : match[0][0];
+	      if (fst(ans) === -1 || state[/* cpos */3] <= m[/* pos */1] && fst(ans) <= oans) {
 	        return /* () */0;
 	      }
 	      else {
@@ -2363,7 +2366,7 @@
 	          Caml_builtin_exceptions.assert_failure,
 	          [
 	            "bs_build/runtime.re",
-	            178,
+	            182,
 	            12
 	          ]
 	        ];

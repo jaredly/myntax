@@ -1,12 +1,13 @@
-Start = "fun" Patt "->" Expr "\n"*
+Start = Expr "\n"*
 
 Exprs = (Expr #"\n")* Expr?
 
 Expr =
-  | constant
+  | Expr "ha" -- application
   | "fun" Patt "->" Expr -- fun ; function
   | "(" [contents]Expr ")" -- parens
   | [left]Expr "+" [right]Expr -- add
+  | constant
 
 Patt = ident
 
