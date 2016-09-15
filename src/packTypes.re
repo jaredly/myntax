@@ -11,7 +11,8 @@ let module Parsing = {
   and rule = {
     passThrough: bool,
     ignoreNewlines: ignoreNewlines,
-    choices: list choice
+    leaf: bool,
+    choices: list choice,
   }
    /* rule name -> e1 | e2 | ... */
   /* -> add "pass-through" and "ignore-whitespace" */
@@ -31,7 +32,23 @@ let module Parsing = {
     | Terminal string (option string)   /* terminal */
     | Chars char char (option string)   /* [a-z] */
     | Empty              /* epsilon */[@@deriving show];
+
 };
+
+/* let module NewParsing = {
+  open Parsing;
+  type grammar = {
+    lineComment: option string,
+    blockComment: option (string, string),
+    rules: list (string, rule)
+  }
+  and rule = {
+    passThrough: bool,
+    ignoreNewlines: ignoreNewlines,
+    leaf: bool,
+    choices: list choice,
+  }[@@deriving show];
+}; */
 
 let unwrapOr a b => {
   switch a {
@@ -43,15 +60,13 @@ let unwrapOr a b => {
 let module Result = {
   type resultType =
     | Terminal string
-    | Lexical string string bool
-    | Iter
-    | Nonlexical string bool [@@deriving (yojson, show)];
+    | Lexical (string, string, int) string bool
+    | Nonlexical (string, string, int) bool [@@deriving (yojson, show)];
 
   let resultTypeDescription rt => switch rt {
     | Terminal s => "Terminal(" ^ s ^ ")"
-    | Lexical name text passThrough => "Lexical(" ^ name ^ "," ^ text ^ ")"
-    | Iter => "Iter"
-    | Nonlexical name passThrough => "Nonlexical(" ^ name ^ ")"
+    | Lexical (name, sub, index) text passThrough => "Lexical(" ^ name ^ "," ^ text ^ "," ^ (string_of_int index) ^ ")"
+    | Nonlexical (name, sub, index) passThrough => "Nonlexical(" ^ name ^ "," ^ (string_of_int index) ^ ")"
   };
 
   type result = {

@@ -28,6 +28,7 @@ let main dump::dump=false file::file=? dest::dest=? unit => {
       exit 1;
     }
     | PackTypes.Result.Success result => {
+      /* print_endline (PackTypes.show_result result); */
       let name = switch file {
         | Some name => name
         | None => "stdin"

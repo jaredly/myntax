@@ -1,5 +1,8 @@
-let (grammarFile, input) = switch Sysop.argv {
-  | [|_, grammarFile, input|] =>  (grammarFile, input)
+type printType = Bin | Pretty | Debug;
+let (grammarFile, input, printType) = switch Sysop.argv {
+  | [|_, "bin", grammarFile, input|] =>  (grammarFile, input, Bin)
+  | [|_, "pretty", grammarFile, input|] =>  (grammarFile, input, Pretty)
+  | [|_, grammarFile, input|] =>  (grammarFile, input, Debug)
   | _ => failwith "Usage: run grammarfile inputfile"
 };
 
@@ -28,6 +31,12 @@ let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
   }
 };
 
+let out_binary ast => {
+  output_string stdout Config.ast_impl_magic_number;
+  output_value stdout input;
+  output_value stdout ast
+};
+
 switch (Runtime.parse grammar "Start" contents) {
   | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
     /* switch maybeResult {
@@ -39,7 +48,11 @@ switch (Runtime.parse grammar "Start" contents) {
   }
   | PackTypes.Result.Success result => {
     /* print_endline "Good"; */
-    printImpl (OcamlOfReason.convert result);
+    switch printType {
+      | Bin => out_binary (OcamlOfReason.convert result);
+      | Debug => printImpl (OcamlOfReason.convert result);
+      | Pretty => print_endline (PrettyPrint.toString grammar result);
+    }
     /* Json.result_to_string result |> print_endline; */
   }
 };

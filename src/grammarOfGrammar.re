@@ -1,6 +1,7 @@
 
 open PackTypes.Result;
 let module P = PackTypes.Parsing;
+/* let module NP = PackTypes.NewParsing; */
 open ResultUtils;
 
 let debug result => {
@@ -21,9 +22,9 @@ let rec parseItem item => {
   };
   let node = switch (getChild item.children "suffix") {
     | None => node
-    | Some {typ: Lexical "suffix_star" _ _, _} => P.Star node None
-    | Some {typ: Lexical "suffix_plus" _ _, _} => P.Plus node None
-    | Some {typ: Lexical "suffix_opt" _ _, _} => P.Optional node None
+    | Some {typ: Lexical ("suffix", "star", _) _ _, _} => P.Star node None
+    | Some {typ: Lexical ("suffix", "plus", _) _ _, _} => P.Plus node None
+    | Some {typ: Lexical ("suffix", "opt", _) _ _, _} => P.Optional node None
     | _ => failwith "Unrecognized suffix"
   };
   node
@@ -32,13 +33,13 @@ let rec parseItem item => {
 and parseInner maybeName inner => {
   let name = maybeContents maybeName;
   switch inner.typ {
-    | Nonlexical "ItemInner_nested" passThrough => {
+    | Nonlexical ("ItemInner", "nested", _) passThrough => {
       /* print_endline "going deeper"; */
       P.Group (List.map parseItem (getChildren inner.children "nested"))
     }
     | _ => {let child = (List.hd inner.children);
       switch child.typ {
-        | Lexical "ident" contents passThrough => {
+        | Lexical ("ident", _, _) contents passThrough => {
           if (contents == "any") {
             P.Any name
           } else if (contents == "EOF") {
@@ -49,15 +50,18 @@ and parseInner maybeName inner => {
             P.NonTerminal contents name
           }
         }
-        | Lexical "string" contents passThrough => P.Terminal (unescapeString contents) name
-        | Lexical "char" contents passThrough => P.Terminal (unescapeString contents) name
-        | Lexical "char_range" contents passThrough => (
+        | Lexical ("string", _, _) contents passThrough => P.Terminal (unescapeString contents) name
+        | Lexical ("char", "", _) contents passThrough => P.Terminal (unescapeString contents) name
+        | Lexical ("char_range", "", _) contents passThrough => (
           P.Chars
           ((getChild child.children "start") |> unwrap |> getContents |> unescapeChar)
           ((getChild child.children "end") |> unwrap |> getContents |> unescapeChar)
           name
         )
-        | _ => failwith "Unexpected ItemInner_nested"
+        | _ => {
+          print_endline (PackTypes.show_result inner);
+          failwith "Unexpected ItemInner_nested"
+        }
       }
     }
   };
@@ -83,9 +87,9 @@ let parseDecorator decorator => {
   let args = (List.map
     (fun arg => {
       switch arg.typ  {
-        | Lexical "decarg_bool" contents _ => Bool (contents == "true" ? true : false)
-        | Lexical "decarg_string" contents _ => String (Scanf.unescaped (String.sub contents 1 ((String.length contents) - 2)))
-        | Lexical "decarg_number" contents _ => Number (int_of_string contents)
+        | Lexical ("decarg", "bool", _) contents _ => Bool (contents == "true" ? true : false)
+        | Lexical ("decarg", "string", _) contents _ => String (Scanf.unescaped (String.sub contents 1 ((String.length contents) - 2)))
+        | Lexical ("decarg", "number", _) contents _ => Number (int_of_string contents)
         | x => failwith ("Invalid decorator arg" ^ (PackTypes.resultTypeDescription x))
       }
     })
@@ -95,27 +99,29 @@ let parseDecorator decorator => {
 
 let convert (result: result) => {
   /* print_endline "Converting"; */
-  assertEq result.typ (Nonlexical "Start" false);
+  /* assertEq result.typ (Nonlexical ("Start", "", _) false); */
   let rules = (List.map
   (fun rule => {
-    if (rule.typ != Nonlexical "Rule_" false) {
-      failwith ("Not a rule?" ^ (PackTypes.Result.resultTypeDescription rule.typ));
+    switch rule.typ {
+      | Nonlexical ("Rule", "", _) _ => ()
+      | _ => failwith ("Not a rule?" ^ (PackTypes.Result.resultTypeDescription rule.typ));
     };
     let decorators = getChildren rule.children "decorators";
-    let (newlines, passThrough) = (List.fold_left
-      (fun (white, pass) decorator => {
+    let (newlines, passThrough, leaf) = (List.fold_left
+      (fun (white, pass, leaf) decorator => {
         let {name, args} = parseDecorator decorator;
         switch (name, args) {
-          | ("ignoreNewlines", [Bool whether]) => (whether ? P.Yes : P.No, pass)
-          | ("ignoreNewlines", []) => (P.Yes, pass)
-          | ("passThrough", []) => (white, true)
+          | ("ignoreNewlines", [Bool whether]) => (whether ? P.Yes : P.No, pass, leaf)
+          | ("ignoreNewlines", []) => (P.Yes, pass, leaf)
+          | ("passThrough", []) => (white, true, leaf)
+          | ("leaf", []) => (white, pass, true)
           | _ => {
             /* Printf.eprintf "Ignoring decorator %s\n" name; */
-            (white, pass)
+            (white, pass, leaf)
           }
         }
       })
-      (P.Inherit, false)
+      (P.Inherit, false, false)
       decorators);
     let name = getChild rule.children "name" |> unwrap |> getContents;
     /* print_endline ("Rule " ^ name); */
@@ -123,6 +129,7 @@ let convert (result: result) => {
     (name, {
       P.passThrough: passThrough,
       P.ignoreNewlines: newlines,
+      P.leaf: leaf,
       P.choices: (List.map parseChoice choices),
     })
   }) result.children);

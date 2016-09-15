@@ -11,11 +11,10 @@ let optOr a b => {
 
 let rec getChildByType children needle => {
   switch children {
-    | [{typ: Nonlexical typename _, _} as child, ...rest]
-    | [{typ: Lexical typename _ _, _} as child, ...rest] when typename == needle => Some child
+    | [{typ: Nonlexical (base, sub, _) _, _} as child, ...rest]
+    | [{typ: Lexical (base, sub, _) _ _, _} as child, ...rest] when base == needle => Some child
     | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest]
-    | [{typ: Iter, _} as child, ...rest] => {
+    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
       switch (getChildByType child.children needle) {
         | Some x => Some x
         | None => getChildByType rest needle
@@ -29,11 +28,10 @@ let rec getChildByType children needle => {
 let rec getChildrenByType children needle => {
   /* print_endline ("Getting children " ^ needle); */
   switch children {
-    | [{typ: Nonlexical typename _, _} as child, ...rest]
-    | [{typ: Lexical typename _ _, _} as child, ...rest] when typename == needle => [child, ...(getChildrenByType rest needle)]
+    | [{typ: Nonlexical (base, sub, _) _, _} as child, ...rest]
+    | [{typ: Lexical (base, sub, _) _ _, _} as child, ...rest] when base == needle => [child, ...(getChildrenByType rest needle)]
     | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest]
-    | [{typ: Iter, _} as child, ...rest] => {
+    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
       List.concat [(getChildrenByType child.children needle), getChildrenByType rest needle]
     }
     | [_, ...rest] => getChildrenByType rest needle
@@ -41,13 +39,11 @@ let rec getChildrenByType children needle => {
   }
 };
 
-
 let rec getChild children needle => {
   switch children {
     | [{label: Some label, _} as child, ..._] when label == needle => Some child
     | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest]
-    | [{typ: Iter, _} as child, ...rest] => {
+    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
       switch (getChild child.children needle) {
         | Some x => Some x
         | None => getChild rest needle
@@ -63,8 +59,7 @@ let rec getChildren children needle => {
   switch children {
     | [{label: Some label, _} as child, ...rest] when label == needle => [child, ...(getChildren rest needle)]
     | [{typ: Lexical _ _ true, _} as child, ...rest]
-    | [{typ: Nonlexical _ true, _} as child, ...rest]
-    | [{typ: Iter, _} as child, ...rest] => {
+    | [{typ: Nonlexical _ true, _} as child, ...rest] => {
       List.concat [(getChildren child.children needle), getChildren rest needle]
     }
     | [_, ...rest] => getChildren rest needle

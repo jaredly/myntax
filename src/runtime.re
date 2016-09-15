@@ -23,7 +23,7 @@ exception Found ans;
 let emptyResult pos name isLexical => {
   start: pos,
   cend: pos,
-  typ: isLexical ? Lexical name "" false : Nonlexical name false,
+  typ: isLexical ? Lexical (name, "", 0) "" false : Nonlexical (name, "", 0) false,
   label: None,
   children: [],
 };
@@ -475,8 +475,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
         let errs = mergeErrs prevErrors err;
         if (i' >= i) {
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
-          let name = if (numChoices === 1) { rulename } else {(rulename ^ "_" ^ sub_name)};
-          let typ = isLexical ? (Lexical name (String.sub state.input i (i' - i)) passThrough) : Nonlexical name passThrough;
+          let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex) (String.sub state.input i (i' - i)) passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough;
           (i', {start: i, cend: i', children, label: None, typ}, errs)
         } else {
           process otherChoices errs (choiceIndex + 1)

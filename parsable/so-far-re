@@ -2,14 +2,23 @@
 @blockComment("/*", "*/")
 Start = ModuleBody
 
+ModuleDesc =
+  | "{" ModuleBody "}" -- structure
+  | [ident]longCap -- ident
+  ; TODO functor
+  ; TODO apply
+  ; TODO constraint
+  ; TODO unpack
+  ; TODO extension
+
 @passThrough
 @ignoreNewlines(false)
-ModuleBody = __comment_eol? ([structures]Structure __comment_eol)* [structures]Structure? __comment_eol?
+ModuleBody = __comment_eol? ([structure]Structure __comment_eol)* [structure]Structure? __comment_eol?
 
 Structure =
-  | "let" "module" capIdent "=" "{" ModuleBody "}" -- let_module
+  | "let" "module" capIdent "=" ModuleDesc -- let_module
   | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" ("\n" "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
-  | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
+  | "let" [rec]"rec"? [bindings]ValueBinding ("\n" "and" [bindings]ValueBinding)* -- value
   | "type" TypeDeclaration ("\n"+ "and" TypeDeclaration)* -- type
   | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type
   | "exception" capIdent "of" Type
@@ -30,9 +39,9 @@ ModuleTypeDeclaration = ident ; TODO
 ; TODO class type
 
 TypeDeclaration =
-  | lowerIdent "=" longident "=" TypeDecl
-  | lowerIdent "=" TypeDecl
-  | lowerIdent
+  | lowerIdent "=" longident "=" TypeDecl -- manifested
+  | lowerIdent "=" TypeDecl -- decl
+  | lowerIdent -- ident
 
 TypeDecl =
   | TypeVariant
@@ -49,27 +58,28 @@ TypeVariantItem =
   | "case" capIdent
 
 @ignoreNewlines
+@passThrough
 TypesCommad = (Type ",")* Type?
 
 TypeRecord = "{" "\n"* (lowerIdent ":" Type "," "\n"*)* (lowerIdent ":" Type)? "\n"* "}"
 
 ValueBinding =
-  | ident "(" ValueArgs ")" "=>" Expression
-  | ident Arg "=>" Expression
-  | Pattern (":" Type)? "=" Expression
+  | [name]ident "(" ValueArgs ")" "=>" Expression -- func
+  | [name]ident Arg "=>" Expression -- func
+  | Pattern "=" Expression -- value
 
 @passThrough
 @ignoreNewlines
 ValueArgs = (Arg "," "\n"?)* Arg?
 
 Arg =
-  | "::" ident ArgValue?
-  | ident "::" Pattern ArgValue?
-  | Pattern
+  | "::" ident ArgValue? -- punned
+  | ident "::" Pattern ArgValue? -- named
+  | Pattern -- anon
 
 ArgValue =
-  | "=" "?"
-  | "=" Expression
+  | "=" "?" -- none
+  | "=" Expression -- expr
 
 Pattern =
   | Pattern "as" ident
@@ -79,7 +89,7 @@ Pattern =
   | "(" Pattern ("," Pattern)+ ","? ")" -- tuple
   | "[" (Pattern ",")* Pattern? "]" -- list
   | "{" (ident (":" Pattern)? ",")* (ident (":" Pattern)?)? "}" -- record
-  | ident
+  | ident -- ident
 
 MatchPattern =
   | MatchPattern "as" ident
@@ -106,7 +116,7 @@ Type =
   | Type "as" typeVar -- alias
   | "(" TupleTypes ")" -- tuple
   | "_" -- any
-  | typeVar
+  | typeVar -- var
   | (lowerIdent "?"? "::") Type "=>" Type
   | longident ("<" TypesCommad ">")? -- constructor
   ; TODO object
@@ -169,6 +179,7 @@ Expression =
 WrappedExpression = Expression (':' Type)?
 
 @ignoreNewlines
+@passThrough
 TupleBody = Expression ("," Expression)+ ","?
 
 RecordItem = lowerIdent (":" Expression)?
@@ -213,13 +224,15 @@ FnArg =
   | lowerIdent "::" Expression
   | Expression
 
-
+@leaf
 constant =
-  | int64
-  | string
-  | char
+  | int64 -- int
+  | string -- string
+  | char -- char
 
+@leaf
 capIdent = ~reserved 'A..Z' identchar*
+@leaf
 lowerIdent = ~reserved 'a..z' identchar*
 
 ident = ~reserved ~digit identchar+
