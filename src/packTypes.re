@@ -98,6 +98,9 @@ let module Result = {
   };
 
   let lastLineLength txt pos => {
+    if (pos >= String.length txt) {
+      String.length txt
+    } else {
     try {
       let atNewline = String.get txt pos == '\n';
       let mpos = atNewline ? pos - 1 : pos;
@@ -106,6 +109,7 @@ let module Result = {
     } {
       | Not_found => pos
     }
+  }
   };
 
   let leftPad base num coll => {
@@ -117,7 +121,12 @@ let module Result = {
   };
 
   let genErrorText text (pos, errors) => {
-    let showText = String.sub text 0 (String.index_from text pos '\n');
+    let showText = String.sub text 0 {
+      try (String.index_from text pos '\n')
+      {
+        | Not_found => (String.length text)
+      }
+    };
     (Printf.sprintf "%s\n%s^\n" showText (leftPad "-" ((lastLineLength text pos) - 1) ""))
     ^
     (String.concat "" (List.map (fun (isNot, errPath) => {

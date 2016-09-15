@@ -46,16 +46,11 @@ let tests cases => {
   print_endline "[[ TESTING ]]";
   (List.iter
   (fun (rule, text) => {
-    let state = Runtime.initialState text;
-    let (i, result, errs) = Runtime.apply_rule GrammarGrammar.grammar state rule 0 [];
-    if (i == -1) {
-      Printf.eprintf ">>>>\n";
-      Printf.eprintf "parse error: parsing failed for '%s' \"%s\"\n" rule text;
-    } else if (i < state.Runtime.len) {
-      Printf.eprintf ">>>>\n";
-      Printf.eprintf "parse error: didn't consume all '%s' \"%s\" (just \"%s\")\n" rule text (String.sub text 0 i);
-      /* Printf.printf "%s" (Yojson.Safe.to_string(result_to_yojson result)); */
-      /* Printf.printf "%s" (Yojson.Safe.to_string(result_to_yojson result)); */
+    switch (Runtime.parse GrammarGrammar.grammar rule text) {
+      | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
+        print_string (PackTypes.Result.genErrorText text failure);
+      }
+      | PackTypes.Result.Success result => ()
     };
   })
   cases);
@@ -75,7 +70,6 @@ let testCases = [
   ("Rule", "Start = (Rule #eol)* Rule?"),
   ("Rule", "Start = \n | (Rule #eol)* Rule?"),
   ("Start", "Start = \n | (Rule #eol)* Rule?\n | Other\n\nMore = thing"),
-  ("Comment", "; something"),
   ("Comment_eol", "; something\n\n"),
   ("Rule", "\nStart = 'h'"),
   ("Rule", "\n\nStart = ;hi\n | 'h'"),
