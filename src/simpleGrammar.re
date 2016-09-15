@@ -1,9 +1,9 @@
 
 open PackTypes;
 
-let nt name => NonTerminal name None;
-let t name => Terminal name None;
-let chars start cend => (Chars start cend None);
+let nt label::label=? name => NonTerminal name label;
+let t label::label=? name => Terminal name label;
+let chars label::label=? start cend => (Chars start cend label);
 
 
 let grammar: grammar = [
@@ -23,14 +23,14 @@ let grammar: grammar = [
   (
     "Expr",
     [
-      ("funappl", "", [nt "Expr", nt "sp", nt "Expr"]),
+      ("funappl", "", [nt label::"fn" "Expr", nt "osp", nt label::"arg" "Expr"]),
       (
         "fundecl",
         "function declaration",
-        [t "fun", nt "sp", nt "Patt", nt "osp", t "->", nt "sp", nt "Expr"]
+        [t "fun", nt "osp", nt label::"arg" "Patt", nt "osp", t "->", nt "osp", nt label::"body" "Expr"]
       ),
       ("paren", "", [t "(", nt "osp", nt "Expr", nt "osp", t ")"]),
-      ("addition", "", [nt "Expr", nt "osp", t "+", nt "osp", nt "Expr"]),
+      ("addition", "", [nt label::"left" "Expr", nt "osp", t "+", nt "osp", nt label::"right" "Expr"]),
       ("ident", "", [nt "ident"]),
       ("int64", "", [nt "int64"])
     ]
