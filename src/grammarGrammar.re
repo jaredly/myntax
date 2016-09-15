@@ -15,21 +15,23 @@ let grammar: grammar = [
   ("Start", [("", "", [st (nt "Rule")])]),
 
   ("Rule", [
-    ("", "", [(opt (nt "eol")), nt label::"name" "ident", t "=", nt label::"choices" "Choice", Lexify (nt "eol")]),
+    ("", "", [(opt (nt "Comment_eol")), nt label::"name" "ident", t "=", nt label::"choices" "Choice", (nt "Comment_eol")]),
     ("", "", [
-      (opt (nt "eol")),
+      (opt (nt "Comment_eol")),
       nt label::"name" "ident",
       t "=",
-      Lexify (nt "eol"),
-      pl (Group [t "|", nt label::"choices" "Choice", Lexify (nt "eol")])
+      (nt "Comment_eol"),
+      pl (Group [t "|", nt label::"choices" "Choice", (nt "Comment_eol")])
     ])
   ]),
+
+  ("Comment", [("", "", [t ";", nt "rest_of_line"])]),
 
   ("Choice", [
     ("", "", [
       pl (nt label::"children" "Item"),
       opt (Group [t "--", nt label::"name" "ident"]),
-      opt (Group [t ";", Lexify (nt label::"comment" "rest_of_line")]),
+      opt (Group [t ";", (nt label::"comment" "rest_of_line")]),
     ]),
   ]),
 
@@ -117,6 +119,11 @@ let grammar: grammar = [
 
   ("rest_of_line", [
     ("", "", [st (Group [Not (nt "eolchar"), Any None])])
+  ]),
+
+  ("Comment_eol", [
+    ("", "", [pl (Group [t ";", (nt "rest_of_line"), nt "eee"])]),
+    ("", "", [nt "eee"])
   ]),
 
   ("eol", [

@@ -1,40 +1,178 @@
-Start = (Structure "\n"+)* Structure? "\n"*
+Start = ModuleBody
+
+ModuleBody = "\n"* (Structure "\n"+)* Structure? "\n"*
 
 Structure =
-  | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)*
-  | [expr]Expression [attr]Attribute* -- eval
+  | "let" "module" capIdent "=" "{" ModuleBody "}"
+  | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" ("\n" "and" capIdent "=" "{" ModuleBody "}")*
+  | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
+  | "type" TypeDeclaration ("\n"+ "and" TypeDeclaration)* -- type
+  | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type
+  | "exception" capIdent "of" Type
+  | "import" "*" "from" longCap -- open
+  | "include" "*" "from" longCap -- include
+  | "[@@@" ident "]" -- attribute
+  | "[%%" ident "]" -- extension
+  | [expr]Statement [attrs]Attribute* -- eval
+; class, class type
+; typeext
+; external "primitive"
 
-ValueBinding = Pattern "=" Expression
+ModuleTypeDeclaration = ident ; TODO
+
+; TODO class field
+; TODO class expr
+; TODO class type field
+; TODO class type
+
+TypeDeclaration =
+  | lowerIdent "=" longident "=" TypeDecl
+  | lowerIdent "=" TypeDecl
+  | lowerIdent
+
+TypeDecl =
+  | TypeVariant
+  | TypeRecord
+  | Type
+
+TypeVariant =
+  | "enum" "{" "\n"* (TypeVariantItem "\n"+)* TypeVariantItem? "}"
+  | capIdent ("|" capIdent)+ ; should I have this?
+
+TypeVariantItem =
+  | "case" capIdent "(" ("\n"* Type ",")* "\n"* Type? "\n"* ")"
+  | "case" capIdent
+
+TypeRecord = "{" "\n"* (lowerIdent ":" Type "," "\n"*)* (lowerIdent ":" Type)? "\n"* "}"
+
+ValueBinding =
+  | ident "(" "\n"? (Arg "," "\n"?)* Arg? "\n"? ")" "=>" Expression
+  | ident Arg "=>" Expression
+  | Pattern (":" Type)? "=" Expression
+
+Arg =
+  | "::" ident ArgValue?
+  | ident "::" Pattern ArgValue?
+  | Pattern
+
+ArgValue =
+  | "=" "?"
+  | "=" Expression
 
 Pattern =
-  | Pattern "as" ident ; why isn't this working? :///
+  | Pattern "as" ident
+  | Pattern ":" Type
+  | "()"
   | "_"
-  | "[" ComPat "]"
-  | "{" ComRecPat "}"
+  | "[" (Pattern ",")* Pattern? "]"
+  | "{" (ident (":" Pattern)? ",")* (ident (":" Pattern)?)? "}"
   | ident
 
-Palias = Pattern "as" ident
+MatchPattern =
+  | MatchPattern "as" ident
+  | MatchPattern ":" Type
+  | "()"
+  | "_"
+  | "[" (MatchPattern ",")* MatchPattern? "]"
+  | "{" (ident (":" MatchPattern)? ",")* (ident (":" MatchPattern)?)? "}"
+  | ident
+  | constant
+
+Type =
+  | lowerIdent
+  | "(" (Type ",")+ Type? ")"
 
 Attribute = "[@@" ident Expr? "]"
 
+Statement =
+  | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
+  | "let" "module" capIdent "=" "{" ModuleBody "}"
+  | "import" "*" "from" longCap
+  | Expression
+
 Expression =
+  | Block
+  | BinExp
+  | Application
+  | FunExpr
+  | SwitchExp
+  | TryExp
+  | "(" (Expression ",")+ Expression ","? ")" -- tuple
+  | capIdent ("(" Commas ")")? -- constructor
+  | "`" capIdent ("(" Commas ")")? -- variant
+  | "{" (RecordItem ",")+ RecordItem? "}"
+  | "[|" (Expression ",")+ Expression ","? "|]" -- list
+  | "[" (Expression ",")+ Expression ","? "]" -- list
+  | Expression "." longIdent "=" Expression -- set_attr
+  | Expression "." longIdent -- get_attr
+  | Expression "?" Expression ":" Expression -- ternary
+  | "while" Expression Block -- while
+  | "for" -- for ; maybe ditch?
+  | "new" longident -- new
+  | Expression "#" lowerIdent -- send
+  | lowerIdent "=" Expression -- instance_var
+  | "assert" Expression -- assert
+  | "lazy" Expression -- lazy
   | longident -- ident
-  | constant -- ident
+  | constant -- const
+  | "()" -- unit
+  | "(" Expression ':' Type ")" -- constraint
+  | "(" Expression ")" -- wrapped
+  | "[%" ident "]" -- extension
+; TODO coerce
+; TODO override
+; TODO poly
+; TODO object
+; TODO newtype
+; TODO pack
 
-longident = (ident ".")* ident
 
-Commas = (Expr ",")* Expr?
-ComPat = (Pattern ",")* Pattern?
-ComRecPat = (RecPat ",")* RecPat?
-RecPat = ident (":" Pattern)?
+RecordItem = lowerIdent (":" Expression)?
 
+SwitchExp = "switch" Expression SwitchBody
+SwitchBody = "{" "\n"+ (SwitchCase "\n"+)* "}"
+SwitchCase = "case" MatchPattern ("with" [guard]Expression)? ":" "\n"* Expression?
 
+TryExp = "try" Block "catch" SwitchBody
+
+FunExpr =
+  | "(" "\n"* (Arg "," "\n"?)* Arg? "\n"* ")" "=>" Expression
+  | Arg "=>" Expression
+
+Block = "{" "\n"? (Statement "\n")* Statement? "}"
+
+Application = Expression "(" "\n"* (FnArg "," "\n"*)* FnArg? "\n"* ")"
+
+;; maybe get operator precedence going?
+BinExp = Expression binOp Expression
+
+binOp =
+  | "-"
+  | "+"
+  | "*"
+  | "|>"
+  | "=="
+  | "!="
+  | "!=="
+  | "==="
+
+longident = (capIdent ".")* lowerIdent
+longCap = (capIdent ".")* capIdent
+
+Commas = (Expression ",")* Expression?
+FnArg =
+  | "::" lowerIdent
+  | lowerIdent "::" Expression
+  | Expression
 
 
 constant =
-  | ident
   | int64
   | string
+  | char
+
+capIdent = ~reserved 'A..Z' identchar*
+lowerIdent = ~reserved 'a..z' identchar*
 
 ident = ~reserved ~digit identchar+
 identchar =
@@ -48,11 +186,25 @@ strchar =
   | "\\" any
   | ~"\"" ~"\n" ~"\\" any
 
+char = "'" charchar "'"
+charchar =
+  | "\\" any
+  | ~"'" ~"\n" ~"\\" any
+
 reserved =
   | "fun"
   | "let"
   | "and"
   | "as"
+  | "type"
+  | "exception"
+  | "of"
+  | "module"
+  | "rec"
+  | "open"
+  | "import"
+  | "try"
+  | "catch"
 
 alpha = 'a..z'
 digit = '0..9'

@@ -1,1 +1,3 @@
 _build
+static/worker.js
+static/bundle.js

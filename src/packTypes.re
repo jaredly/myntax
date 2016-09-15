@@ -13,17 +13,19 @@ let module Result = {
     children: list result,
   } [@@deriving yojson];
 
-  type partial = {
+  /* type partial = {
     path: list string,
     expected: string,
     position: int,
     lno: int,
     cno: int,
-  } [@@deriving yojson];
+  } [@@deriving yojson]; */
+
+  type partial = int;
 
   type parserMatch =
     | Success result
-    | Failure (option result) (list partial);
+    | Failure (option result) partial;
 
 };
 include Result;

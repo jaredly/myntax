@@ -360,19 +360,14 @@ let initialState input => {
   input,
 };
 
-type parseOutcome =
-  | Failed string
-  | Incomplete (int, result)
-  | Complete result;
-
 let parse grammar start input => {
   let state = initialState input;
   let (i, result) = apply_rule grammar state start 0;
   if (i == -1) {
-    Failed "dunno why"
+    Failure None 0
   } else if (i < state.len) {
-    Incomplete (i, result)
+    Failure (Some result) i
   } else {
-    Complete result
+    Success result
   }
 };

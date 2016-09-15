@@ -13,11 +13,13 @@
 <textarea id="input"></textarea>
 <div id="input-status"></div>
 </div>
+
 <script>
 (() => {
   "use strict";
   let grammar = document.getElementById("grammar");
   let input = document.getElementById("input");
+
   window.getValue = text => text.value;
   window.setValue = (text, value) => text.value = value;
   window.setA = (a, b, c) => a[b] = c;
@@ -28,10 +30,63 @@
   window.onInput = fn => {
     input.addEventListener("keyup", () => fn(input.value))
   }
-  window.setupWorker = (name, onmessage) => {
+
+  let tabbable = text => {
+    text.addEventListener("keydown", evt => {
+      if (evt.keyCode !== 9) {
+        return
+      }
+      evt.preventDefault();
+      evt.stopPropagation();
+      if (text.selectionStart === text.selectionEnd && !evt.shiftKey && text.value.slice(0, text.selectionStart).match(/\n\s*$/g)) {
+        let sel = text.selectionStart;
+        text.value = text.value.slice(0, sel) + '  ' + text.value.slice(sel)
+        text.selectionStart = text.selectionEnd = sel + 2;
+      } else {
+        let lines = text.value.split('\n')
+        let x = 0;
+        let nstart = text.selectionStart;
+        let nend = text.selectionEnd;
+        let ntext = lines.map(line => {
+          let ox = x
+          x += line.length + 1 // newline
+          if (ox + line.length >= text.selectionStart && ox <= text.selectionEnd) {
+            if (evt.shiftKey) {
+              if (line.slice(0, 2) === '  ') {
+                if (ox <= text.selectionStart - 2) {
+                  nstart -= 2;
+                }
+                if (ox <= text.selectionEnd - 2) {
+                  nend -= 2;
+                }
+                return line.slice(2)
+              } else {
+                return line // skip
+              }
+            } else {
+              if (ox <= text.selectionStart) {
+                nstart += 2;
+              }
+              nend += 2;
+              return '  ' + line
+            }
+          }
+          return line
+        }).join('\n')
+        text.value = ntext
+        text.selectionStart = nstart;
+        text.selectionEnd = nend;
+      }
+    })
+  }
+
+  tabbable(grammar)
+  tabbable(input)
+
+  window.setupWorker = (name, onmessage, done) => {
     let worker = new Worker(name)
-    worker.onmessage = evt => onmessage(JSON.parse(evt.data));
-    return data => worker.postMessage(JSON.stringify(data))
+    worker.onmessage = evt => onmessage(evt.data);
+    return data => worker.postMessage(data)
   }
 })();
 </script>

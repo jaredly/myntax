@@ -1,6 +1,6 @@
 
-let (grammar, input) = switch Sysop.argv {
-  | [|_, grammar, input|] =>  (grammar, input)
+let (grammarFile, input) = switch Sysop.argv {
+  | [|_, grammarFile, input|] =>  (grammarFile, input)
   | _ => failwith "Usage: run grammarfile inputfile"
 };
 
@@ -9,22 +9,31 @@ let contents = switch input {
   | x => Sysop.readFile x
 };
 
-let grammarRaw = Sysop.readFile grammar;
+let grammarRaw = Sysop.readFile grammarFile;
 
+let start = Unix.gettimeofday();
 let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
-  | Runtime.Failed message => failwith "Unable to parse grammar"
-  | Runtime.Incomplete _ => failwith "Grammar only partially parsed"
-  | Runtime.Complete result => GrammarOfGrammar.convert result
+  | PackTypes.Result.Failure maybeResult partial => {
+    failwith "Unable to parse grammar"
+  }
+  | PackTypes.Result.Success result => {
+    let mid = Unix.gettimeofday();
+    let res = GrammarOfGrammar.convert result;
+    Printf.printf "Parse time %f, convert time %f" (mid -. start) (Unix.gettimeofday() -. mid);
+    res
+  }
 };
 
 switch (Runtime.parse grammar "Start" contents) {
-  | Runtime.Failed message => failwith "Unable to parse input file"
-  | Runtime.Incomplete (i, result) => {
-    Json.result_to_string result |> print_endline;
-    Printf.eprintf "Incomplete parse of input file %d of %d total chars" i (String.length contents);
+  | PackTypes.Result.Failure maybeResult partial => {
+    switch maybeResult {
+      | Some result => Json.result_to_string result |> print_endline
+      | None => ()
+    };
+    Printf.eprintf "Incomplete parse of input file %d of %d total chars" partial (String.length contents);
     exit 1;
   }
-  | Runtime.Complete result => {
+  | PackTypes.Result.Success result => {
     Json.result_to_string result |> print_endline;
   }
 };

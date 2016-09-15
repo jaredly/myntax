@@ -16,6 +16,10 @@ external onGrammar : (string => unit) => unit = "window.onGrammar" [@@bs.val];
 external onInput : (string => unit) => unit = "window.onInput" [@@bs.val];
 external now : unit => int = "Date.now" [@@bs.val];
 
+/* workers */
+type resFn 'b = 'b => unit;
+external setupWorker : string => ('a => unit) => resFn 'b = "window.setupWorker" [@@bs.val];
+
 let getValue node => getA node "value";
 let setValue node text => setA node "value" text;
 
@@ -82,67 +86,36 @@ let rawInput = ref (switch (getLS "input") {
 setValue grammarEl !rawGrammar;
 setValue inputEl !rawInput;
 
-
-let parseGrammar text => {
-  switch (Runtime.parse GrammarGrammar.grammar "Start" text) {
-    | Runtime.Complete result => {
-      setText grammarStatus "Parsed grammar";
-      Some (GrammarOfGrammar.convert result)
-    }
-    | _ => {
-      setText grammarStatus "Failed to parse!";
-      None
-    }
-  }
-};
-
-let parseInput text grammar => {
-  switch (Runtime.parse grammar "Start" text) {
-    | Runtime.Complete result => {
-      setText inputStatus "Parsed input";
-      Some result
-    }
-    | _ => {
-      setText inputStatus "Failed to parse input";
-      None
-    }
-  }
-};
-
 let unwrap = GrammarOfGrammar.unwrap;
-
-let grammar = ref (parseGrammar !rawGrammar);
-let result = ref (switch !grammar {
-  | Some g => (parseInput !rawInput g)
-  | None => None
-});
-
+let result = ref None;
 let bounce = 200;
+
+let onMessage: (BrowserTypes.fromWorker => unit) = fun x => {
+  switch x {
+    | BrowserTypes.GrammarGood parse convert => setText grammarStatus (Printf.sprintf "Grammar parsed in %f and converted in %f" parse convert)
+    | BrowserTypes.GrammarBad partial => setText grammarStatus "Grammar failed to parse"
+    | BrowserTypes.InputGood res parse => {
+      setText inputStatus (Printf.sprintf "Input parsed in %f" parse);
+      result := Some res;
+    }
+    | BrowserTypes.InputBad partial => setText inputStatus "Input failed to parse"
+  }
+};
+
+let sendMessage: (BrowserTypes.fromMain => unit) = setupWorker "./worker.js" onMessage;
 
 onGrammar (debounce (fun text => {
   if (text != !rawGrammar)  {
     rawGrammar := text;
     setA localStorage "grammar" text;
-    let newG = (parseGrammar text);
-    grammar := newG;
-    switch newG {
-      | Some newG => {
-        result := parseInput text newG;
-      }
-      | None => ()
-    }
+    sendMessage ((text, !rawInput));
   }
-}) bounce);
+}) 200);
 
 onInput (debounce (fun text => {
   if (text != !rawInput) {
     rawInput := text;
     setA localStorage "input" text;
-    switch (!grammar) {
-      | Some g => {
-        result := (parseInput text g)
-      }
-      | None => ()
-    }
+    sendMessage ((!rawGrammar, text));
   }
-}) bounce);
+}) 200);

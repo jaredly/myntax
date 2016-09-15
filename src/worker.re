@@ -1,33 +1,47 @@
 
-/* external setupComm: ('a => unit) => ('b => unit) = "setupComm" [@@bs.val];
+[%%bs.raw {|
+var setupComm = function(fn) {
+  onmessage = evt => fn(evt.data);
+  return data => postMessage(data);
+};
+|}];
+
+type comm 'b = 'b => unit;
+external setupComm: ('a => unit) => comm 'b = "setupComm" [@@bs.val];
+external perfNow: unit => float = "performance.now" [@@bs.val];
 
 let grammarText = ref "";
 let inputText = ref "";
 let grammar = ref None;
-let input = ref None;
+let sendMessage : ref (BrowserTypes.fromWorker => unit) = ref (fun x => ());
+/* let input = ref None; */
 
-let parseGrammar text => {
+let rec parseGrammar text sendMessage => {
+  let start = perfNow();
   switch (Runtime.parse GrammarGrammar.grammar "Start" text) {
-    | Runtime.Complete result => {
-      setText grammarStatus "Parsed grammar";
-      Some (GrammarOfGrammar.convert result)
+    | PackTypes.Result.Success result => {
+      let mid = perfNow();
+      let newGrammar = GrammarOfGrammar.convert result;
+      sendMessage (BrowserTypes.GrammarGood (mid -. start) (perfNow() -. mid));
+      Some newGrammar
     }
-    | _ => {
-      setText grammarStatus "Failed to parse!";
+    | PackTypes.Result.Failure maybeResult partial => {
+      sendMessage (BrowserTypes.GrammarBad partial); /** TODO send over result? */
       None
     }
   }
 };
 
-let parseInput text grammar => {
+let parseInput text grammar sendMessage => {
+  let start = perfNow();
   switch (Runtime.parse grammar "Start" text) {
-    | Runtime.Complete result => {
-      setText inputStatus "Parsed input";
-      Some result
+    | PackTypes.Result.Success result => {
+      sendMessage (BrowserTypes.InputGood result (perfNow() -. start));
+      /* Some result */
     }
-    | _ => {
-      setText inputStatus "Failed to parse input";
-      None
+    | PackTypes.Result.Failure maybeResult partial => {
+      sendMessage (BrowserTypes.InputBad partial); /** TODO send over result? */
+      /* None */
     }
   }
 };
@@ -35,13 +49,23 @@ let parseInput text grammar => {
 let onMessage : (BrowserTypes.fromMain => unit) = fun (newGrammar, newInput) => {
   if (newGrammar != !grammarText) {
     grammarText := newGrammar;
-    switch (parseGrammar newGrammar) {
+    switch (parseGrammar newGrammar !sendMessage) {
       | Some made => {
         grammar := Some made;
+        parseInput newInput made !sendMessage;
       }
       | None => ()
-    }
-  }
+    };
+  } else if (newInput != !inputText) {
+    inputText := newInput;
+    switch (!grammar) {
+      | Some grammar => {
+        parseInput newInput grammar !sendMessage;
+        ()
+      }
+      | None => ()
+    };
+  };
 };
 
-let sendMessage : (BrowserTypes.fromWorker => unit) = setupComm onMessage; */
+sendMessage := setupComm onMessage;

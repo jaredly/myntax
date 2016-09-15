@@ -13,7 +13,6 @@ let getStdin () => {
 };
 
 let main () => {
-  /* To support backtracking, need to read all input. */
   let initialRule = "Start";
   let state = Runtime.initialState (getStdin ());
   let (i, result) = Runtime.apply_rule GrammarGrammar.grammar state initialRule 0;
@@ -41,7 +40,7 @@ let tests cases => {
     if (i == -1) {
       Printf.eprintf ">>>>\n";
       Printf.eprintf "parse error: parsing failed for '%s' \"%s\"\n" rule text;
-    } else if (i < state.len) {
+    } else if (i < state.Runtime.len) {
       Printf.eprintf ">>>>\n";
       Printf.eprintf "parse error: didn't consume all '%s' \"%s\" (just \"%s\")\n" rule text (String.sub text 0 i);
       /* Printf.printf "%s" (Yojson.Safe.to_string(result_to_yojson result)); */
@@ -49,7 +48,7 @@ let tests cases => {
     };
   })
   cases);
-  print_endline "[[ DONE ]]";
+  Printf.printf "[[ DONE %d ]]\n" (List.length cases);
 };
 
 let testCases = [
@@ -63,9 +62,74 @@ let testCases = [
   ("Item", "Rule?"),
   ("Choice", "(Rule #eol)* Rule?"),
   ("Rule", "Start = (Rule #eol)* Rule?"),
-  ("Newl", "Start \n more"),
   ("Rule", "Start = \n | (Rule #eol)* Rule?"),
   ("Start", "Start = \n | (Rule #eol)* Rule?\n | Other\n\nMore = thing"),
+  ("Comment", "; something"),
+  ("Comment_eol", "; something\n\n"),
+  ("Rule", "\nStart = 'h'"),
+  ("Rule", "\n\nStart = ;hi\n | 'h'"),
+  ("Start", "\n\nStart = ;hi\n | 'h'"),
+  ("Start", {|
+Start = Rule*
+; something
+Rule = ;hi
+  | eol? [name]ident "=" [choices]Choice #eol
+  | eol? [name]ident "=" #eol ("|" [choices]Choice #eol)+
+
+Choice = [children]Item+ ("--" [name]ident)? (";" #[comment]rest_of_line)?
+
+Item = [?neg]"~"? [?lexify]"#"? ("[" [flag]flag? [name]ident "]")? [inner]ItemInner [suffix]suffix?
+
+ItemInner =
+  | string
+  | ident
+  | "(" [:nested]Item+ ")" -- nested
+  | char_range
+  | char
+
+char_range = "'" [start]single ".." [end]single "'"
+char = "'" [char]single "'"
+
+single =
+  | "\\" any
+  | ~"'" ~'\n' any
+
+string = '"' [@contents]strchar* '"'
+strchar =
+  | "\\" any
+  | ~'"' ~'\n' any
+
+flag =
+  | "?" -- bool ; exists
+  | ":" -- array
+  | "@" -- string ; contents
+
+suffix =
+  | "+"
+  | "*"
+  | "?"
+
+ident = ~"0" identchar+
+identchar =
+  | 'a..z'
+  | 'A..Z'
+  | '0..9'
+  | '_'
+
+rest_of_line = (~"\n" any)*
+
+eol = white* eee
+eee =
+  | eolchar+
+  | EOF
+eolchar =
+  | "\n"
+  | "\r"
+white =
+  | " "
+  | "\t"
+
+|}),
   ("Item", "Hello"),
 ];
 
