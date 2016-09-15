@@ -57,54 +57,17 @@ let unwrapOr a b => {
   }
 };
 
-let module Result = {
-  /* type resultType =
-    | Terminal string
-    | Lexical (string, string, int) string bool
-    | Nonlexical (string, string, int) bool [@@deriving (yojson, show)]; */
-
-  type rule = (string, string) [@@deriving (yojson, show)];
-  type loc = (int, int) [@@deriving (yojson, show)];
-  type result =
-    | Leaf rule string loc
-    | Node rule (list (string, result)) loc /* label, child */
-  [@@deriving (yojson, show)]
-  ;
-
-  /* let resultTypeDescription rt => switch rt {
-    | Terminal s => "Terminal(" ^ s ^ ")"
-    | Lexical (name, sub, index) text passThrough => "Lexical(" ^ name ^ "," ^ text ^ "," ^ (string_of_int index) ^ ")"
-    | Nonlexical (name, sub, index) passThrough => "Nonlexical(" ^ name ^ "," ^ (string_of_int index) ^ ")"
-  }; */
-
-  /* type result = {
-    start: int,
-    cend: int,
-    typ: resultType,
-    label: option string,
-    children: list result,
-  } [@@deriving (yojson, show)];
- */
+let module Path = {
   type pathItem =
     | Item Parsing.parsing int
     | Iter int
     | Choice int string [@@deriving show];
+};
 
-  /* type partial = {
-    path: list string,
-    expected: string,
-    position: int,
-    lno: int,
-    cno: int,
-  } [@@deriving yojson]; */
+let module Error = {
 
-  type errors = (int, list (bool, list pathItem)) [@@deriving show];
+  type errors = (int, list (bool, list Path.pathItem)) [@@deriving show];
   type partial = (int, errors) [@@deriving show];
-
-  type parserMatch =
-    | Success result
-    | Failure (option result) partial;
-
 
   let errorText (isNot, rule) => {
     switch rule {
@@ -123,9 +86,9 @@ let module Result = {
 
   let errorPathItemText isNot pathItem => {
     switch pathItem {
-      | Choice n name => (string_of_int n) ^ ":" ^ name
-      | Item item loopIndex => (string_of_int loopIndex) ^ ":" ^ (errorText (isNot, item)) /*^ " [" ^ (string_of_int loopIndex) ^ "]"*/
-      | Iter n => "*" ^ (string_of_int n)
+      | Path.Choice n name => (string_of_int n) ^ ":" ^ name
+      | Path.Item item loopIndex => (string_of_int loopIndex) ^ ":" ^ (errorText (isNot, item)) /*^ " [" ^ (string_of_int loopIndex) ^ "]"*/
+      | Path.Iter n => "*" ^ (string_of_int n)
     }
   };
 
@@ -159,6 +122,7 @@ let module Result = {
     !res
   };
 
+
   let genErrorText text (pos, errors) => {
     let showText = String.sub text 0 {
       try (String.index_from text pos '\n')
@@ -173,6 +137,50 @@ let module Result = {
     }) errors));
   };
 };
+
+let module Result = {
+  /* type resultType =
+    | Terminal string
+    | Lexical (string, string, int) string bool
+    | Nonlexical (string, string, int) bool [@@deriving (yojson, show)]; */
+
+  type rule = (string, string) [@@deriving (yojson, show)];
+  type loc = (int, int) [@@deriving (yojson, show)];
+  type result =
+    | Leaf rule string loc
+    | Node rule (list (string, result)) loc /* label, child */
+  [@@deriving (yojson, show)]
+  ;
+
+  /* let resultTypeDescription rt => switch rt {
+    | Terminal s => "Terminal(" ^ s ^ ")"
+    | Lexical (name, sub, index) text passThrough => "Lexical(" ^ name ^ "," ^ text ^ "," ^ (string_of_int index) ^ ")"
+    | Nonlexical (name, sub, index) passThrough => "Nonlexical(" ^ name ^ "," ^ (string_of_int index) ^ ")"
+  }; */
+
+  /* type result = {
+    start: int,
+    cend: int,
+    typ: resultType,
+    label: option string,
+    children: list result,
+  } [@@deriving (yojson, show)];
+ */
+
+  /* type partial = {
+    path: list string,
+    expected: string,
+    position: int,
+    lno: int,
+    cno: int,
+  } [@@deriving yojson]; */
+
+  type parserMatch =
+    | Success result
+    | Failure (option result) Error.partial;
+
+};
+
 
 /* include Parsing; */
 /* include Result; */

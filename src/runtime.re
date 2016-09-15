@@ -1,5 +1,7 @@
 /* from https://rwmj.wordpress.com/2010/12/29/packrat-parser-with-left-recursion/ with modifications */
-open PackTypes;
+let module P = PackTypes.Parsing;
+let module R = PackTypes.Result;
+let module RP = PackTypes.Path;
 
 /* Parser.
  * Packrat parser with left recursion, see:
@@ -11,7 +13,7 @@ let module StringSet = Set.Make String;
 type lr = {mutable seed: ans, mutable rulename: string, mutable head: option head}
 and memoentry = {mutable ans: ans_or_lr, mutable pos: int}
 and ans_or_lr = | Answer ans | LR lr
-and ans = (int, result, PackTypes.Result.errors)
+and ans = (int, PackTypes.Result.result, PackTypes.Error.errors)
 and head = {
   mutable hrule: string,
   mutable involved_set: StringSet.t,
@@ -20,13 +22,14 @@ and head = {
 
 exception Found ans;
 
-let emptyResult pos name isLexical => {
-  start: pos,
+let emptyResult pos name isLexical => R.Leaf (name, "") "" (pos, pos);
+ /* {
+  R.start: pos,
   cend: pos,
   typ: isLexical ? Lexical (name, "", 0) "" false : Nonlexical (name, "", 0) false,
   label: None,
   children: [],
-};
+}; */
 
 type state = {
   mutable lrstack: list lr,
@@ -90,6 +93,8 @@ let skipABlockComment i (first, last) text len => {
   }
 };
 
+let optOr orr opt => switch opt { | Some x => x | None => orr};
+
 /* If we're skipping line comments, we can also skip newlines */
 let rec skipLineComments i start text len => {
   let i' = skipALineComment i start text len;
@@ -147,7 +152,7 @@ let rec greedy loop min max subr i path greedyCount isNegated => {
     | _ =>
     if (min > 0) {
       /* we must match at least min or fail */
-      let (i', found, err) = loop i [subr] [Iter greedyCount, ...path] 0 isNegated;
+      let (i', found, err) = loop i [subr] [RP.Iter greedyCount, ...path] 0 isNegated;
       if (i' >= i) {
         let (i'', children, merr) = greedy loop (min - 1) max subr i' path (greedyCount + 1) isNegated;
         (i'', List.concat [found, children], mergeErrs err merr)
@@ -156,7 +161,7 @@ let rec greedy loop min max subr i path greedyCount isNegated => {
       }
     } else {
       /* try matching, doesn't matter if we fail */
-      let (i', children, err) = loop i [subr] [Iter greedyCount, ...path] 0 isNegated;
+      let (i', children, err) = loop i [subr] [RP.Iter greedyCount, ...path] 0 isNegated;
       if (i' >= i) {
         let max =
         switch max {
@@ -302,8 +307,8 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines i
 
 and parse grammar state rulename i isLexical ignoringNewlines isNegated path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
-  let {ignoreNewlines, choices, passThrough, leaf} =
-    try (List.assoc rulename grammar.rules) {
+  let {P.ignoreNewlines, choices, passThrough, leaf} =
+    try (List.assoc rulename grammar.P.rules) {
     | Not_found =>
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
       exit 1
@@ -326,10 +331,10 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
             (i, items)
           } else {
             switch items {
-              | [Lexify p, ...rest] => (i, [p, ...rest])
+              | [P.Lexify p, ...rest] => (i, [p, ...rest])
               | _ => {
                 let i = skipWhite i state.input state.len ignoringNewlines;
-                let i' = switch (ignoringNewlines, grammar.blockComment, grammar.lineComment) {
+                let i' = switch (ignoringNewlines, grammar.P.blockComment, grammar.P.lineComment) {
                   | (false, Some x, _) => skipBlockComments i x state.input state.len false
                   | (true, Some x, None) => skipBlockComments i x state.input state.len true
                   | (true, Some x, Some y) => skipBlockAndLineComments i x y state.input state.len
@@ -344,9 +349,9 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
           };
 
           switch items {
-            | [Lexify p, ...rest] => loop i [p, ...rest] path loopIndex isNegated
-            | [Empty, ...rest] => loop i rest path (loopIndex + 1) isNegated
-            | [Lookahead p, ...rest] => {
+            | [P.Lexify p, ...rest] => loop i [p, ...rest] path loopIndex isNegated
+            | [P.Empty, ...rest] => loop i rest path (loopIndex + 1) isNegated
+            | [P.Lookahead p, ...rest] => {
               let (i', _, err) = loop i [p] path (loopIndex + 1) isNegated;
               if (i' >= i) {
                 loop i rest path (loopIndex + 1) isNegated/* propagate errors */
@@ -355,9 +360,9 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
               }
             }
 
-            | [Group g, ...rest] => loop i (List.concat [g, rest]) path loopIndex isNegated
-            | [Not p, ...rest] => {
-              let (i', _, err) = loop i [p] [Item (Not p) loopIndex, ...path] 0 (not isNegated);
+            | [P.Group g, ...rest] => loop i (List.concat [g, rest]) path loopIndex isNegated
+            | [P.Not p, ...rest] => {
+              let (i', _, err) = loop i [p] [RP.Item (Not p) loopIndex, ...path] 0 (not isNegated);
               if (i' >= i) {
                 (-1, [], err)
               } else {
@@ -365,7 +370,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
               }
             }
 
-            | [CommentEOL as item, ...rest] => {
+            | [P.CommentEOL as item, ...rest] => {
               let i' = skipLineComments i (unwrap grammar.lineComment) state.input state.len;
               let i' = if (i' > i || i' >= state.len || String.get state.input i != '\n') {
                 i'
@@ -381,67 +386,77 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 (i'', children, rest_errs)
               } else {
                 /* Printf.printf "No actual skippage %d %d \"%s\"\n" i i' (String.sub state.input i 10); */
-                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
               }
             }
 
-            | [(NonTerminal n label) as item, ...rest] => {
-                let (i', result, errs) = apply_rule grammar state n i ignoringNewlines isNegated [Item item loopIndex, ...path];
+            | [(P.NonTerminal n label) as item, ...rest] => {
+                let (i', result, errs) = apply_rule grammar state n i ignoringNewlines isNegated [RP.Item item loopIndex, ...path];
                 if (i' >= i) {
                   let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
-                  (i'', [{...result, label}, ...children], mergeErrs errs rest_errs)
+                  (i'', [(label |> optOr "", result), ...children], mergeErrs errs rest_errs)
                 } else {
                   (-1, [], errs)
                 }
               }
 
-            | [(Terminal target_string label) as item, ...rest] => {
+            | [(P.Terminal target_string label) as item, ...rest] => {
                 let slen = String.length target_string;
                 if (i + slen > state.len) {
-                  (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                  (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
                 } else {
                   let sub = String.sub state.input i slen;
                   if (sub == target_string) {
                     let (i'', children, err) = loop (i + slen) rest path (loopIndex + 1) isNegated; /* TODO line / col num */
                     let children = switch label {
-                      | Some x => [{label, start: i, cend: i + slen, children: [], typ: Terminal sub}, ...children]
+                      | Some x => [(x, R.Leaf ("", target_string) target_string (i, i + slen)), ...children]
                       | None => children
                     };
                     (i'', children, err)
                   } else {
-                    (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                    (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
                   }
                 }
               }
 
-            | [(Any label) as item, ...rest] =>
+            | [(P.Any label) as item, ...rest] =>
               if (i >= state.len) {
-                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
               } else {
                 let (i'', children, err) = loop (i + 1) rest path (loopIndex + 1) isNegated;
-                (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], err)
+                let contents = (String.sub state.input i 1);
+                let children = switch label {
+                  | Some x => [(x, R.Leaf ("", contents) contents (i, i + 1)), ...children]
+                  | None => children
+                };
+                (i'', children, err)
               }
 
-            | [EOF, ...rest] => {
+            | [P.EOF, ...rest] => {
               if (i >= state.len) {
-                (i, [{label: None, start: i, cend: i, children: [], typ: Terminal ""}], (-1, []))
+                (i, [], (-1, [])) /* TODO should I have a leaf here? */
               } else {
-                (-1, [], (i, [(true, [Item EOF loopIndex, ...path])]))
+                (-1, [], (i, [(true, [RP.Item EOF loopIndex, ...path])]))
               }
             }
 
-            | [(Chars c1 c2 label) as item, ...rest] =>
+            | [(P.Chars c1 c2 label) as item, ...rest] =>
               if (i >= state.len) {
-                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
               } else if (state.input.[i] >= c1 && state.input.[i] <= c2) {
                 let (i'', children, errs) = loop (i + 1) rest path (loopIndex + 1) isNegated;
-                (i'', [{label, start: i, cend: i + 1, children: [], typ: Terminal (String.sub state.input i 1)}, ...children], errs)
+                let contents = (String.sub state.input i 1);
+                let children = switch label {
+                  | Some x => [(x, R.Leaf ("", contents) contents (i, i + 1)), ...children]
+                  | None => children
+                };
+                (i'', children, errs)
               } else {
-                (-1, [], (i, [(true, [Item item loopIndex, ...path])]))
+                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
               }
 
-            | [(Star subr _) as item, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 0 None subr i [Item item loopIndex, ...path] 0 isNegated;
+            | [(P.Star subr _) as item, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 0 None subr i [RP.Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', List.concat [subchildren, children], mergeErrs errs more_errs)
@@ -450,8 +465,8 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 }
               }
 
-            | [(Plus subr _) as item, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 1 None subr i [Item item loopIndex, ...path] 0 isNegated;
+            | [(P.Plus subr _) as item, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 1 None subr i [RP.Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', List.concat [subchildren, children], mergeErrs errs more_errs)
@@ -460,8 +475,8 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 }
               }
 
-            | [(Optional subr _) as item, ...rest] => {
-                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [Item item loopIndex, ...path] 0 isNegated;
+            | [(P.Optional subr _) as item, ...rest] => {
+                let (i', subchildren, errs) = greedy loop 0 (Some 1) subr i [RP.Item item loopIndex, ...path] 0 isNegated;
                 if (i' >= i) {
                   let (i'', children, more_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   (i'', List.concat [subchildren, children], mergeErrs errs more_errs)
@@ -474,14 +489,17 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
         }
         ;
 
-        let subPath = numChoices === 1 ? path : [Choice choiceIndex sub_name, ...path];
+        let subPath = numChoices === 1 ? path : [RP.Choice choiceIndex sub_name, ...path];
         let (i', children, err) = loop i rs subPath 0 isNegated;
         let errs = mergeErrs prevErrors err;
         if (i' >= i) {
-          let children = leaf ? [] : children;
+          let name = (rulename, sub_name);
+          let loc = (i, i');
+          let result = leaf ? R.Leaf name (String.sub state.input i (i' - i)) loc : R.Node name children loc;
+          /* let children = leaf ? [] : children; */
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
-          let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex) (String.sub state.input i (i' - i)) passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough;
-          (i', {start: i, cend: i', children, label: None, typ}, errs)
+          /* let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex)  passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough; */
+          (i', result, errs)
         } else {
           process otherChoices errs (choiceIndex + 1)
         }
@@ -501,15 +519,15 @@ let initialState input => {
   input,
 };
 
-let parse (grammar: PackTypes.grammar) start input => {
+let parse (grammar: PackTypes.Parsing.grammar) start input => {
   let state = initialState input;
   /* TODO ignoringNewlines should be configurable? */
   let (i, result, errs) = apply_rule grammar state start 0 false false [];
   if (i == -1) {
-    Failure None (0, errs)
+    R.Failure None (0, errs)
   } else if (i < state.len) {
-    Failure (Some result) (i, errs)
+    R.Failure (Some result) (i, errs)
   } else {
-    Success result
+    R.Success result
   }
 };

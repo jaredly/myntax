@@ -145,9 +145,11 @@ let parseRule children => {
         | ("ignoreNewlines", []) => (P.Yes, pass, leaf)
         | ("passThrough", []) => (white, true, leaf)
         | ("leaf", []) => (white, pass, true)
-        | _ => {
+        | ("lineComment", _)
+        | ("blockComment", _) => flags
+        | (name, _) => {
           Printf.eprintf "Ignoring decorator %s\n" name;
-          (white, pass, leaf)
+          flags
         }
       }
     }

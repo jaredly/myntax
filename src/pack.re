@@ -24,7 +24,7 @@ let main dump::dump=false file::file=? dest::dest=? unit => {
         | Some result => Json.result_to_string result |> print_endline
         | None => ()
       }; */
-      Printf.eprintf "%s\n" (PackTypes.Result.genErrorText contents failure);
+      Printf.eprintf "%s\n" (PackTypes.Error.genErrorText contents failure);
       exit 1;
     }
     | PackTypes.Result.Success result => {
@@ -52,7 +52,7 @@ let tests cases => {
   (fun (rule, text) => {
     switch (Runtime.parse GrammarGrammar.grammar rule text) {
       | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
-        print_string (PackTypes.Result.genErrorText text failure);
+        print_string (PackTypes.Error.genErrorText text failure);
       }
       | PackTypes.Result.Success result => ()
     };
