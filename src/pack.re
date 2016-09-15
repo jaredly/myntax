@@ -3,7 +3,7 @@ let rx = Str.regexp "PackTypes\\.Parsing\\.";
 let replaceModule = Str.global_replace rx "";
 
 let printGrammar grammar name => {
-  Printf.printf {|(** This grammar definition was generated from %s **)
+  Printf.sprintf {|(** This grammar definition was generated from %s **)
 
 open PackTypes.Parsing
 
@@ -13,7 +13,7 @@ let grammar = %s;
 
 };
 
-let main dump::dump=false file::file=? unit => {
+let main dump::dump=false file::file=? dest::dest=? unit => {
   let contents = switch file {
     | Some name => Sysop.readFile name
     | None => Sysop.readStdin()
@@ -24,7 +24,7 @@ let main dump::dump=false file::file=? unit => {
         | Some result => Json.result_to_string result |> print_endline
         | None => ()
       }; */
-      print_string (PackTypes.Result.genErrorText contents failure);
+      Printf.eprintf "%s\n" (PackTypes.Result.genErrorText contents failure);
       exit 1;
     }
     | PackTypes.Result.Success result => {
@@ -34,7 +34,10 @@ let main dump::dump=false file::file=? unit => {
       };
       if dump {
         let grammar = GrammarOfGrammar.convert result;
-        printGrammar grammar name;
+        switch dest {
+          | Some dest => Printf.fprintf (open_out dest) "%s" (printGrammar grammar name);
+          | None => print_endline (printGrammar grammar name);
+        }
       } else {
         print_endline (Json.result_to_string result);
       }
@@ -141,7 +144,8 @@ white =
 switch Sys.argv {
   | [|_, "test"|] => tests testCases;
   | [|_, "dump"|] => main dump::true ()
-  | [|_, "dump-base"|] => printGrammar (GrammarGrammar.grammar) "baseGrammarGrammar.re"
+  | [|_, "dump-base"|] => print_endline (printGrammar (GrammarGrammar.grammar) "baseGrammarGrammar.re")
   | [|_, "dump", filename|] => main dump::true file::filename ()
+  | [|_, "dump", filename, destination|] => main dump::true file::filename dest::destination ()
   | _ => main()
 };

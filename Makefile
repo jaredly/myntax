@@ -6,7 +6,7 @@ ocaml:
 regen-grammar: dump pack
 
 dump:
-	./pack.native dump parsable/grammar > src/grammarGrammar.ml
+	./pack.native dump parsable/grammar src/grammarGrammar.ml
 
 pack:
 	rebuild src/pack.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules
