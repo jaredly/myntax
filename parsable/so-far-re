@@ -1,6 +1,9 @@
+@lineComment("//")
+@blockComment("/*", "*/")
 Start = ModuleBody
 
-ModuleBody = "\n"* (Structure "\n"+)* Structure? "\n"*
+@ignoreNewlines(false)
+ModuleBody = __comment_eol? (Structure __comment_eol)* Structure? __comment_eol?
 
 Structure =
   | "let" "module" capIdent "=" "{" ModuleBody "}"
@@ -35,20 +38,28 @@ TypeDecl =
   | TypeRecord
   | Type
 
+@ignoreNewlines(false)
 TypeVariant = 
-  | "enum" "{" "\n"* (TypeVariantItem "\n"+)* TypeVariantItem? "}"
+  | "enum" "{" __comment_eol? (TypeVariantItem __comment_eol)* TypeVariantItem? "}"
   | capIdent ("|" capIdent)+ ; should I have this?
 
 TypeVariantItem =
-  | "case" capIdent "(" ("\n"* Type ",")* "\n"* Type? "\n"* ")"
+  | "case" capIdent "(" TypesCommad ")"
   | "case" capIdent
+
+@ignoreNewlines
+TypesCommad = (Type ",")* Type?
 
 TypeRecord = "{" "\n"* (lowerIdent ":" Type "," "\n"*)* (lowerIdent ":" Type)? "\n"* "}"
 
 ValueBinding =
-  | ident "(" "\n"? (Arg "," "\n"?)* Arg? "\n"? ")" "=>" Expression
+  | ident "(" ValueArgs ")" "=>" Expression
   | ident Arg "=>" Expression
   | Pattern (":" Type)? "=" Expression
+
+@passThrough
+@ignoreNewlines
+ValueArgs = (Arg "," "\n"?)* Arg?
 
 Arg =
   | "::" ident ArgValue?
@@ -92,21 +103,26 @@ MatchPattern =
 
 Type =
   | Type "as" typeVar -- alias
-  | "(" Type ("," Type)+ ","? ")" -- tuple
+  | "(" TupleTypes ")" -- tuple
   | "_" -- any
   | typeVar
   | (lowerIdent "?"? "::") Type "=>" Type
-  | longident ("<" (Type ",")* Type? ">")? -- constructor
+  | longident ("<" TypesCommad ">")? -- constructor
   ; TODO object
   ; TODO class
   ; TODO alias?
   ; TODO package
   ; TODO extension
 
+@passThrough
+@ignoreNewlines
+TupleTypes = Type ("," Type)+ ","?
+
 typeVar = "'" lowerIdent
 
 Attribute = "[@@" ident Expr? "]"
 
+@ignoreNewlines(false)
 Statement =
   | "let" [rec]"rec"? ValueBinding ("\n" "and" ValueBinding)* -- value
   | "let" "module" capIdent "=" "{" ModuleBody "}"
@@ -120,7 +136,7 @@ Expression =
   | FunExpr
   | SwitchExp
   | TryExp
-  | "(" Expression ("," Expression)+ ","? ")" -- tuple
+  | "(" TupleBody ")" -- tuple
   | "`"? capIdent ("(" Commas ")")? -- constructor
   | "{" (RecordItem ",")+ RecordItem? "}"
   | "[|" (Expression ",")* Expression? "|]" -- list
@@ -138,8 +154,7 @@ Expression =
   | longident -- ident
   | constant -- const
   | "()" -- unit
-  | "(" Expression ':' Type ")" -- constraint
-  | "(" Expression ")" -- wrapped
+  | "(" WrappedExpression ")" -- wrapped ; or constraint
   | "[%" ident "]" -- extension
   ; TODO coerce
   ; TODO override
@@ -148,6 +163,12 @@ Expression =
   ; TODO newtype
   ; TODO pack
 
+@ignoreNewlines
+@passThrough
+WrappedExpression = Expression (':' Type)?
+
+@ignoreNewlines
+TupleBody = Expression ("," Expression)+ ","?
 
 RecordItem = lowerIdent (":" Expression)?
 
@@ -161,9 +182,13 @@ FunExpr =
   | "(" "\n"* (Arg "," "\n"?)* Arg? "\n"* ")" "=>" Expression
   | Arg "=>" Expression
 
-Block = "{" "\n"? (Statement "\n")* Statement? "}"
+@ignoreNewlines(true)
+Block = "{" Statement* "}"
 
-Application = Expression "(" "\n"* (FnArg "," "\n"*)* FnArg? "\n"* ")"
+Application = Expression "(" AppArgs ")"
+
+@ignoreNewlines
+AppArgs = (FnArg ",")* FnArg?
 
 ;; maybe get operator precedence going?
 BinExp = Expression binOp Expression

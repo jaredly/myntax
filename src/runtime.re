@@ -51,6 +51,7 @@ let rec skipWhite i text len ignoreNewlines => {
   } else {
     switch (String.get text i) {
       | ' ' => skipWhite (i + 1) text len ignoreNewlines
+      | '\t' => skipWhite (i + 1) text len ignoreNewlines
       | '\n' when ignoreNewlines => skipWhite (i + 1) text len ignoreNewlines
       | _ => i
     }
@@ -61,11 +62,8 @@ let skipALineComment i start text len => {
   let sl = String.length start;
   /* TODO maybe iterate? */
   if (sl + i < len && String.sub text i sl == start) {
-    let i' = try {String.index_from text i '\n'}
-    {
-      | Not_found => len /* go to end */
-    };
-    i'
+    try {String.index_from text i '\n'}
+    { | Not_found => len /* go to end */ };
   } else {
     i
   }
@@ -372,7 +370,10 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
               let i' = if (i' > i || i' >= state.len || String.get state.input i != '\n') {
                 i'
               } else {
-                i' + 1
+                let i' = skipWhite i' state.input state.len true;
+                let i' = skipLineComments i' (unwrap grammar.lineComment) state.input state.len;
+                i'
+                /* i' + 1 */
               };
               if (i' > i || i' >= state.len) {
                 let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;

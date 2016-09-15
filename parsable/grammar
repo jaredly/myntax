@@ -14,8 +14,8 @@ bool =
   | "false"
 
 Rule =
-  | __comment_eol? [decorators]Decorator* [name]ident "=" [choices]Choice __comment_eol
-  | __comment_eol? [decorators]Decorator* [name]ident "=" __comment_eol ("|" [choices]Choice __comment_eol)+
+  | [decorators]Decorator* [name]ident "=" [choices]Choice __comment_eol
+  | [decorators]Decorator* [name]ident "=" __comment_eol ("|" [choices]Choice __comment_eol)+
 
 Choice = [children]Item+ (
   "--" [name]ident
