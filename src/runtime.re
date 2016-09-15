@@ -23,7 +23,7 @@ exception Found ans;
 let emptyResult pos name isLexical => {
   start: pos,
   cend: pos,
-  typ: isLexical ? Lexical name "" : Nonlexical name,
+  typ: isLexical ? Lexical name "" false : Nonlexical name false,
   label: None,
   children: [],
 };
@@ -227,7 +227,7 @@ and grow_lr grammar state rulename i memoentry head isLexical path => {
 
 and parse grammar state rulename i isLexical path => {
   /* Printf.printf "parse %s %d\n" rulename i; */
-  let {ignoreNewlines, choices, _} =
+  let {ignoreNewlines, choices, passThrough} =
     try (List.assoc rulename grammar) {
     | Not_found =>
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
@@ -364,7 +364,7 @@ and parse grammar state rulename i isLexical path => {
         if (i' >= i) {
           /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
           let name = if (numChoices === 1) { rulename } else {(rulename ^ "_" ^ sub_name)};
-          let typ = isLexical ? (Lexical name (String.sub state.input i (i' - i))) : Nonlexical name;
+          let typ = isLexical ? (Lexical name (String.sub state.input i (i' - i)) passThrough) : Nonlexical name passThrough;
           (i', {start: i, cend: i', children, label: None, typ}, errs)
         } else {
           process otherChoices errs (choiceIndex + 1)

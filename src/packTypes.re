@@ -38,15 +38,15 @@ let unwrapOr a b => {
 let module Result = {
   type resultType =
     | Terminal string
-    | Lexical string string
+    | Lexical string string bool
     | Iter
-    | Nonlexical string [@@deriving yojson];
+    | Nonlexical string bool [@@deriving yojson];
 
   let resultTypeDescription rt => switch rt {
     | Terminal s => "Terminal(" ^ s ^ ")"
-    | Lexical name text => "Lexical(" ^ name ^ "," ^ text ^ ")"
+    | Lexical name text passThrough => "Lexical(" ^ name ^ "," ^ text ^ ")"
     | Iter => "Iter"
-    | Nonlexical name => "Nonlexical(" ^ name ^ ")"
+    | Nonlexical name passThrough => "Nonlexical(" ^ name ^ ")"
   };
 
   type result = {

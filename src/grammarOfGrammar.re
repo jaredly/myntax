@@ -14,29 +14,17 @@ let optOr a b => {
 };
 
 let rec getChild children needle => {
-  /* switch children {
-    | [x, ..._] => print_endline ("Child " ^ debug_type x.typ ^ " (looking for) " ^ needle ^ (optOr x.label ""))
-    | _ => ()
-  }; */
   switch children {
+    | [{label: Some label, _} as child, ..._] when label == needle => Some child
+    | [{typ: Lexical _ _ true, _} as child, ...rest]
+    | [{typ: Nonlexical _ true, _} as child, ...rest]
     | [{typ: Iter, _} as child, ...rest] => {
-      /* print_endline ("Iter child: " ^ needle); */
       switch (getChild child.children needle) {
         | Some x => Some x
         | None => getChild rest needle
       }
     }
-    | [{label: Some label, _} as child, ..._] when label == needle => {
-      /* print_endline ("Found label: " ^ needle ^ (debug_type child.typ)); */
-      Some child
-    }
-    | [{typ: Terminal _, _}, ...rest] => {
-      getChild rest needle
-    }
-    | [child, ...rest] => {
-      /* print_endline "skipping"; */
-      getChild rest needle
-    }
+    | [_, ...rest] => getChild rest needle
     | [] => None
   }
 };
@@ -45,6 +33,8 @@ let rec getChildren children needle => {
   /* print_endline ("Getting children " ^ needle); */
   switch children {
     | [{label: Some label, _} as child, ...rest] when label == needle => [child, ...(getChildren rest needle)]
+    | [{typ: Lexical _ _ true, _} as child, ...rest]
+    | [{typ: Nonlexical _ true, _} as child, ...rest]
     | [{typ: Iter, _} as child, ...rest] => {
       List.concat [(getChildren child.children needle), getChildren rest needle]
     }
@@ -55,7 +45,7 @@ let rec getChildren children needle => {
 
 let getContents result => {
   switch result.typ {
-    | Lexical name contents => contents
+    | Lexical name contents passThrough => contents
     | _ => failwith "Not a lexical"
   }
 };
@@ -124,9 +114,9 @@ let rec parseItem item => {
   };
   let node = switch (getChild item.children "suffix") {
     | None => node
-    | Some {typ: Lexical "suffix_star" _, _} => P.Star node None
-    | Some {typ: Lexical "suffix_plus" _, _} => P.Plus node None
-    | Some {typ: Lexical "suffix_opt" _, _} => P.Optional node None
+    | Some {typ: Lexical "suffix_star" _ _, _} => P.Star node None
+    | Some {typ: Lexical "suffix_plus" _ _, _} => P.Plus node None
+    | Some {typ: Lexical "suffix_opt" _ _, _} => P.Optional node None
     | _ => failwith "Unrecognized suffix"
   };
   node
@@ -135,13 +125,13 @@ let rec parseItem item => {
 and parseInner maybeName inner => {
   let name = maybeContents maybeName;
   switch inner.typ {
-    | Nonlexical "ItemInner_nested" => {
+    | Nonlexical "ItemInner_nested" passThrough => {
       /* print_endline "going deeper"; */
       P.Group (List.map parseItem (getChildren inner.children "nested"))
     }
     | _ => {let child = (List.hd inner.children);
       switch child.typ {
-        | Lexical "ident" contents => {
+        | Lexical "ident" contents passThrough => {
           if (contents == "any") {
             P.Any name
           } else if (contents == "EOF") {
@@ -150,9 +140,9 @@ and parseInner maybeName inner => {
             P.NonTerminal contents name
           }
         }
-        | Lexical "string" contents => P.Terminal (unescapeString contents) name
-        | Lexical "char" contents => P.Terminal (unescapeString contents) name
-        | Lexical "char_range" contents => (
+        | Lexical "string" contents passThrough => P.Terminal (unescapeString contents) name
+        | Lexical "char" contents passThrough => P.Terminal (unescapeString contents) name
+        | Lexical "char_range" contents passThrough => (
           P.Chars
           ((getChild child.children "start") |> unwrap |> getContents |> unescapeChar)
           ((getChild child.children "end") |> unwrap |> getContents |> unescapeChar)
@@ -183,11 +173,11 @@ let parseDecorator decorator => {
   let name = getChild decorator.children "name" |> unwrap |> getContents;
   let args = (List.map
     (fun arg => {
-      switch (List.hd arg.children).typ  {
-        | Lexical "decarg_bool" contents => Bool (contents == "true" ? true : false)
-        | Lexical "decarg_string" contents => String (Scanf.unescaped (String.sub contents 1 ((String.length contents) - 2)))
-        | Lexical "decarg_number" contents => Number (int_of_string contents)
-        | _ => failwith "Invalid decorator arg"
+      switch arg.typ  {
+        | Lexical "decarg_bool" contents _ => Bool (contents == "true" ? true : false)
+        | Lexical "decarg_string" contents _ => String (Scanf.unescaped (String.sub contents 1 ((String.length contents) - 2)))
+        | Lexical "decarg_number" contents _ => Number (int_of_string contents)
+        | x => failwith ("Invalid decorator arg" ^ (PackTypes.resultTypeDescription x))
       }
     })
   (getChildren decorator.children "args"));
@@ -196,10 +186,10 @@ let parseDecorator decorator => {
 
 let convert (result: result) => {
   /* print_endline "Converting"; */
-  assertEq result.typ (Nonlexical "Start");
+  assertEq result.typ (Nonlexical "Start" false);
   (List.map
   (fun rule => {
-    if (rule.typ != Nonlexical "Rule_") {
+    if (rule.typ != Nonlexical "Rule_" false) {
       failwith ("Not a rule?" ^ (PackTypes.Result.resultTypeDescription rule.typ));
     };
     let decorators = getChildren rule.children "decorators";
