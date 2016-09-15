@@ -235,6 +235,7 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
       Printf.eprintf "error in grammar: unknown rulename '%s'\n" rulename;
       exit 1
     };
+  let wasIgnoringNewlines = ignoringNewlines;
   let ignoringNewlines = switch (ignoreNewlines, ignoringNewlines) {
     | (Inherit, x) => x
     | (No, _) => false
@@ -380,6 +381,7 @@ and parse grammar state rulename i isLexical ignoringNewlines path => {
     }
   };
   process choices (-1, []) 0
+  /** TODO if wasIgnoringNewlines == false && ignoringNewlines = true, then ignore any trailing newlines */
 };
 
 let initialState input => {
