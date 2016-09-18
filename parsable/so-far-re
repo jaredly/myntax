@@ -197,7 +197,7 @@ IfExpr = "if" Expression Block ("else" "if" Expression Block)* ("else" Block)?
 
 SwitchExp = "switch" Expression "{" SwitchBody "}"
 @passThrough
-SwitchBody = EOL (SwitchCase EOL)*
+SwitchBody = EOL? (SwitchCase EOL)* SwitchCase?
 ; TODO make body optional? for merging of cases...
 SwitchCase = "case" Pattern ("with" [guard]Expression)? &":" [body]Expression
 

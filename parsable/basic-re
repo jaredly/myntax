@@ -7,6 +7,20 @@ switch x {
     30
   }
 }
+if x {
+  1
+  2
+} else if x > 10 {
+  20
+} else {
+  10
+  02
+}
+try {
+  Some(doSomething())
+} catch {
+  case Failure: None
+}
 let (a, b, [2,3,...more]) = Ten.ten(10, 10,)
 let z = {}
 let module X = {
