@@ -48,6 +48,21 @@ TypeDecl =
   | TypeRecord
   | Type
 
+Type =
+  | lowerIdent
+  | Type "as" typeVar -- alias
+  | "("& TupleTypes &")" -- tuple
+  | "_" -- any
+  | typeVar -- var
+  | (lowerIdent &"?"? &"::"&) Type "=>" Type
+  | "a"
+  ;| longIdent (&"<"& TypesCommad &">"&)? -- constructor
+  ; TODO object
+  ; TODO class
+  ; TODO alias?
+  ; TODO package
+  ; TODO extension
+
 @ignoreNewlines(false)
 TypeVariant = 
   | "enum" "{" EOL? (TypeVariantItem EOL)* TypeVariantItem? "}"
@@ -110,19 +125,6 @@ PatternCommas = Pattern (&"," Pattern)* &","?
 @ignoreNewlines
 @passThrough
 PatternRecords = longIdent (&":" Pattern)? (&"," longIdent (&":" Pattern)?)* &","?
-
-Type =
-  | Type "as" typeVar -- alias
-  | "("& TupleTypes &")" -- tuple
-  | "_" -- any
-  | typeVar -- var
-  | (lowerIdent &"?"? &"::"&) Type "=>" Type
-  | longIdent (&"<"& TypesCommad &">"&)? -- constructor
-  ; TODO object
-  ; TODO class
-  ; TODO alias?
-  ; TODO package
-  ; TODO extension
 
 @passThrough
 @ignoreNewlines

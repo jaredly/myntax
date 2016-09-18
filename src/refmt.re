@@ -51,6 +51,7 @@ let getResult grammarFile input => {
   let (grammar, parseTime, convertTime) = getGrammar grammarRaw;
   Printf.eprintf "Parse time %f, convert time %f\n" parseTime convertTime;
 
+  Runtime.debug := true;
   let (result, parseTime) = getResult grammar contents;
   Printf.eprintf "Main parse time: %f" parseTime;
   (result, grammar);

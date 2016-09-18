@@ -447,14 +447,14 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
 }
 ;
 
-let toString (grammar: grammar) result => {
+let toString maxWidth::maxWidth=50 (grammar: grammar) result => {
   switch (resultToOutput false grammar result) {
     | Some output => {
         /* print_endline (Output.show_outputT output); */
         Some (String.trim (fst (outputToString {
         indentWidth: 2,
         indentStr: "  ",
-        maxWidth: 50
+        maxWidth,
       } (-1) output)))
     }
     | None => None

@@ -3,6 +3,8 @@ let module P = PackTypes.Parsing;
 let module R = PackTypes.Result;
 let module RP = PackTypes.Path;
 
+let debug = ref false;
+
 /* Parser.
  * Packrat parser with left recursion, see:
  * "Packrat Parsers Can Support Left Recursion"
@@ -37,7 +39,8 @@ let emptyResult pos name isLexical => (R.Leaf (name, "") "" (pos, pos), false);
 
 type state = {
   mutable lrstack: list lr,
-  memo: Hashtbl.t (StringSet.elt, int) memoentry, heads: Hashtbl.t int head,
+  memo: Hashtbl.t (StringSet.elt, int) memoentry,
+  heads: Hashtbl.t int head,
   mutable cpos: int,
   len: int,
   input: string,
@@ -270,9 +273,18 @@ and recall grammar state rulename i isLexical ignoringNewlines isNegated path =>
     try (Some (Hashtbl.find state.memo (rulename, i))) {
     | Not_found => None
     };
+  if (!debug) {
+    Printf.printf "recall %d : %d\n" i ( Hashtbl.length state.heads );
+    print_endline "STACK";
+    Printexc.get_callstack 5 |> Printexc.raw_backtrace_to_string |> print_endline;
+    print_endline "ENDSTACK";
+  };
   let maybeHead =
     try (Some (Hashtbl.find state.heads i)) {
     | Not_found => None
+    | Stack_overflow => {
+      failwith "Stack err";
+    }
     };
   switch maybeHead {
   | None => maybeEntry

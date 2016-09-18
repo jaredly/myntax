@@ -286,7 +286,26 @@ let fromModuleDesc fromOcaml desc => {
   }
 };
 
-let parseTypeDeclaration result => {
+let fromTypeDeclaration fromOcaml result => {
+  failwith "failfail";
+  /* switch result {
+    | {typ: Nonlexical (_, "ident", _) _, children: [ident], _} => {
+      {
+        ptype_name: Location.mkloc (getContents ident) loc,
+        ptype_params: [], /* TODO */
+        ptype_cstrs: [], /* TODO */
+        ptype_kind: Ptype_abstract,
+        ptype_private: Public,
+        ptype_manifest: None,
+        ptype_attributes: [],
+        ptype_loc: loc,
+      }
+    }
+    | _ => failwith "Unsupported"
+  } */
+};
+
+let parseTypeDeclaration toOcaml result => {
   failwith "failfail";
   /* switch result {
     | {typ: Nonlexical (_, "ident", _) _, children: [ident], _} => {
@@ -463,6 +482,9 @@ let fromStructure fromOcaml structure => {
     }
     | Pstr_open {popen_lid, _} => {
       Node ("Structure", "open") [("", fromLongCap popen_lid.txt)] mLoc
+    }
+    | Pstr_type declarations => {
+      Node ("Structure", "type") (List.map (emptyLabeled (fromTypeDeclaration fromOcaml)) declarations)  mLoc
     }
     /* TODO let_module, type */
     | _ => failwith "no parse structure"
@@ -769,6 +791,11 @@ let rec parseBaseExpression toOcaml (sub, children, loc) => {
     | "funexpr" => RU.getNodeByType children "FunExpr" |> unwrap |> parseFunExpr toOcaml;
     | "block" => RU.getNodeByType children "Block" |> unwrap |> parseBlock toOcaml;
     | "try" => RU.getNodeByType children "TryExp" |> unwrap |> parseTry toOcaml;
+    | "while" => {
+      let cond = RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
+      let block = RU.getNodeByType children "Block" |> unwrap |> parseBlock toOcaml;
+      H.Exp.while_ cond block;
+    }
     | "constructor" => parseConstructor toOcaml children
     | "record" => parseRecord toOcaml children
     | "if" => RU.getNodeByType children "IfExpr" |> unwrap |> parseIfExp toOcaml;
@@ -899,6 +926,12 @@ let rec fromBaseExpression fromOcaml ({pexp_desc, pexp_attributes, _} as express
     | Pexp_construct {txt, _} maybeValue => fromConstructor fromOcaml txt maybeValue
     | Pexp_try base cases => fromTry fromOcaml base cases
     | Pexp_match base cases => fromSwitchExp fromOcaml base cases
+    | Pexp_while cond block => {
+      let block = block |> fromBlock fromOcaml;
+      let cond = cond |> fromOcaml.fromExpression fromOcaml;
+      /* let cases = List.map (emptyLabeled (fromSwitchCase fromOcaml)) cases; */
+      ("while", [("", cond), ("", block)])
+    }
     | Pexp_ifthenelse condition consequent maybeAlt => { /* ? add an attribute to indicate ternary? */
       switch (pexp_attributes, maybeAlt) {
         | ([({txt: "ternary", _}, _)], Some alternate) => ("ternary", [("condition", fromBinExpression fromOcaml condition), ("consequent", fromBinExpression fromOcaml consequent), ("alternate", fromBinExpression fromOcaml alternate)]) |> wrapExp
