@@ -463,14 +463,14 @@ let fromTypeDeclaration fromOcaml {ptype_kind: kind, ptype_name: name, ptype_man
       let tvar = Node ("TypeDecl", "variant") [("", Node ("TypeVariant", "") (List.map (emptyLabeled fromTypeVariantItem) constructors) mLoc)] mLoc;
       switch manifest {
         | None => ("decl", [("", nameLeaf), ("", tvar)])
-        | Some core_type => ("decl", [("", nameLeaf), ("", fromCoreType core_type), ("", tvar)])
+        | Some core_type => ("manifested", [("", nameLeaf), ("", fromCoreType core_type), ("", tvar)])
       }
     }
     | Ptype_record label_declarations => {
       let trec = Node ("TypeDecl", "record") (List.map (emptyLabeled fromTypeRecordItem) label_declarations) mLoc;
       switch manifest {
         | None => ("decl", [("", nameLeaf), ("", trec)])
-        | Some core_type => ("decl", [("", nameLeaf), ("", fromCoreType core_type), ("", trec)])
+        | Some core_type => ("manifested", [("", nameLeaf), ("", fromCoreType core_type), ("", trec)])
       }
     }
     | Ptype_open => {
@@ -481,23 +481,42 @@ let fromTypeDeclaration fromOcaml {ptype_kind: kind, ptype_name: name, ptype_man
   Node ("TypeDeclaration", sub) children mLoc
 };
 
-let parseTypeDeclaration toOcaml result => {
-  failwith "failfail";
-  /* switch result {
-    | {typ: Nonlexical (_, "ident", _) _, children: [ident], _} => {
-      {
-        ptype_name: Location.mkloc (getContents ident) loc,
-        ptype_params: [], /* TODO */
-        ptype_cstrs: [], /* TODO */
-        ptype_kind: Ptype_abstract,
-        ptype_private: Public,
-        ptype_manifest: None,
-        ptype_attributes: [],
-        ptype_loc: loc,
-      }
+let justChildren (_, children, _) => children;
+
+let parseTypeVariantItem (sub, children, loc) => {
+  let name = RU.getContentsByType children "capIdent" |> unwrap;
+  let args = RU.getNodesByType children "Type" toCoreType;
+  H.Type.constructor args::args (Location.mknoloc name);
+};
+
+let parseTypeRecordItem (sub, children, loc) => {
+  let name = RU.getContentsByType children "lowerIdent" |> unwrap;
+  let typ = RU.getNodeByType children "Type" |> unwrap |> toCoreType;
+  H.Type.field (Location.mknoloc name) typ;
+};
+
+let parseTypeDecl (sub, children, loc) => {
+  switch sub {
+    | "variant" => {
+      let children = RU.getNodeByType children "TypeVariant" |> unwrap |> justChildren;
+      Ptype_variant (RU.getNodesByType children "TypeVariantItem" parseTypeVariantItem);
     }
-    | _ => failwith "Unsupported"
-  } */
+    | "record" => {
+      Ptype_record (RU.getNodesByType children "TypeRecordItem" parseTypeRecordItem);
+    }
+    | _ => failwith "invalid type decl"
+  }
+};
+
+let parseTypeDeclaration toOcaml (sub, children, loc) => {
+  let name = (Location.mknoloc (RU.getContentsByType children "lowerIdent" |> unwrap));
+  switch sub {
+    | "ident" => H.Type.mk kind::Ptype_abstract name
+    | "abs_manifest" => H.Type.mk kind::Ptype_abstract manifest::(RU.getNodeByType children "Type" |> unwrap |> toCoreType) name
+    | "decl" => H.Type.mk kind::(RU.getNodeByType children "TypeDecl" |> unwrap |> parseTypeDecl) name
+    | "manifested" => H.Type.mk manifest::(RU.getNodeByType children "Type" |> unwrap |> toCoreType) kind::(RU.getNodeByType children "TypeDecl" |> unwrap |> parseTypeDecl) name
+    | _ => failwith "nope type declaration"
+  }
 };
 
 let parseArgValue toOcaml (sub, children, loc) => {
