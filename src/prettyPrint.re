@@ -165,11 +165,15 @@ let findByLabel children needle => {
 };
 
 let findByType children needle => {
-  maybeFind children (fun (_, child) => {
-    switch child {
-      | Leaf (name, sub) _ _ as child
-      | Node (name, sub) _ _ as child when name == needle => Some child
-      | _ => None
+  maybeFind children (fun (label, child) => {
+    if (label == "") {
+      switch child {
+        | Leaf (name, sub) _ _ as child
+        | Node (name, sub) _ _ as child when name == needle => Some child
+        | _ => None
+      }
+    } else {
+      None
     }
   })
 };
@@ -320,10 +324,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
               }
               | None => {
                 let (child, others) = switch label {
-                  | Some label => switch (findByLabel children label) {
-                    | (None, _) => findByType children name
-                    | x => x
-                  }
+                  | Some label => findByLabel children label
                   | None => findByType children name
                 };
                 switch child {

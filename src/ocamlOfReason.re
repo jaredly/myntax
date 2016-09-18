@@ -171,10 +171,10 @@ let parseConstant (sub, children, loc) => {
 
 let fromConstant constant => {
   switch constant {
-    | Const_int value => ("int", [("", Leaf ("int64", "") (string_of_int value) mLoc)], mLoc)
-    | Const_string text multi => ("string", [("", Leaf ("string", "") (escapeString text) mLoc)], mLoc)
-    | Const_float text => ("float", [("", Leaf ("float", "") text mLoc)], mLoc)
-    | Const_char chr => ("char", [("", Leaf ("char", "") (Printf.sprintf "'%c'" chr) mLoc)], mLoc)
+    | Const_int value => ("int", [("val", Leaf ("int64", "") (string_of_int value) mLoc)], mLoc)
+    | Const_string text multi => ("string", [("val", Leaf ("string", "") (escapeString text) mLoc)], mLoc)
+    | Const_float text => ("float", [("val", Leaf ("float", "") text mLoc)], mLoc)
+    | Const_char chr => ("char", [("val", Leaf ("char", "") (Printf.sprintf "'%c'" chr) mLoc)], mLoc)
     | _ => failwith "unsup const"
   }
 };

@@ -18,7 +18,7 @@ ModuleBody = EOL? (Structure EOL)*
 Structure =
   | "let" "module" capIdent "=" ModuleDesc -- let_module
   | "let" "rec" "module" capIdent "=" "{" ModuleBody "}" (EOL "and" capIdent "=" "{" ModuleBody "}")* -- let_rec_module
-  | "let" [rec]"rec"? [bindings]ValueBinding (EOL "and" [bindings]ValueBinding)* -- value
+  | "let" [rec]"rec"? ValueBinding (EOL "and" ValueBinding)* -- value
   | "type" TypeDeclaration (EOL+ "and" TypeDeclaration)* -- type
   | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type
   | "exception" capIdent "of" Type
@@ -97,7 +97,7 @@ Pattern =
   | "[|"& (Pattern &",")* Pattern? &"|]" -- array
   | "["& (Pattern &",")* Pattern? ("..."& [rest]lowerIdent)? &"]" -- list
   | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record ; TODO _ for open flag
-  | "`"&? capIdent &("("& (Pattern &",")* Pattern? &")")?  -- constructor
+  | [isVariant]"`"&? capIdent &("("& (Pattern &",")* Pattern? &")")?  -- constructor
   | lowerIdent -- ident
   | constant -- const
   ; Ppat_type
@@ -195,11 +195,11 @@ RecordItem = longIdent (&":" Expression)?
 
 IfExpr = "if" Expression Block ("else" "if" Expression Block)* ("else" Block)?
 
-SwitchExp = "switch" Expression SwitchBody
-SwitchBody = "{" "\n"+ (SwitchCase "\n"+)* "}"
-SwitchCase = "case" Pattern ("with" [guard]Expression)? &":" "\n"* Expression?
+SwitchExp = "switch" Expression "{" SwitchBody "}"
+SwitchBody = EOL (SwitchCase EOL)*
+SwitchCase = "case" Pattern ("with" [guard]Expression)? &":" [body]Expression?
 
-TryExp = "try" Block "catch" SwitchBody
+TryExp = "try" Block "catch" "{" SwitchBody "}"
 
 FunExpr =
   | "("& ValueArgs &")" "=>" Expression -- multi
