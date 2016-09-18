@@ -54,24 +54,23 @@ TypeVariant =
   | capIdent ("|" capIdent)+ ; should I have this?
 
 TypeVariantItem =
-  | "case" capIdent "(" TypesCommad ")"
-  | "case" capIdent
+  | "case" capIdent ("(" TypesCommad? ")")?
 
 @ignoreNewlines
 @passThrough
-TypesCommad = (Type &",")* Type?
+TypesCommad = Type (&"," Type)* ","?
 
 @ignoreNewlines
 TypeRecord = "{" (lowerIdent &":" Type ",")* (lowerIdent &":" Type)? "}"
 
 ValueBinding =
-  | [name]lowerIdent "("& ValueArgs &")" "=>" Expression -- func
+  | [name]lowerIdent "("& ValueArgs? &")" "=>" Expression -- func
   | [name]lowerIdent Arg "=>" Expression -- func
   | Pattern "=" Expression -- value
 
 @passThrough
 @ignoreNewlines
-ValueArgs = (Arg &",")* Arg?
+ValueArgs = Arg (&"," Arg)* ","?
 
 Arg =
   | "::"& lowerIdent &ArgValue? -- punned
@@ -95,14 +94,22 @@ Pattern =
   | char &".."& char -- interval
   | "("& Pattern (&"," Pattern)+ &","? &")" -- tuple
   | "[|"& (Pattern &",")* Pattern? &"|]" -- array
-  | "["& (Pattern &",")* Pattern? ("..."& [rest]lowerIdent)? &"]" -- list
-  | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record ; TODO _ for open flag
-  | [isVariant]"`"&? longCap &("("& (Pattern &",")* Pattern? &")")?  -- constructor
+  | "["& PatternCommas? ("..."& [rest]lowerIdent)? &"]" -- list
+  | "{"& PatternRecords [open]"_"? &"}" -- record ; TODO _ for open flag
+  | [isVariant]"`"&? longCap &("("& PatternCommas? &")")?  -- constructor
   | "`"& capIdent &("("& (Pattern &",")* Pattern? &")")?  -- variant
   | lowerIdent -- ident
   | constant -- const
   ; Ppat_type
   ; Ppat_unpack
+
+@ignoreNewlines
+@passThrough
+PatternCommas = Pattern (&"," Pattern)* &","?
+
+@ignoreNewlines
+@passThrough
+PatternRecords = longIdent (&":" Pattern)? (&"," longIdent (&":" Pattern)?)* &","?
 
 Type =
   | Type "as" typeVar -- alias
@@ -207,7 +214,7 @@ SwitchCase = "case" Pattern ("with" [guard]Expression)? &":" [body]Expression
 TryExp = "try" Block "catch" "{" SwitchBody "}"
 
 FunExpr =
-  | "("& ValueArgs &")" "=>" Expression -- multi
+  | "("& ValueArgs? &")" "=>" Expression -- multi
   | Arg "=>" Expression -- single
 
 Block = "{" BlockBody "}"
@@ -217,11 +224,11 @@ Block = "{" BlockBody "}"
 BlockBody = EOL? (Statement EOL)* Statement?
 
 @passThrough
-Application = Expression &"("& AppArgs &")"
+Application = Expression &"("& AppArgs? &")"
 
 @passThrough
 @ignoreNewlines
-AppArgs = (FnArg &",")* FnArg?
+AppArgs = FnArg (&"," FnArg)* ","?
 
 @leaf
 unOp =

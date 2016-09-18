@@ -26,6 +26,13 @@ ocaml:
 web:
 	./buckle.sh && webpack
 
+pdump:
+	./refmt.native pretty parsable/so-far-re src/pack.my src/pack.my
+
+pback:
+	./refmt.native bin parsable/so-far-re src/pack.my > out.bin
+	../Reason/refmt_impl.native -parse binary -print re out.bin > src/pack.re
+
 regen-grammar: dump pack
 
 dump:
