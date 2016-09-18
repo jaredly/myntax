@@ -15,14 +15,14 @@ let module StringSet = Set.Make String;
 type lr = {mutable seed: ans, mutable rulename: string, mutable head: option head}
 and memoentry = {mutable ans: ans_or_lr, mutable pos: int}
 and ans_or_lr = | Answer ans | LR lr
-and ans = (int, (PackTypes.Result.result, bool), PackTypes.Error.errors)
+and ans = (int, (PackTypes.Result.result, bool), unit)
 and head = {
   mutable hrule: string,
   mutable involved_set: StringSet.t,
   mutable eval_set: StringSet.t
 };
 
-let show_ans message (pos, _, (epos, errors)) => {
+/* let show_ans message (pos, _, (epos, errors)) => {
   Printf.eprintf "%s :: (%d)\n%s\n" message epos (PackTypes.Error.errorsText errors);
 };
 
@@ -31,7 +31,7 @@ let show_ansorlr message ansor => {
     | Answer ans => show_ans message ans
     | LR lr => show_ans (message ^ "[lr seed]") lr.seed
   }
-};
+}; */
 
 exception Found ans;
 
@@ -141,7 +141,8 @@ let rec skipBlockAndLineComments i ends line text len => {
   }
 };
 
-let mergeErrs (i1, errs1) (i2, errs2) => {
+let mergeErrs /*(i1, errs1) (i2, errs2)*/ a b => {
+  /*
   if (i1 == i2) {
     (i1, List.concat [errs1, errs2])
   } else if (i1 < i2) {
@@ -150,13 +151,15 @@ let mergeErrs (i1, errs1) (i2, errs2) => {
   } else {
     (i1, errs1)
     /* (i1, List.concat [errs1, errs2]) */
-  }
+  };
+  */
+  ()
 };
 
 let rec greedy loop min max subr i path greedyCount isNegated => {
   /* implements e* e+ e? */
   switch max {
-    | Some 0 => (i, [], (-1, []))
+    | Some 0 => (i, [], (/*-1, []*/))
     | _ =>
     if (min > 0) {
       /* we must match at least min or fail */
@@ -194,7 +197,7 @@ let rec apply_rule grammar state rulename i ignoringNewlines isNegated path => {
   switch (recall grammar state rulename i isLexical ignoringNewlines isNegated path) {
   | None =>
     /* Printf.eprintf "New rule/pos %s %d\n" rulename i; */
-    let lr = {seed: (-1, emptyResult i rulename isLexical, (-1, [])), rulename, head: None};
+    let lr = {seed: (-1, emptyResult i rulename isLexical, (/*-1, []*/)), rulename, head: None};
     state.lrstack = [lr, ...state.lrstack];
     let memoentry = {ans: LR lr, pos: i};
     Hashtbl.add state.memo (rulename, i) memoentry;
@@ -290,7 +293,7 @@ and recall grammar state rulename i isLexical ignoringNewlines isNegated path =>
   | None => maybeEntry
   | Some head =>
     if (maybeEntry == None && not (StringSet.mem rulename (StringSet.add head.hrule head.involved_set))) {
-      Some {ans: Answer (-1, emptyResult i rulename isLexical, (-1, [])), pos: i}
+      Some {ans: Answer (-1, emptyResult i rulename isLexical, (/*-1, []*/)), pos: i}
     } else {
       if (StringSet.mem rulename head.eval_set) {
         head.eval_set = StringSet.remove rulename head.eval_set;
@@ -337,7 +340,7 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines i
   state.cpos = memoentry.pos;
   switch memoentry.ans {
     | Answer answer => {
-      let (_, _, (epos, _)) = answer;
+      /* let (_, _, (epos, _)) = answer; */
       /* Printf.eprintf "grow_lr < %s(%d) : %d\n" rulename i epos; */
       answer
     }
@@ -421,7 +424,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                     /* TODO collect comments */
                     (i'', children, rest_errs)
                   } else {
-                    (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                    (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
                   }
                 }
                 | Some lineComment => {
@@ -440,7 +443,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                     (i'', children, rest_errs)
                   } else {
                     /* Printf.printf "No actual skippage %d %d \"%s\"\n" i i' (String.sub state.input i 10); */
-                    (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                    (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
                   }
                 }
               }
@@ -467,7 +470,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
             | [(P.Terminal target_string label) as item, ...rest] => {
                 let slen = String.length target_string;
                 if (i + slen > state.len) {
-                  (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                  (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
                 } else {
                   let sub = String.sub state.input i slen;
                   if (sub == target_string) {
@@ -478,14 +481,14 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                     };
                     (i'', children, err)
                   } else {
-                    (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                    (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
                   }
                 }
               }
 
             | [(P.Any label) as item, ...rest] =>
               if (i >= state.len) {
-                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
               } else {
                 let (i'', children, err) = loop (i + 1) rest path (loopIndex + 1) isNegated;
                 let contents = (String.sub state.input i 1);
@@ -498,15 +501,15 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
 
             | [P.EOF, ...rest] => {
               if (i >= state.len) {
-                (i, [], (-1, [])) /* TODO should I have a leaf here? */
+                (i, [], (/*-1, []*/)) /* TODO should I have a leaf here? */
               } else {
-                (-1, [], (i, [(true, [RP.Item P.EOF loopIndex, ...path])]))
+                (-1, [], (/*i, [(true, [RP.Item P.EOF loopIndex, ...path])]*/))
               }
             }
 
             | [(P.Chars c1 c2 label) as item, ...rest] =>
               if (i >= state.len) {
-                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
               } else if (state.input.[i] >= c1 && state.input.[i] <= c2) {
                 let (i'', children, errs) = loop (i + 1) rest path (loopIndex + 1) isNegated;
                 let contents = (String.sub state.input i 1);
@@ -516,7 +519,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                 };
                 (i'', children, errs)
               } else {
-                (-1, [], (i, [(true, [RP.Item item loopIndex, ...path])]))
+                (-1, [], (/*i, [(true, [RP.Item item loopIndex, ...path])]*/))
               }
 
             | [(P.Star subr) as item, ...rest] => {
@@ -548,7 +551,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
                   (-1, [], errs)
                 }
               }
-            | [] => (i, [], (-1, []))
+            | [] => (i, [], (/*-1, []*/))
           }
         };
 
@@ -573,7 +576,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
       }
     }
   };
-  process choices (-1, []) 0
+  process choices (/*-1, []*/) 0
   /** TODO if wasIgnoringNewlines == false && ignoringNewlines = true, then ignore any trailing newlines */
 };
 
@@ -591,9 +594,9 @@ let parse (grammar: PackTypes.Parsing.grammar) start input => {
   /* TODO ignoringNewlines should be configurable? */
   let (i, (result, _), errs) = apply_rule grammar state start 0 false false [];
   if (i == -1) {
-    R.Failure None (0, errs)
+    R.Failure None (0, (-1, []))
   } else if (i < state.len) {
-    R.Failure (Some result) (i, errs)
+    R.Failure (Some result) (i, (-1, []))
   } else {
     R.Success result
   }

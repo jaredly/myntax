@@ -146,9 +146,11 @@ switch command {
     }
   }
   | Dump => {
-    print_endline (PackTypes.Result.show_result result);
+    ()
+    /* print_endline (PackTypes.Result.show_result result); */
   }
   | RoundDump => {
-    print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result)));
+    ()
+    /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
   }
 }

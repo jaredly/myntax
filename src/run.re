@@ -14,7 +14,7 @@ let grammarRaw = Sysop.readFile grammarFile;
 let start = Unix.gettimeofday();
 let grammar = switch (Runtime.parse GrammarGrammar.grammar "Start" grammarRaw) {
   | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
-    print_string (PackTypes.Result.genErrorText grammarRaw failure);
+    print_string (PackTypes.Error.genErrorText grammarRaw failure);
     failwith "Unable to parse grammar"
   }
   | PackTypes.Result.Success result => {
@@ -31,12 +31,12 @@ switch (Runtime.parse grammar "Start" contents) {
       | Some result => Json.result_to_string result |> print_endline
       | None => ()
     }; */
-    print_string (PackTypes.Result.genErrorText contents failure);
+    print_string (PackTypes.Error.genErrorText contents failure);
     exit 1;
   }
   | PackTypes.Result.Success result => {
     /* print_endline "Good"; */
     /* Json.result_to_string result |> print_endline; */
-    print_endline (PackTypes.show_result result);
+    print_endline (PackTypes.Result.show_result result);
   }
 };

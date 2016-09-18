@@ -2,7 +2,9 @@ let module Parsing = {
   type ignoreNewlines =
     | Yes
     | No
-    | Inherit [@@deriving show];
+    | Inherit
+    /* [@@deriving show] */
+    ;
   type grammar = {
     lineComment: option string,
     blockComment: option (string, string),
@@ -33,7 +35,9 @@ let module Parsing = {
     | NonTerminal string (option string)/* nonterminal 'name' */
     | Terminal string (option string)   /* terminal */
     | Chars char char (option string)   /* [a-z] */
-    | Empty              /* epsilon */[@@deriving show];
+    | Empty              /* epsilon */
+    /* [@@deriving show] */
+    ;
 };
 
 let unwrapOr a b => {
@@ -47,13 +51,19 @@ let module Path = {
   type pathItem =
     | Item Parsing.parsing int
     | Iter int
-    | Choice int string [@@deriving show];
+    | Choice int string
+    /* [@@deriving show] */
+    ;
 };
 
 let module Error = {
 
-  type errors = (int, list (bool, list Path.pathItem)) [@@deriving show];
-  type partial = (int, errors) [@@deriving show];
+  type errors = (int, list (bool, list Path.pathItem))
+  /* [@@deriving show] */
+  ;
+  type partial = (int, errors)
+  /* [@@deriving show] */
+  ;
 
   let errorText (isNot, rule) => {
     switch rule {
@@ -144,12 +154,16 @@ let module Result = {
     | Lexical (string, string, int) string bool
     | Nonlexical (string, string, int) bool [@@deriving (yojson, show)]; */
 
-  type rule = (string, string) [@@deriving (yojson, show)];
-  type loc = (int, int) [@@deriving (yojson, show)];
+  type rule = (string, string)
+  /* [@@deriving (yojson, show)] */
+  ;
+  type loc = (int, int)
+  /* [@@deriving (yojson, show)] */
+  ;
   type result =
     | Leaf rule string loc
     | Node rule (list (string, result)) loc /* label, child */
-  [@@deriving (yojson, show)]
+  /* [@@deriving (yojson, show)] */
   ;
 
   /* let resultTypeDescription rt => switch rt {
@@ -164,8 +178,7 @@ let module Result = {
     typ: resultType,
     label: option string,
     children: list result,
-  } [@@deriving (yojson, show)];
- */
+  } [@@deriving (yojson, show)]; */
 
   /* type partial = {
     path: list string,

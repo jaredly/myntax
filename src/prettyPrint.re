@@ -16,7 +16,8 @@ let module Output = {
     | Lexical (list outputT)
     | Straight (list outputT)
     /* | Newlined (list outputT) TODO I do think I want this... */
-    [@@deriving show];
+    /* [@@deriving show] */
+    ;
 };
 
 type config = {
