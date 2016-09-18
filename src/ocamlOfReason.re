@@ -689,7 +689,7 @@ let parseExpression toOcaml (sub, children, loc) => {
       let condition = RU.getNodeByLabel children "condition" |> unwrapm "condition" |> stripRuleName |> parseBinExpression toOcaml;
       let consequent = RU.getNodeByLabel children "consequent" |> unwrapm "consequent" |> stripRuleName |> parseBinExpression toOcaml;
       let alternate = RU.getNodeByLabel children "alternate" |> unwrapm "alternate" |> stripRuleName |> parseBinExpression toOcaml;
-      H.Exp.ifthenelse condition consequent (Some alternate)
+      H.Exp.ifthenelse attrs::[(Location.mknoloc "ternary", PStr [])] condition consequent (Some alternate)
       /* H.Exp.apply (H.Exp.ident op) [("", left), ("", right)]; */
     }
     | _ => parseBinExpression toOcaml (sub, children, loc)
@@ -716,7 +716,7 @@ let wrapBinExp (sub, children) => ("base", [("", Node ("BaseExpression", "wrappe
 let wrapBaseExp (sub, children) => ("wrapped", [("", Node ("Expression", "base") [("", Node ("BaseExpression", sub) children mLoc)] mLoc)]);
 let wrapExp (sub, children) => ("wrapped", [("", Node ("Expression", sub) children mLoc)]);
 
-let rec fromBaseExpression fromOcaml ({pexp_desc, _} as expression) => {
+let rec fromBaseExpression fromOcaml ({pexp_desc, pexp_attributes, _} as expression) => {
   let (sub, children) =
   switch pexp_desc {
     | Pexp_ident {txt, _} => switch txt {
@@ -781,7 +781,10 @@ let rec fromBaseExpression fromOcaml ({pexp_desc, _} as expression) => {
       ("constructor", children)
     }
     | Pexp_ifthenelse condition consequent (Some alternate) => { /* ? add an attribute to indicate ternary? */
-      ("ternary", [("condition", fromBinExpression fromOcaml condition), ("consequent", fromBinExpression fromOcaml consequent), ("alternate", fromBinExpression fromOcaml alternate)]) |> wrapExp
+      switch pexp_attributes {
+        | [({txt: "ternary", _}, _)] => ("ternary", [("condition", fromBinExpression fromOcaml condition), ("consequent", fromBinExpression fromOcaml consequent), ("alternate", fromBinExpression fromOcaml alternate)]) |> wrapExp
+        | _ => failwith "normal if not yet"
+      }
     }
     | _ => {
       Printast.expression 0 Format.std_formatter expression;
