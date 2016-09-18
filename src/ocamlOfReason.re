@@ -636,24 +636,53 @@ let rec parseBaseExpression toOcaml (sub, children, loc) => {
       H.Exp.record items extends
     }
     | "get_attr" => {
-      H.Exp.field (RU.getNodeByType children "BaseExpression" |> unwrap |> toOcaml.expression toOcaml) (Location.mkloc (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent) oloc)
+      H.Exp.field (RU.getNodeByType children "BaseExpression" |> unwrap |> parseBaseExpression toOcaml) (Location.mkloc (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent) oloc)
     }
     | _ => failwith ("not impl - expression - " ^ sub)
+  }
+};
+
+let parseBinExpression toOcaml (sub, children, loc) => {
+  switch sub {
+    | "base" => RU.getNodeByType children "BaseExpression" |> unwrap |> parseBaseExpression toOcaml
+    | "binexp" => {
+      /* RU.getNodeByType children "BinExp" |> unwrap |> parseBinExp toOcaml; */
+      let oloc = ocamlLoc loc;
+      let ops = RU.getChildren children (fun (label, node) => {
+        switch (label, node) {
+          | ("op", Leaf _ contents _) => Some (contents |> stringToIdentLoc oloc)
+          | _ => None
+        }
+      });
+      let items = RU.getNodesByType children "BaseExpression" (parseBaseExpression toOcaml);
+      /* let op = RU.getContentsByLabel children "op" |> unwrapm "op" |> stringToIdentLoc oloc; */
+      /* let left = RU.getNodeByLabel children "left" |> unwrapm "left" |> stripRuleName |> parseBaseExpression toOcaml; */
+      /* let right = RU.getNodeByLabel children "right" |> unwrapm "right" |> stripRuleName |> toOcaml.expression toOcaml; */
+      switch (ops, items) {
+        | ([op], [left, right]) => H.Exp.apply (H.Exp.ident op) [("", left), ("", right)]
+        | _ => failwith "not ready for lots of bin ops"
+      }
+      /* H.Exp.apply (H.Exp.ident op) [("", left), ("", right)]; */
+    }
+    | _ => parseBaseExpression toOcaml (sub, children, loc)
+    /* | _ => failwith ("unknown expressio type " ^ sub) */
   }
 };
 
 let parseExpression toOcaml (sub, children, loc) => {
   switch sub {
     | "base" => RU.getNodeByType children "BaseExpression" |> unwrap |> parseBaseExpression toOcaml
-    | "binexp" => {
+    | "binary" => RU.getNodeByType children "BinExpression" |> unwrap |> parseBinExpression toOcaml
+    | "ternary" => {
       /* RU.getNodeByType children "BinExp" |> unwrap |> parseBinExp toOcaml; */
-      let oloc = ocamlLoc loc;
-      let op = RU.getContentsByLabel children "op" |> unwrapm "op" |> stringToIdentLoc oloc;
-      let left = RU.getNodeByLabel children "left" |> unwrapm "left" |> stripRuleName |> parseBaseExpression toOcaml;
-      let right = RU.getNodeByLabel children "right" |> unwrapm "right" |> stripRuleName |> toOcaml.expression toOcaml;
-      H.Exp.apply (H.Exp.ident op) [("", left), ("", right)];
+      /* let oloc = ocamlLoc loc; */
+      let condition = RU.getNodeByLabel children "condition" |> unwrapm "condition" |> stripRuleName |> parseBinExpression toOcaml;
+      let consequent = RU.getNodeByLabel children "consequent" |> unwrapm "consequent" |> stripRuleName |> parseBinExpression toOcaml;
+      let alternate = RU.getNodeByLabel children "alternate" |> unwrapm "alternate" |> stripRuleName |> parseBinExpression toOcaml;
+      H.Exp.ifthenelse condition consequent (Some alternate)
+      /* H.Exp.apply (H.Exp.ident op) [("", left), ("", right)]; */
     }
-    | _ => parseBaseExpression toOcaml (sub, children, loc)
+    | _ => parseBinExpression toOcaml (sub, children, loc)
     /* | _ => failwith ("unknown expressio type " ^ sub) */
   }
 };
@@ -673,15 +702,9 @@ let binOpChars = "$%&*+-./:<=>@^|";
 let unOpChars = "!?~";
 let startsWith chars txt => String.contains chars (String.get txt 0);
 
-let fromBinExp fromOcaml op left right => {
-    [("left", fromOcaml.fromExpression fromOcaml left),
-    ("op", Leaf ("binOp", "") op mLoc),
-    ("right", fromOcaml.fromExpression fromOcaml right)]
-};
-
-/* let wrapExp (sub, children) => ("wrapped", [("", Node ("Expression", sub) children mLoc)]); */
-let wrapExp (sub, children) => ("base", [("", Node ("BaseExpression", "wrapped") [("", Node ("Expression", sub) children mLoc)] mLoc)]);
+let wrapBinExp (sub, children) => ("base", [("", Node ("BaseExpression", "wrapped") [("", Node ("Expression", "binary") [("", Node ("BinExpression", sub) children mLoc)] mLoc)] mLoc)]);
 let wrapBaseExp (sub, children) => ("wrapped", [("", Node ("Expression", "base") [("", Node ("BaseExpression", sub) children mLoc)] mLoc)]);
+let wrapExp (sub, children) => ("wrapped", [("", Node ("Expression", sub) children mLoc)]);
 
 let rec fromBaseExpression fromOcaml ({pexp_desc, _} as expression) => {
   let (sub, children) =
@@ -747,21 +770,30 @@ let rec fromBaseExpression fromOcaml ({pexp_desc, _} as expression) => {
       };
       ("constructor", children)
     }
+    | Pexp_ifthenelse condition consequent (Some alternate) => { /* ? add an attribute to indicate ternary? */
+      ("ternary", [("condition", fromBinExpression fromOcaml condition), ("consequent", fromBinExpression fromOcaml consequent), ("alternate", fromBinExpression fromOcaml alternate)]) |> wrapExp
+    }
     | _ => {
       Printast.expression 0 Format.std_formatter expression;
       failwith "no exp"
     }
   };
   Node ("BaseExpression", sub) children mLoc
-};
+}
 
-let fromExpression fromOcaml ({pexp_desc, _} as expression) => {
+and fromBinExp fromOcaml op left right => {
+    [("", fromBaseExpression fromOcaml left),
+    ("op", Leaf ("binOp", "") op mLoc),
+    ("", fromBaseExpression fromOcaml right)]
+}
+
+and fromBinExpression fromOcaml ({pexp_desc, _} as expression) => {
   let (sub, children) =
   switch pexp_desc {
     | Pexp_apply {pexp_desc: Pexp_ident {txt: Lident txt, _}} args
         when startsWith binOpChars txt || txt == "or" || txt == "mod" => {
           switch args {
-            | [("", left), ("", right)] => ("binexp", fromBinExp fromOcaml txt left right) |> wrapExp
+            | [("", left), ("", right)] => ("binexp", fromBinExp fromOcaml txt left right) |> wrapBinExp
             | _ => ("base", [("", fromBaseExpression fromOcaml expression)])
           }
         }
@@ -769,9 +801,19 @@ let fromExpression fromOcaml ({pexp_desc, _} as expression) => {
       ("base", [("", fromBaseExpression fromOcaml expression)])
     }
   };
-  Node ("Expression", sub) children mLoc
+  Node ("BinExpression", sub) children mLoc
 };
 
+let fromExpression fromOcaml ({pexp_desc, _} as expression) => {
+  let (sub, children) =
+  switch pexp_desc {
+    | Pexp_ifthenelse condition consequent (Some alternate) => { /* ? add an attribute to indicate ternary? */
+      ("ternary", [("condition", fromBinExpression fromOcaml condition), ("consequent", fromBinExpression fromOcaml consequent), ("alternate", fromBinExpression fromOcaml alternate)])
+    }
+    | _ => ("binary", [("", fromBinExpression fromOcaml expression)])
+  };
+  Node ("Expression", sub) children mLoc
+};
 
 let toOcaml = {
   structure: parseStructure,

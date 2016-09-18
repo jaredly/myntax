@@ -135,15 +135,15 @@ Statement =
   | Expression -- expr
 
 Expression =
-  | [condition]BinOpExp "?" [consequent]BinOpExp ":" [alternate]BinOpExp -- ternary
-  | BinOpExp -- binopfall
-  | BaseExpression -- base
+  | [condition]BinExpression "?" [consequent]BinExpression ":" [alternate]BinExpression -- ternary
+  | BinExpression -- binary
+  | BaseExpression -- base ; just for printing
 
 ;; maybe get operator precedence going?
 ;; I'll do it in the code portion. *much* less cumbersom that way
-BinOpExp =
+BinExpression =
   ; TODO Base ([op] Base)+
-  | [left]BaseExpression [op]binOp [right]BinOpExp -- binexp
+  | BaseExpression ([op]binOp BaseExpression)+ -- binexp
   | BaseExpression -- base
 
 BaseExpression =
