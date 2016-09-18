@@ -3,6 +3,7 @@
 Start = ModuleBody
 
 ModuleDesc =
+  | ModuleDesc "(" ModuleDesc ")" -- apply
   | "{" ModuleBody "}" -- structure
   | [ident]longCap -- ident
   ; TODO functor
@@ -21,7 +22,7 @@ Structure =
   | "let" [rec]"rec"? ValueBinding (EOL "and" ValueBinding)* -- value
   | "type" TypeDeclaration (EOL+ "and" TypeDeclaration)* -- type
   | "module" "type" capIdent "=" ModuleTypeDeclaration -- module_type
-  | "exception" capIdent "of" Type
+  | "exception" capIdent "(" Type ("," Type)* ")" -- exception
   | "import" "*" "from" longCap -- open
   | "include" "*" "from" longCap -- include
   | "[@@@"& lowerIdent &"]" -- attribute
@@ -54,7 +55,7 @@ Type =
   | "("& TupleTypes &")" -- tuple
   | "_" -- any
   | typeVar -- var
-  | (lowerIdent &[optional]"?"? &"::"&) [in]Type "=>" [out]Type -- fn
+  | (lowerIdent &[optional]"?"? &"::"&)? [in]Type "=>" [out]Type -- fn
   | longIdent (&"<"& TypesCommad &">"&)? -- constructor
   ; TODO object
   ; TODO class
@@ -115,7 +116,7 @@ Pattern =
   | "("& Pattern (&"," Pattern)+ &","? &")" -- tuple
   | "[|"& (Pattern &",")* Pattern? &"|]" -- array
   | "["& PatternCommas? ("..."& [rest]lowerIdent)? &"]" -- list
-  | "{"& PatternRecords [open]"_"? &"}" -- record ; TODO _ for open flag
+  | "{"& PatternRecords [open]"_"? &"}" -- record
   | [isVariant]"`"&? longCap &("("& PatternCommas? &")")?  -- constructor
   | "`"& capIdent &("("& (Pattern &",")* Pattern? &")")?  -- variant
   | lowerIdent -- ident
@@ -129,7 +130,9 @@ PatternCommas = Pattern (&"," Pattern)* &","?
 
 @ignoreNewlines
 @passThrough
-PatternRecords = longIdent (&":" Pattern)? (&"," longIdent (&":" Pattern)?)* &","?
+PatternRecords = PatternRecordItem (&"," PatternRecordItem)* &","?
+
+PatternRecordItem = longIdent (&":" Pattern)?
 
 @passThrough
 @ignoreNewlines
@@ -174,7 +177,7 @@ BaseExpression =
   | "[|"& (Expression &",")* Expression? &"|]" -- array
   | Block -- block
   | "{"& RecordBody &"}" -- record
-  | "["& Commas &"]" -- list
+  | "["& Commas? &"]" -- list
   | [isVariant]"`"&? longCap (&"("& Commas &")")? -- constructor
   | "`"& capIdent (&"("& Commas &")")? -- variant
   | BaseExpression &"."& longIdent "=" Expression -- set_attr
@@ -288,7 +291,7 @@ longCap_ =
 
 @passThrough
 @ignoreNewlines
-Commas = (Expression &",")* Expression?
+Commas = Expression (&"," Expression)*
 
 FnArg =
   | "::"& lowerIdent -- punned

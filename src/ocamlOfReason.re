@@ -201,6 +201,17 @@ let rec listToConstruct list maybeRest typeC tupleC => {
   }
 };
 
+let fromPatternRecordItem fromPattern ({txt: longident, _}, pattern) => {
+  let lident = fromLongIdent longident;
+  let children = switch (pattern.ppat_desc) {
+    | Ppat_any => {
+      [("", lident)]
+    }
+    | _ => [("", lident), ("", fromPattern pattern)]
+  };
+  Node ("PatternRecordItem", "") children mLoc
+};
+
 let rec listFromConstruct ({ppat_desc, _} as pattern) => {
   switch ppat_desc {
     | Ppat_tuple [first, second] => {
@@ -231,6 +242,19 @@ fromPattern {ppat_desc, _} => {
         | Some pat => [("", fromPattern pat)]
       })
     ])
+    | Ppat_alias sub {txt: name, _} => {
+      ("as", [("", fromPattern sub), ("", Leaf ("lowerIdent", "") name mLoc)])
+    }
+    | Ppat_interval _ => failwith "nop pat interval"
+    | Ppat_variant _ => failwith "nop pat variant"
+    | Ppat_record items closed => {
+      let children = List.map (emptyLabeled (fromPatternRecordItem fromPattern)) items;
+      let children = closed == Closed ? children : List.concat [children, [("open", Leaf ("", "") "_" mLoc)]];
+      ("record", children)
+    }
+    | Ppat_or one two => {
+      ("or", [("", fromPattern one), ("", fromPattern two)])
+    }
     | _ => failwith "nop pat"
   };
   Node ("Pattern", sub) children mLoc
@@ -285,6 +309,9 @@ let fromModuleDesc fromOcaml desc => {
   switch desc {
     | Pmod_structure items => Node ("ModuleDesc", "structure") (List.map (emptyLabeled (fromOcaml.fromStructure fromOcaml)) items) mLoc
     | Pmod_ident {txt, _} => Node ("ModuleDesc", "ident") [("ident", fromLongCap txt)] mLoc
+    | Pmod_apply expr arg => {
+      failwith "nop module desc appply"
+    }
     | _ => failwith "module desc not imprt"
   }
 };
@@ -680,6 +707,14 @@ let fromStructure fromOcaml structure => {
     }
     | Pstr_type declarations => {
       Node ("Structure", "type") (List.map (emptyLabeled (fromTypeDeclaration fromOcaml)) declarations)  mLoc
+    }
+    | Pstr_exception {pext_name: {txt: name}, pext_kind, _} => {
+      switch pext_kind {
+        | Pext_decl args manifest => {
+          Node ("Structure", "exception") [("", Leaf ("capIdent", "") name mLoc), ...List.map (emptyLabeled fromCoreType) args] mLoc
+        }
+        | Pext_rebind _ => failwith "no ext rebind"
+      }
     }
     /* TODO let_module, type */
     | _ => {
