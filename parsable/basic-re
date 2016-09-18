@@ -1,6 +1,15 @@
 let x = a ? b : c - (a ? b : c)
 let [a,b] = -(-one).two.three || awesome - -2 + 5
 let [s,10, _] = 20
+if x {
+1
+2
+} else if x > 10 {
+20
+} else {
+10
+02
+}
 let (a, b, [2,3,...more]) = Ten.ten(10, 10,)
 let z = {}
 let module X = {

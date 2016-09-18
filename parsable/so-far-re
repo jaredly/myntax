@@ -151,6 +151,7 @@ BaseExpression =
   | Application -- application
   | FunExpr -- funexpr
   | SwitchExp -- switch
+  | IfExpr -- if
   | TryExp -- try
   | "("& binOp &")" -- binop
   | "("& TupleBody &")" -- tuple
@@ -191,6 +192,8 @@ TupleBody = Expression (&"," Expression)+ &","?
 @passThrough
 RecordBody = ("..."& Expression &",")? (RecordItem &",")* RecordItem?
 RecordItem = longIdent (&":" Expression)?
+
+IfExpr = "if" Expression Block ("else" "if" Expression Block)* ("else" Block)?
 
 SwitchExp = "switch" Expression SwitchBody
 SwitchBody = "{" "\n"+ (SwitchCase "\n"+)* "}"
