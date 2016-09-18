@@ -44,14 +44,14 @@ let processString str => {
   str |> stripQuotes |> Scanf.unescaped
 };
 
-let optMap mapper opt => {
+let optFlatMap mapper opt => {
   switch opt {
     | Some x => mapper x
     | None => None
   }
 };
 
-let optMap' mapper opt => {
+let optMap mapper opt => {
   switch opt {
     | Some x => Some (mapper x)
     | None => None
@@ -107,7 +107,7 @@ let parseLongCap (_, children, _) => {
 };
 
 let parseLongIdent (_, children, _) => {
-  let first = RU.getNodeByType children "longCap_" |> optMap' parseLongCap_;
+  let first = RU.getNodeByType children "longCap_" |> optMap parseLongCap_;
   let last = RU.getContentsByType children "lowerIdent" |> unwrap;
   switch first {
     | Some x => Ldot x last
@@ -238,7 +238,7 @@ let rec parsePattern toOcaml (sub, children, loc) => {
     | "list" => {
       listToConstruct
       (RU.getNodesByType children "Pattern" (parsePattern toOcaml))
-      ((RU.getContentsByLabel children "rest") |> optMap (fun label => Some (H.Pat.var (Location.mkloc label oloc))))
+      ((RU.getContentsByLabel children "rest") |> optFlatMap (fun label => Some (H.Pat.var (Location.mkloc label oloc))))
       H.Pat.construct H.Pat.tuple
       /* H.Pat.construct  */
       /* H.Pat.list (RU.getContentsByType children "Pattern" (parsePattern toOcaml)) */
@@ -312,7 +312,7 @@ let parseArg toOcaml (sub, children, loc) => {
     | "punned" => {
       let name = RU.getContentsByType children "lowerIdent" |> unwrap;
       let maybeArg = RU.getNodeByType children "ArgValue";
-      let maybeExpr = maybeArg |> optMap (parseArgValue toOcaml);
+      let maybeExpr = maybeArg |> optFlatMap (parseArgValue toOcaml);
       let name = maybeArg == None ? name : "?" ^ name;
       (name, H.Pat.var (Location.mkloc name oloc), maybeExpr)
     }
@@ -323,7 +323,7 @@ let parseArg toOcaml (sub, children, loc) => {
       let name = RU.getContentsByType children "lowerIdent" |> unwrap;
       let pat = RU.getNodeByType children "Pattern" |> unwrap |> parsePattern toOcaml;
       let maybeArg = RU.getNodeByType children "ArgValue";
-      let maybeExpr = maybeArg |> optMap (parseArgValue toOcaml);
+      let maybeExpr = maybeArg |> optFlatMap (parseArgValue toOcaml);
       let name = maybeArg == None ? name : "?" ^ name;
       (name, pat, maybeExpr)
     }
@@ -578,13 +578,33 @@ let stripRuleName ((name, sub), children, loc) => (sub, children, loc);
 
 let stringToIdentLoc loc txt => Location.mkloc (Lident txt) loc;
 
-/* let parseBinExp toOcaml (_, children, loc) => {
-  let oloc = ocamlLoc loc;
-  let op = RU.getContentsByLabel children "op" |> unwrapm "op" |> stringToIdentLoc oloc;
-  let left = RU.getNodeByLabel children "left" |> unwrapm "left" |> stripRuleName |> toOcaml.expression toOcaml;
-  let right = RU.getNodeByLabel children "right" |> unwrapm "right" |> stripRuleName |> toOcaml.expression toOcaml;
-  H.Exp.apply (H.Exp.ident op) [("", left), ("", right)];
-}; */
+let parseSwitchCase toOcaml (sub, children, loc) => {
+  let pattern = RU.getNodeByType children "Pattern" |> unwrap |> parsePattern toOcaml;
+  let guard = RU.getNodeByLabel children "guard" |> optMap stripRuleName |> optMap (toOcaml.expression toOcaml);
+  let body = RU.getNodeByLabel children "body" |> unwrap |> stripRuleName |> toOcaml.expression toOcaml;
+  {pc_lhs: pattern, pc_guard: guard, pc_rhs: body}
+};
+
+let parseSwitchExp toOcaml (sub, children, loc) => {
+  let base = RU.getNodeByType children "Expression" |> unwrap |> toOcaml.expression toOcaml;
+  let cases = RU.getNodesByType children "SwitchCase" (parseSwitchCase toOcaml);
+  H.Exp.match_ base cases
+};
+
+let fromSwitchExp fromOcaml base cases => {
+  let base = fromOcaml.fromExpression fromOcaml base;
+  let cases = List.map (fun {pc_lhs, pc_guard, pc_rhs} => {
+    let pattern = fromPattern pc_lhs;
+    let guard = pc_guard |> optMap (fromOcaml.fromExpression fromOcaml);
+    let body = pc_rhs |> fromOcaml.fromExpression fromOcaml;
+    let children = switch guard {
+      | None => [("", pattern), ("body", body)]
+      | Some guard => [("", pattern), ("guard", guard), ("body", body)]
+    };
+    Node ("SwitchCase", "") children mLoc;
+  }) cases;
+  ("switch", [("", Node ("SwitchExp", "") [("", base), ...List.map withEmptyLabels cases] mLoc)])
+};
 
 let rec parseBaseExpression toOcaml (sub, children, loc) => {
   let oloc = ocamlLoc loc;
@@ -622,11 +642,11 @@ let rec parseBaseExpression toOcaml (sub, children, loc) => {
       RU.getNodeByType children "BinExp" |> unwrap |> parseBinExp toOcaml;
     } */
     | "record" => {
-      let extends = RU.getNodeByType children "Expression" |> optMap' (toOcaml.expression toOcaml);
+      let extends = RU.getNodeByType children "Expression" |> optMap (toOcaml.expression toOcaml);
       let items = RU.getNodesByType children "RecordItem" (fun (sub, children, loc) => {
         let oloc = ocamlLoc loc;
         let name = RU.getNodeByType children "longIdent" |> unwrapm "long ident record" |> parseLongIdent;
-        let expr = RU.getNodeByType children "Expression" |> optMap' (toOcaml.expression toOcaml);
+        let expr = RU.getNodeByType children "Expression" |> optMap (toOcaml.expression toOcaml);
         let expr = switch expr {
           | Some x => x
           | None => H.Exp.ident (Location.mkloc name oloc)
@@ -634,6 +654,9 @@ let rec parseBaseExpression toOcaml (sub, children, loc) => {
         ((Location.mkloc name oloc), expr)
       });
       H.Exp.record items extends
+    }
+    | "switch" => {
+      RU.getNodeByType children "SwitchExp" |> unwrap |> parseSwitchExp toOcaml;
     }
     | "get_attr" => {
       H.Exp.field (RU.getNodeByType children "BaseExpression" |> unwrap |> parseBaseExpression toOcaml) (Location.mkloc (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent) oloc)
@@ -735,7 +758,7 @@ let rec fromBaseExpression fromOcaml ({pexp_desc, pexp_attributes, _} as express
       }
     }
     | Pexp_record items extends => {
-      let exp = extends |> optMap' (fromOcaml.fromExpression fromOcaml);
+      let exp = extends |> optMap (fromOcaml.fromExpression fromOcaml);
       let args = List.map (emptyLabeled (fun (ident, exp) => {
         let children = switch (exp.pexp_desc) {
           | Pexp_ident {txt: name, _} when name == ident.txt => {
@@ -785,6 +808,10 @@ let rec fromBaseExpression fromOcaml ({pexp_desc, pexp_attributes, _} as express
         | [({txt: "ternary", _}, _)] => ("ternary", [("condition", fromBinExpression fromOcaml condition), ("consequent", fromBinExpression fromOcaml consequent), ("alternate", fromBinExpression fromOcaml alternate)]) |> wrapExp
         | _ => failwith "normal if not yet"
       }
+    }
+    | Pexp_match base cases => {
+      fromSwitchExp fromOcaml base cases
+      /* ("match",  */
     }
     | _ => {
       Printast.expression 0 Format.std_formatter expression;
