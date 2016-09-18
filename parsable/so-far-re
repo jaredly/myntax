@@ -97,7 +97,8 @@ Pattern =
   | "[|"& (Pattern &",")* Pattern? &"|]" -- array
   | "["& (Pattern &",")* Pattern? ("..."& [rest]lowerIdent)? &"]" -- list
   | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record ; TODO _ for open flag
-  | [isVariant]"`"&? capIdent &("("& (Pattern &",")* Pattern? &")")?  -- constructor
+  | [isVariant]"`"&? longCap &("("& (Pattern &",")* Pattern? &")")?  -- constructor
+  | "`"& capIdent &("("& (Pattern &",")* Pattern? &")")?  -- variant
   | lowerIdent -- ident
   | constant -- const
   ; Ppat_type
@@ -160,6 +161,7 @@ BaseExpression =
   | "{"& RecordBody &"}" -- record
   | "["& Commas &"]" -- list
   | [isVariant]"`"&? longCap (&"("& Commas &")")? -- constructor
+  | "`"& capIdent (&"("& Commas &")")? -- variant
   | BaseExpression &"."& longIdent "=" Expression -- set_attr
   | BaseExpression &"."& longIdent -- get_attr
   ; TODO ternary a level above base?

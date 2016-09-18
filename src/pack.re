@@ -13,7 +13,7 @@ let grammar = %s;
 
 };
 
-let main dump::dump=false file::file=? dest::dest=? unit => {
+let main dump::dump=false file::file=? dest::dest=? () => {
   let contents = switch file {
     | Some name => Sysop.readFile name
     | None => Sysop.readStdin()

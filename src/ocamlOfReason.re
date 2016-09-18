@@ -220,6 +220,14 @@ fromPattern {ppat_desc, _} => {
     | Ppat_construct {txt: Lident "::", _} (Some pattern) => ("list", (listFromConstruct pattern))
     | Ppat_any => ("ignore", [])
     | Ppat_constant constant => ("const", [("", fromConstant constant |> nodeWrap "constant")])
+    | Ppat_construct lid maybeArg => ("constructor", [
+      ("", fromLongCap lid.txt),
+      ...(switch maybeArg {
+        | None => []
+        | Some {ppat_desc: Ppat_tuple items, _} => List.map (emptyLabeled fromPattern) items
+        | Some pat => [("", fromPattern pat)]
+      })
+    ])
     | _ => failwith "nop pat"
   };
   Node ("Pattern", sub) children mLoc
@@ -245,6 +253,13 @@ let rec parsePattern toOcaml (sub, children, loc) => {
     }
     | "const" => H.Pat.constant (RU.getNodeByType children "constant" |> unwrap |> parseConstant)
     | "ignore" => H.Pat.any ()
+    | "constructor" => H.Pat.construct
+    (RU.getNodeByType children "longCap" |> unwrap |> parseLongCap |> Location.mknoloc)
+    (switch (RU.getNodesByType children "Pattern" (parsePattern toOcaml)) {
+      | [] => None
+      | [arg] => Some arg
+      | args => Some (H.Pat.tuple args)
+    })
     | _ => failwith ("not impl pattern stuff" ^ sub)
   }
 };
