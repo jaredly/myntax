@@ -54,7 +54,7 @@ Type =
   | "("& TupleTypes &")" -- tuple
   | "_" -- any
   | typeVar -- var
-  | (lowerIdent &[optional]"?"? &"::"&) Type "=>" Type -- fn
+  | (lowerIdent &[optional]"?"? &"::"&) [in]Type "=>" [out]Type -- fn
   | longIdent (&"<"& TypesCommad &">"&)? -- constructor
   ; TODO object
   ; TODO class

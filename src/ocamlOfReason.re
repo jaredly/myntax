@@ -25,6 +25,9 @@ type toOcaml = {
   structure: toOcaml => (string, list (string, result), loc) => structure_item,
 };
 
+let optOr orr opt => switch opt { | None => orr | Some x => x };
+let stripRuleName ((name, sub), children, loc) => (sub, children, loc);
+
 let mLoc = (0, 0);
 let mLeaf = Leaf ("", "") "" mLoc;
 
@@ -394,7 +397,7 @@ let rec fromCoreType {ptyp_desc: desc, _} => {
     | Ptyp_any => ("any", [])
     | Ptyp_var text => ("var", [("", Leaf ("typeVar", "") text mLoc)])
     | Ptyp_arrow label in_type out_type => {
-      let children = [("", fromCoreType in_type), ("", fromCoreType out_type)];
+      let children = [("in", fromCoreType in_type), ("out", fromCoreType out_type)];
       let children = if (label == "") children else {
         let (text, opt) = if (String.get label 0 == '?') {
           (String.sub label 1 (String.length label - 1), true)
@@ -417,6 +420,25 @@ let rec fromCoreType {ptyp_desc: desc, _} => {
     | Ptyp_extension _ => failwith "no exptesion"
   };
   Node ("Type", sub) children mLoc
+};
+
+let rec toCoreType (sub, children, loc) => {
+  switch sub {
+    | "any" => H.Typ.any ()
+    | "var" => H.Typ.var (RU.getContentsByType children "typeVar" |> unwrap)
+    | "fn" => {
+      let isOpt = RU.getPresenceByLabel children "optional";
+      let label = RU.getContentsByType children "lowerIdent" |> optOr "";
+      let label = isOpt ? "?" ^ label : label;
+      let in_type = RU.getNodeByLabel children "in" |> unwrap |> stripRuleName |> toCoreType;
+      let out_type = RU.getNodeByLabel children "out" |> unwrap |> stripRuleName |> toCoreType;
+      H.Typ.arrow label in_type out_type
+    }
+    | "tuple" => H.Typ.tuple (RU.getNodesByType children "Type" toCoreType)
+    | "constructor" => H.Typ.constr (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent |> Location.mknoloc) (RU.getNodesByType children "Type" toCoreType)
+    | "alias" => H.Typ.alias (RU.getNodeByType children "Type" |> unwrap |> toCoreType) (RU.getContentsByType children "typeVar" |> unwrap)
+    | _ => failwith ("to coretype not impl " ^ sub)
+  }
 };
 
 let fromTypeVariantItem {pcd_name: name, pcd_args: args} => {
@@ -739,8 +761,6 @@ let rec unwrapSequence fromOcaml exp => {
     | _ => [Node ("Statement", "expr") [("", fromOcaml.fromExpression fromOcaml exp)] mLoc]
   }
 };
-
-let stripRuleName ((name, sub), children, loc) => (sub, children, loc);
 
 let stringToIdentLoc loc txt => Location.mkloc (Lident txt) loc;
 
