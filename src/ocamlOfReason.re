@@ -516,34 +516,6 @@ let parseFunExpr toOcaml (sub, children, loc) => {
   makeFunction toOcaml args expr;
 };
 
-let parseBlock toOcaml (sub, children, loc) => {
-  let oloc = ocamlLoc loc;
-  /* let exprs = RU.getNodesByType children "Expression" (toOcaml.expression toOcaml); */
-  let rec loop children => {
-    switch children {
-      | [] => H.Exp.ident (Location.mkloc (Lident "()") oloc)
-      | [(_, Leaf _), ...rest] => loop rest
-      | [(_, Node ("Statement", "expr") children _)] => getExpression toOcaml children
-      | [(_, Node ("Statement", "expr") children _), ...rest] => H.Exp.sequence (getExpression toOcaml children) (loop rest)
-      | [(_, Node ("Statement", "value") children _), ...rest] => {
-        let isRec = RU.getPresenceByLabel children "rec";
-        let bindings = RU.getNodesByType children "ValueBinding" (parseBinding toOcaml);
-        H.Exp.let_ (isRec ? Recursive : Nonrecursive) bindings (loop rest)
-      }
-      | [(_, Node ("Statement", "module") children _), ...rest] => {
-        let name = (Location.mkloc (RU.getContentsByType children "capIdent" |> unwrap) oloc);
-        H.Exp.letmodule name {
-          pmod_desc: RU.getNodeByType children "ModuleDesc" |> unwrap |> parseModuleDesc toOcaml,
-          pmod_loc: oloc,
-          pmod_attributes: [],
-        } (loop rest)
-      }
-      | _ => failwith "Unknown statement"
-    }
-  };
-  loop children
-};
-
 let unwrapm message opt => {
   switch opt {
     | Some x => x
@@ -578,6 +550,53 @@ let stripRuleName ((name, sub), children, loc) => (sub, children, loc);
 
 let stringToIdentLoc loc txt => Location.mkloc (Lident txt) loc;
 
+let parseBlock toOcaml (sub, children, loc) => {
+  let oloc = ocamlLoc loc;
+  /* let exprs = RU.getNodesByType children "Expression" (toOcaml.expression toOcaml); */
+  let rec loop children => {
+    switch children {
+      | [] => H.Exp.ident (Location.mkloc (Lident "()") oloc)
+      | [(_, Leaf _), ...rest] => loop rest
+      | [(_, Node ("Statement", "expr") children _)] => getExpression toOcaml children
+      | [(_, Node ("Statement", "expr") children _), ...rest] => H.Exp.sequence (getExpression toOcaml children) (loop rest)
+      | [(_, Node ("Statement", "value") children _), ...rest] => {
+        let isRec = RU.getPresenceByLabel children "rec";
+        let bindings = RU.getNodesByType children "ValueBinding" (parseBinding toOcaml);
+        H.Exp.let_ (isRec ? Recursive : Nonrecursive) bindings (loop rest)
+      }
+      | [(_, Node ("Statement", "module") children _), ...rest] => {
+        let name = (Location.mkloc (RU.getContentsByType children "capIdent" |> unwrap) oloc);
+        H.Exp.letmodule name {
+          pmod_desc: RU.getNodeByType children "ModuleDesc" |> unwrap |> parseModuleDesc toOcaml,
+          pmod_loc: oloc,
+          pmod_attributes: [],
+        } (loop rest)
+      }
+      | _ => failwith "Unknown statement"
+    }
+  };
+  loop children
+};
+
+let fromBlock fromOcaml expr => {
+  /* XXX duplication from fromExpression :/ */
+  switch (expr.pexp_desc) {
+    | Pexp_let isRec values exp => {
+      let children = [fromLet fromOcaml isRec values, ...unwrapSequence fromOcaml exp];
+      Node ("Block", "") (List.map withEmptyLabels children) mLoc
+    }
+    | Pexp_sequence first second => {
+      let children = List.concat [unwrapSequence fromOcaml first, unwrapSequence fromOcaml second];
+      Node ("Block", "") (List.map withEmptyLabels children) mLoc
+    }
+    | _ => {
+      let node = fromOcaml.fromExpression fromOcaml expr;
+      Node ("Block", "") [("", node)] mLoc;
+    }
+  }
+};
+
+/** SWITCH **/
 let parseSwitchCase toOcaml (sub, children, loc) => {
   let pattern = RU.getNodeByType children "Pattern" |> unwrap |> parsePattern toOcaml;
   let guard = RU.getNodeByLabel children "guard" |> optMap stripRuleName |> optMap (toOcaml.expression toOcaml);
@@ -591,19 +610,63 @@ let parseSwitchExp toOcaml (sub, children, loc) => {
   H.Exp.match_ base cases
 };
 
+let fromSwitchCase fromOcaml {pc_lhs, pc_guard, pc_rhs} => {
+  let pattern = fromPattern pc_lhs;
+  let guard = pc_guard |> optMap (fromOcaml.fromExpression fromOcaml);
+  let body = pc_rhs |> fromOcaml.fromExpression fromOcaml;
+  let children = switch guard {
+    | None => [("", pattern), ("body", body)]
+    | Some guard => [("", pattern), ("guard", guard), ("body", body)]
+  };
+  Node ("SwitchCase", "") children mLoc;
+};
+
 let fromSwitchExp fromOcaml base cases => {
   let base = fromOcaml.fromExpression fromOcaml base;
-  let cases = List.map (fun {pc_lhs, pc_guard, pc_rhs} => {
-    let pattern = fromPattern pc_lhs;
-    let guard = pc_guard |> optMap (fromOcaml.fromExpression fromOcaml);
-    let body = pc_rhs |> fromOcaml.fromExpression fromOcaml;
-    let children = switch guard {
-      | None => [("", pattern), ("body", body)]
-      | Some guard => [("", pattern), ("guard", guard), ("body", body)]
-    };
-    Node ("SwitchCase", "") children mLoc;
-  }) cases;
+  let cases = List.map (fromSwitchCase fromOcaml) cases;
   ("switch", [("", Node ("SwitchExp", "") [("", base), ...List.map withEmptyLabels cases] mLoc)])
+};
+/** END SWITCH **/
+
+let parseIfExp toOcaml (sub, children, loc) => {
+  let conditions = RU.getNodesByType children "Expression" (toOcaml.expression toOcaml);
+  let consequents = RU.getNodesByType children "Block" (parseBlock toOcaml);
+  let rec loop exprs blocks => {
+    switch (exprs, blocks) {
+      | ([], [elseblock]) => Some elseblock
+      | ([], []) => None
+      | ([expr, ...exprs], [block, ...blocks]) => {
+        Some (H.Exp.ifthenelse expr block (loop exprs blocks))
+      }
+      | _ => failwith "Invalid ifthenelse"
+    }
+  };
+  loop conditions consequents |> unwrap
+};
+
+let fromIfExp fromOcaml (cond, cons, maybeAlt) => {
+  let rec loop ({pexp_desc, _} as expression) => {
+    switch pexp_desc {
+      | Pexp_ifthenelse cond cons maybeAlt => {
+        switch maybeAlt {
+          | None => ([cond], [cons])
+          | Some alt => {
+            let (exps, blocks) = loop alt;
+            ([cond, ...exps], [cons, ...blocks])
+          }
+        }
+      }
+      | _ => ([], [expression])
+    }
+  };
+  let (conds, blocks) = switch maybeAlt {
+    | Some alternate => loop alternate;
+    | None => ([], [])
+  };
+  let conds = [cond, ...conds] |> List.map (fromOcaml.fromExpression fromOcaml);
+  let blocks = [cons, ...blocks] |> List.map (fromBlock fromOcaml);
+  let children = List.map withEmptyLabels (List.concat [conds, blocks]);
+  ("if", [("", Node ("IfExpr", "") children mLoc)])
 };
 
 let rec parseBaseExpression toOcaml (sub, children, loc) => {
@@ -655,9 +718,8 @@ let rec parseBaseExpression toOcaml (sub, children, loc) => {
       });
       H.Exp.record items extends
     }
-    | "switch" => {
-      RU.getNodeByType children "SwitchExp" |> unwrap |> parseSwitchExp toOcaml;
-    }
+    | "if" => RU.getNodeByType children "IfExpr" |> unwrap |> parseIfExp toOcaml;
+    | "switch" => RU.getNodeByType children "SwitchExp" |> unwrap |> parseSwitchExp toOcaml;
     | "get_attr" => {
       H.Exp.field (RU.getNodeByType children "BaseExpression" |> unwrap |> parseBaseExpression toOcaml) (Location.mkloc (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent) oloc)
     }
