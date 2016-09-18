@@ -655,12 +655,22 @@ let parseBinExpression toOcaml (sub, children, loc) => {
         }
       });
       let items = RU.getNodesByType children "BaseExpression" (parseBaseExpression toOcaml);
-      /* let op = RU.getContentsByLabel children "op" |> unwrapm "op" |> stringToIdentLoc oloc; */
-      /* let left = RU.getNodeByLabel children "left" |> unwrapm "left" |> stripRuleName |> parseBaseExpression toOcaml; */
-      /* let right = RU.getNodeByLabel children "right" |> unwrapm "right" |> stripRuleName |> toOcaml.expression toOcaml; */
-      switch (ops, items) {
+      /* switch (ops, items) {
         | ([op], [left, right]) => H.Exp.apply (H.Exp.ident op) [("", left), ("", right)]
         | _ => failwith "not ready for lots of bin ops"
+      }; */
+      switch items {
+        | [] => failwith "no binexp items"
+        | [exp, ...rest] => {
+          let rec loop ops items coll => {
+            switch (ops, items) {
+              | ([], []) => coll
+              | ([op, ...ops], [item, ...items]) => loop ops items (H.Exp.apply (H.Exp.ident op) [("", coll), ("", item)])
+              | _ => failwith "uneven binops"
+            }
+          };
+          loop ops rest exp
+        }
       }
       /* H.Exp.apply (H.Exp.ident op) [("", left), ("", right)]; */
     }

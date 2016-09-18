@@ -95,7 +95,7 @@ Pattern =
   | char &".."& char -- interval
   | "("& Pattern (&"," Pattern)+ &","? &")" -- tuple
   | "[|"& (Pattern &",")* Pattern? &"|]" -- array
-  | "["& (Pattern &",")* Pattern? ("..." [rest]lowerIdent)? &"]" -- list
+  | "["& (Pattern &",")* Pattern? ("..."& [rest]lowerIdent)? &"]" -- list
   | "{"& (longIdent (&":" Pattern)? &",")* (longIdent (&":" Pattern)?)? &"}" -- record ; TODO _ for open flag
   | "`"&? capIdent &("("& (Pattern &",")* Pattern? &")")?  -- constructor
   | lowerIdent -- ident
