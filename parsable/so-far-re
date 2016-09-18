@@ -44,19 +44,17 @@ TypeDeclaration =
   | lowerIdent -- ident
 
 TypeDecl =
-  | TypeVariant
-  | TypeRecord
-  | Type
+  | TypeVariant -- variant
+  | TypeRecord -- record
+  | Type -- core_type
 
 Type =
-  | lowerIdent
   | Type "as" typeVar -- alias
   | "("& TupleTypes &")" -- tuple
   | "_" -- any
   | typeVar -- var
-  | (lowerIdent &"?"? &"::"&) Type "=>" Type
-  | "a"
-  ;| longIdent (&"<"& TypesCommad &">"&)? -- constructor
+  | (lowerIdent &"?"? &"::"&) Type "=>" Type -- fn
+  | longIdent (&"<"& TypesCommad &">"&)? -- constructor
   ; TODO object
   ; TODO class
   ; TODO alias?
