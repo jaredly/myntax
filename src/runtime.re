@@ -210,8 +210,9 @@ and setup_lr state rulename lr => {
   let rec loop =
     fun
     | [] => {
-      Printf.eprintf "If this ever happens it's probably OK to just remove this assert... see the old binop brach";
-      assert false
+      /* Printf.eprintf "If this ever happens it's probably OK to just remove this assert... see the old binop brach"; */
+      /* assert false */
+      ()
     }
     | [l, ..._] when l.head == Some lr_head => ()
     | [l, ...ls] => {

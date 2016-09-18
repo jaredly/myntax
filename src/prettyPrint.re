@@ -253,7 +253,11 @@ let rec resultToOutput: bool => grammar => result => option Output.outputT = fun
 and nodeToOutput ignoringNewlines grammar (name, sub) children => {
   /* Printf.printf "Output: %s %s\n" name sub; */
   let rule = List.assoc name grammar.rules;
-  let (_, _, items) = List.find (fun (name, _ ,_) => name == sub) rule.choices;
+  let (_, _, items) = try {
+    List.find (fun (name, _ ,_) => name == sub) rule.choices;
+  } {
+    | Not_found => failwith ("Unknown rule sub " ^ name ^ " :: " ^ sub);
+  };
   let ignoringNewlines = switch (rule.ignoreNewlines, ignoringNewlines) {
     | (Yes, _) => true
     | (No, _) => false

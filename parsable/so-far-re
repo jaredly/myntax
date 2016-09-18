@@ -134,9 +134,14 @@ Statement =
   | lowerIdent "=" Expression -- instance_var
   | Expression -- expr
 
+;; maybe get operator precedence going?
+;; I'll do it in the code portion. *much* less cumbersom that way
 Expression =
-  | BinExp -- binexp
-  | unOp& Expression -- unexp
+  | [left]BaseExpression [op]binOp [right]Expression -- binexp
+  | BaseExpression -- base
+
+BaseExpression =
+  | unOp& BaseExpression -- unexp
   | Application -- application
   | FunExpr -- funexpr
   | SwitchExp -- switch
@@ -148,13 +153,14 @@ Expression =
   | "{"& RecordBody &"}" -- record
   | "["& Commas &"]" -- list
   | [isVariant]"`"&? longCap (&"("& Commas &")")? -- constructor
-  | Expression &"."& longIdent "=" Expression -- set_attr
-  | Expression &"."& longIdent -- get_attr
+  | BaseExpression &"."& longIdent "=" Expression -- set_attr
+  | BaseExpression &"."& longIdent -- get_attr
+  ; TODO ternary a level above base?
   | Expression "?" Expression ":" Expression -- ternary
   | "while" Expression Block -- while
   ; | "for" -- for ; maybe ditch?
   | "new" longIdent -- new
-  | Expression &"#"& lowerIdent -- send
+  | BaseExpression &"#"& lowerIdent -- send
   | longIdent -- ident
   | constant -- const
   | "()" -- unit
@@ -202,10 +208,6 @@ Application = Expression &"("& AppArgs &")"
 @passThrough
 @ignoreNewlines
 AppArgs = (FnArg &",")* FnArg?
-
-;; maybe get operator precedence going?
-;; I'll do it in the code portion. *much* less cumbersom that way
-BinExp = [left]Expression [op]binOp [right]Expression
 
 @leaf
 unOp =

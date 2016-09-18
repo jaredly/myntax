@@ -137,41 +137,6 @@ let getLeafByType children needle => {
   })
 };
 
-/*
-let rec getChild children mapper => {
-  switch children {
-    | [] => None
-    | [child, ...rest] => {
-      switch (mapper child) {
-        | None => switch child {
-          | (_, Leaf _) => getChild rest mapper
-          | (_, Node _ children _) => switch (getChild children mapper) {
-            | None => getChild rest mapper
-            | x => x
-          }
-        }
-        | x => x
-      }
-    }
-  }
-};
-
-let rec getChildren children mapper => {
-  switch children {
-    | [] => []
-    | [child, ...rest] => {
-      switch (mapper child) {
-        | None => switch child {
-          | (_, Leaf _) => getChildren rest mapper
-          | (_, Node _ children _) => List.concat [getChildren children mapper, getChildren rest mapper]
-        }
-        | Some x => [x, ...(getChildren rest mapper)]
-      }
-    }
-  }
-};
- */
-
 let unescapeString x => {
   let contents = String.sub x 1 (String.length x - 2);
   if (String.length contents == 1) {
