@@ -39,21 +39,22 @@ ModuleTypeDeclaration = lowerIdent ; TODO
 ; TODO class type
 
 TypeDeclaration =
-  | lowerIdent "=" longIdent "=" TypeDecl -- manifested
+  | lowerIdent "=" Type "=" TypeDecl -- manifested
   | lowerIdent "=" TypeDecl -- decl
+  | lowerIdent "=" Type -- abs_manifest
   | lowerIdent -- ident
 
 TypeDecl =
   | TypeVariant -- variant
-  | TypeRecord -- record
-  | Type -- core_type
+  | "{" TypeRecord "}" -- record
+  ;| Type -- core_type
 
 Type =
   | Type "as" typeVar -- alias
   | "("& TupleTypes &")" -- tuple
   | "_" -- any
   | typeVar -- var
-  | (lowerIdent &"?"? &"::"&) Type "=>" Type -- fn
+  | (lowerIdent &[optional]"?"? &"::"&) Type "=>" Type -- fn
   | longIdent (&"<"& TypesCommad &">"&)? -- constructor
   ; TODO object
   ; TODO class
@@ -63,18 +64,24 @@ Type =
 
 @ignoreNewlines(false)
 TypeVariant = 
-  | "enum" "{" EOL? (TypeVariantItem EOL)* TypeVariantItem? "}"
+  | "enum" "{" EnumItems "}"
   | capIdent ("|" capIdent)+ ; should I have this?
 
+@passThrough
+EnumItems = EOL? (TypeVariantItem EOL)* TypeVariantItem?
+
 TypeVariantItem =
-  | "case" capIdent ("(" TypesCommad? ")")?
+  | "case" capIdent (&"("& TypesCommad? &")")?
 
 @ignoreNewlines
 @passThrough
 TypesCommad = Type (&"," Type)* ","?
 
 @ignoreNewlines
-TypeRecord = "{" (lowerIdent &":" Type ",")* (lowerIdent &":" Type)? "}"
+@passThrough
+TypeRecord = (TypeRecordItem ",")* TypeRecordItem?
+
+TypeRecordItem = lowerIdent &":" Type
 
 ValueBinding =
   | [name]lowerIdent "("& ValueArgs? &")" "=>" Expression -- func
@@ -128,6 +135,7 @@ PatternRecords = longIdent (&":" Pattern)? (&"," longIdent (&":" Pattern)?)* &",
 @ignoreNewlines
 TupleTypes = Type (&"," Type)+ ","?
 
+@leaf
 typeVar = "'" lowerIdent
 
 Attribute = "[@@" lowerIdent Expr? "]"

@@ -286,23 +286,177 @@ let fromModuleDesc fromOcaml desc => {
   }
 };
 
-let fromTypeDeclaration fromOcaml result => {
-  failwith "failfail";
-  /* switch result {
-    | {typ: Nonlexical (_, "ident", _) _, children: [ident], _} => {
-      {
-        ptype_name: Location.mkloc (getContents ident) loc,
-        ptype_params: [], /* TODO */
-        ptype_cstrs: [], /* TODO */
-        ptype_kind: Ptype_abstract,
-        ptype_private: Public,
-        ptype_manifest: None,
-        ptype_attributes: [],
-        ptype_loc: loc,
+  /*
+
+and type_declaration = Parsetree.type_declaration =
+    {
+     ptype_name: string loc;
+     ptype_params: (core_type * variance) list;
+           (* ('a1,...'an) t; None represents  _*)
+     ptype_cstrs: (core_type * core_type * locationt) list;
+           (* ... constraint T1=T1'  ... constraint Tn=Tn' *)
+     ptype_kind: type_kind;
+     ptype_private: private_flag;   (* = private ... *)
+     ptype_manifest: core_type option;  (* = T *)
+     ptype_attributes: attributes;   (* ... [@@id1] [@@id2] *)
+     ptype_loc: locationt;
+    }
+[@@deriving yojson]
+
+(*
+  type t                     (abstract, no manifest)
+  type t = T0                (abstract, manifest=T0)
+  type t = C of T | ...      (variant,  no manifest)
+  type t = T0 = C of T | ... (variant,  manifest=T0)
+  type t = {l: T; ...}       (record,   no manifest)
+  type t = T0 = {l : T; ...} (record,   manifest=T0)
+  type t = ..                (open,     no manifest)
+*)
+
+and type_kind = Parsetree.type_kind =
+  | Ptype_abstract
+  | Ptype_variant of constructor_declaration list
+        (* Invariant: non-empty list *)
+  | Ptype_record of label_declaration list
+        (* Invariant: non-empty list *)
+  | Ptype_open
+[@@deriving yojson]
+  } */
+
+/*
+and core_type = Parsetree.core_type =
+    {
+     ptyp_desc: core_type_desc;
+     ptyp_loc: locationt;
+     ptyp_attributes: attributes; (* ... [@id1] [@id2] *)
+    }
+[@@deriving yojson]
+
+and core_type_desc = Parsetree.core_type_desc =
+  | Ptyp_any
+        (*  _ *)
+  | Ptyp_var of string
+        (* 'a *)
+  | Ptyp_arrow of label * core_type * core_type
+        (* T1 -> T2       (label = "")
+           ~l:T1 -> T2    (label = "l")
+           ?l:T1 -> T2    (label = "?l")
+         *)
+  | Ptyp_tuple of core_type list
+        (* T1 * ... * Tn
+           Invariant: n >= 2
+        *)
+  | Ptyp_constr of longidentt loc * core_type list
+        (* tconstr
+           T tconstr
+           (T1, ..., Tn) tconstr
+         *)
+  | Ptyp_object of (string * attributes * core_type) list * closed_flag
+        (* < l1:T1; ...; ln:Tn >     (flag = Closed)
+           < l1:T1; ...; ln:Tn; .. > (flag = Open)
+         *)
+  | Ptyp_class of longidentt loc * core_type list
+        (* #tconstr
+           T #tconstr
+           (T1, ..., Tn) #tconstr
+         *)
+  | Ptyp_alias of core_type * string
+        (* T as 'a *)
+  | Ptyp_variant of row_field list * closed_flag * label list option
+        (* [ `A|`B ]         (flag = Closed; labels = None)
+           [> `A|`B ]        (flag = Open;   labels = None)
+           [< `A|`B ]        (flag = Closed; labels = Some [])
+           [< `A|`B > `X `Y ](flag = Closed; labels = Some ["X";"Y"])
+         *)
+  | Ptyp_poly of string list * core_type
+        (* 'a1 ... 'an. T
+           Can only appear in the following context:
+           - As the core_type of a Ppat_constraint node corresponding
+             to a constraint on a let-binding: let x : 'a1 ... 'an. T
+             = e ...
+           - Under Cfk_virtual for methods (not values).
+           - As the core_type of a Pctf_method node.
+           - As the core_type of a Pexp_poly node.
+           - As the pld_type field of a label_declaration.
+           - As a core_type of a Ptyp_object node.
+         *)
+
+  | Ptyp_package of package_type
+        (* (module S) *)
+  | Ptyp_extension of extension
+        (* [%id] *)
+[@@deriving yojson]
+
+*/
+
+let rec fromCoreType {ptyp_desc: desc, _} => {
+  let (sub, children) = switch desc {
+    | Ptyp_any => ("any", [])
+    | Ptyp_var text => ("var", [("", Leaf ("typeVar", "") text mLoc)])
+    | Ptyp_arrow label in_type out_type => {
+      let children = [("", fromCoreType in_type), ("", fromCoreType out_type)];
+      let children = if (label == "") children else {
+        let (text, opt) = if (String.get label 0 == '?') {
+          (String.sub label 1 (String.length label - 1), true)
+        } else {
+          (label, false)
+        };
+        let children = if opt [("optional", Leaf ("", "") "?" mLoc)] else [];
+        [("", Leaf ("lowerIdent", "") text mLoc), ...children]
+      };
+      ("fn", children)
+    }
+    | Ptyp_tuple types => ("tuple", List.map (emptyLabeled (fromCoreType)) types)
+    | Ptyp_constr ident args => ("constructor", [("", fromLongIdent ident.txt), ...List.map (emptyLabeled fromCoreType) args])
+    | Ptyp_object _ => failwith "no object"
+    | Ptyp_class _ => failwith "no class"
+    | Ptyp_alias typ name => ("alias", [("", fromCoreType typ), ("", Leaf ("typeVar", "") name mLoc)])
+    | Ptyp_variant _ => failwith "no variant"
+    | Ptyp_poly _ => failwith "no poly"
+    | Ptyp_package _ => failwith "no package"
+    | Ptyp_extension _ => failwith "no exptesion"
+  };
+  Node ("Type", sub) children mLoc
+};
+
+let fromTypeVariantItem {pcd_name: name, pcd_args: args} => {
+  Node ("TypeVariantItem", "") [("", Leaf ("capIdent", "") name.txt mLoc), ...List.map (emptyLabeled fromCoreType) args] mLoc
+};
+
+let fromTypeRecordItem {pld_name: name, pld_type: typ} => {
+  Node ("TypeRecordItem", "") [("", Leaf ("lowerIdent", "") name.txt mLoc), ("", fromCoreType typ)] mLoc
+};
+
+let fromTypeDeclaration fromOcaml {ptype_kind: kind, ptype_name: name, ptype_manifest: manifest, _} => {
+  let nameLeaf = Leaf ("lowerIdent", "") name.txt mLoc;
+
+  let (sub, children) = switch kind {
+    | Ptype_abstract => {
+      switch (manifest) {
+        | None => ("ident", [("", nameLeaf)])
+        | Some core_type => ("abs_manifest", [("", nameLeaf), ("", fromCoreType core_type)])
       }
     }
-    | _ => failwith "Unsupported"
-  } */
+    | Ptype_variant constructors => {
+      let tvar = Node ("TypeDecl", "variant") [("", Node ("TypeVariant", "") (List.map (emptyLabeled fromTypeVariantItem) constructors) mLoc)] mLoc;
+      switch manifest {
+        | None => ("decl", [("", nameLeaf), ("", tvar)])
+        | Some core_type => ("decl", [("", nameLeaf), ("", fromCoreType core_type), ("", tvar)])
+      }
+    }
+    | Ptype_record label_declarations => {
+      let trec = Node ("TypeDecl", "record") (List.map (emptyLabeled fromTypeRecordItem) label_declarations) mLoc;
+      switch manifest {
+        | None => ("decl", [("", nameLeaf), ("", trec)])
+        | Some core_type => ("decl", [("", nameLeaf), ("", fromCoreType core_type), ("", trec)])
+      }
+    }
+    | Ptype_open => {
+      failwith "nop open types"
+    }
+  };
+
+  Node ("TypeDeclaration", sub) children mLoc
 };
 
 let parseTypeDeclaration toOcaml result => {
@@ -487,7 +641,10 @@ let fromStructure fromOcaml structure => {
       Node ("Structure", "type") (List.map (emptyLabeled (fromTypeDeclaration fromOcaml)) declarations)  mLoc
     }
     /* TODO let_module, type */
-    | _ => failwith "no parse structure"
+    | _ => {
+      Printast.structure 0 Format.std_formatter [structure];
+      failwith "no parse structure"
+    }
   }
 };
 

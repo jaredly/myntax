@@ -255,6 +255,58 @@ let rec resultToOutput: bool => grammar => result => option Output.outputT = fun
   }
 }
 
+and processNonTerminal grammar name label children ignoringNewlines rest loop => {
+  switch (passThroughChildren grammar name) {
+    | Some (subs, ignoreNewlines) => {
+      /* print_endline "passthrough"; */
+      let newIgnore = switch (ignoreNewlines, ignoringNewlines) {
+        | (Yes, _) => true
+        | (No, _) => false
+        | (Inherit, x) => x
+      };
+      let (success, res, unused) = loop newIgnore subs children;
+      if (not success) {
+        (false, [], children)
+      } else {
+        let (s2, r2, u2) = loop ignoringNewlines rest unused;
+        let output = switch res {
+          | [sub] => sub
+          | res => if (ignoreNewlines == Yes) {
+            Output.MaybeNewlined res
+          } else {
+            makeStraightWithEOLs res
+          }
+        };
+        let children = switch output {
+          | Output.Newlined x => [Output.NoSpace, output, Output.NoSpace, ...r2]
+          | _ => [output, ...r2]
+        };
+        (s2, children, u2)
+      }
+    }
+    | None => {
+      let (child, others) = switch label {
+        | Some label => findByLabel children label
+        | None => findByType children name
+      };
+      switch child {
+        | None => {(false, [], children)}
+        | Some result => switch (resultToOutput ignoringNewlines grammar result)  {
+          | None => (false, [], children)
+          | Some output => {
+            let (success, res, unused) = loop ignoringNewlines rest others;
+            let children = switch output {
+              | Output.Newlined x => [Output.NoSpace, output, Output.NoSpace, ...res]
+              | _ => [output, ...res]
+            };
+            (success, children, unused)
+          }
+        }
+      }
+    }
+  }
+}
+
 and nodeToOutput ignoringNewlines grammar (name, sub) children => {
   /* Printf.printf "Output: %s %s\n" name sub; */
   let rule = List.assoc name grammar.rules;
@@ -295,55 +347,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
           | Chars _ => failwith "Chars shouldn't be at the top level"
 
           | NonTerminal name label => {
-            switch (passThroughChildren grammar name) {
-              | Some (subs, ignoreNewlines) => {
-                /* print_endline "passthrough"; */
-                let newIgnore = switch (ignoreNewlines, ignoringNewlines) {
-                  | (Yes, _) => true
-                  | (No, _) => false
-                  | (Inherit, x) => x
-                };
-                let (success, res, unused) = loop newIgnore subs children;
-                if (not success) {
-                  (false, [], children)
-                } else {
-                  let (s2, r2, u2) = loop ignoringNewlines rest unused;
-                  let output = switch res {
-                    | [sub] => sub
-                    | res => if (ignoreNewlines == Yes) {
-                      Output.MaybeNewlined res
-                    } else {
-                      makeStraightWithEOLs res
-                    }
-                  };
-                  let children = switch output {
-                    | Output.Newlined x => [Output.NoSpace, output, Output.NoSpace, ...r2]
-                    | _ => [output, ...r2]
-                  };
-                  (s2, children, u2)
-                }
-              }
-              | None => {
-                let (child, others) = switch label {
-                  | Some label => findByLabel children label
-                  | None => findByType children name
-                };
-                switch child {
-                  | None => {(false, [], children)}
-                  | Some result => switch (resultToOutput ignoringNewlines grammar result)  {
-                    | None => (false, [], children)
-                    | Some output => {
-                      let (success, res, unused) = loop ignoringNewlines rest others;
-                      let children = switch output {
-                        | Output.Newlined x => [Output.NoSpace, output, Output.NoSpace, ...res]
-                        | _ => [output, ...res]
-                      };
-                      (success, children, unused)
-                    }
-                  }
-                }
-              }
-            }
+            processNonTerminal grammar name label children ignoringNewlines rest loop
           }
 
           | Lexify p => loop ignoringNewlines [p, ...rest] children
@@ -441,6 +445,7 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
         }
       })
     | _ => {
+      Printf.eprintf "Failed to print %s : %s\n" name sub;
       /* print_endline "Some unused"; */
       None
     }

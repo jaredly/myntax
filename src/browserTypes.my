@@ -1,0 +1,8 @@
+type fromMain = (string, string)
+type fromWorker = enum {
+  case GrammarGood(float, float)
+  case GrammarBad(PackTypes.Error.partial)
+  case InputGood(PackTypes.Result.result, float)
+  case InputPretty(string, float)
+  case InputBad(PackTypes.Error.partial)
+}
