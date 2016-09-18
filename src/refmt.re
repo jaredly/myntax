@@ -40,6 +40,7 @@ let out_binary ast => {
   output_value stdout ast
 };
 
+let parseStart = Unix.gettimeofday();
 switch (Runtime.parse grammar "Start" contents) {
   | PackTypes.Result.Failure maybeResult (charsParsed, failure) => {
     /* switch maybeResult {
@@ -50,6 +51,7 @@ switch (Runtime.parse grammar "Start" contents) {
     exit 1;
   }
   | PackTypes.Result.Success result => {
+    Printf.eprintf "Main parse time: %f" (Unix.gettimeofday() -. parseStart);
     /* print_endline "Good"; */
     switch printType {
       | Bin => out_binary (OcamlOfReason.convert result);
