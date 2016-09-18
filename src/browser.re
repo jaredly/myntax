@@ -14,6 +14,7 @@ external localStorage : ls = "window.localStorage" [@@bs.val];
 
 external onGrammar : (string => unit) => unit = "window.onGrammar" [@@bs.val];
 external onInput : (string => unit) => unit = "window.onInput" [@@bs.val];
+external onRefmt : (unit => unit) => unit = "window.onRefmt" [@@bs.val];
 external now : unit => int = "Date.now" [@@bs.val];
 
 /* workers */
@@ -45,7 +46,7 @@ let defaultGrammar = {|Start = "fun" Patt "->" Expr "\n"*
 Exprs = (Expr #"\n")* Expr?
 
 Expr =
-  | constant
+  | constant -- const
   | "fun" Patt "->" Expr -- fun ; function
   | "(" [contents]Expr ")" -- parens
   | [left]Expr "+" [right]Expr -- add
@@ -53,10 +54,12 @@ Expr =
 Patt = ident
 
 constant =
-  | ident
-  | int64
+  | ident -- ident
+  | int64 -- int
 
+@leaf
 ident = alpha+
+@leaf
 int64 =  digit+
 
 reserved =
@@ -104,6 +107,7 @@ let onMessage: (BrowserTypes.fromWorker => unit) = fun x => {
       print_endline ("New pretty! " ^ newInput);
       if (newInput != !rawInput) {
         setValue inputEl newInput;
+        rawInput := newInput;
       };
     }
     | BrowserTypes.InputGood res parse => {
@@ -134,14 +138,20 @@ onGrammar (debounce (fun text => {
   if (text != !rawGrammar)  {
     rawGrammar := text;
     setA localStorage "grammar" text;
-    maybeSend ((text, !rawInput));
+    maybeSend (Change (text, !rawInput));
   }
-}) 200);
+}) 100);
 
 onInput (debounce (fun text => {
   if (text != !rawInput) {
     rawInput := text;
     setA localStorage "input" text;
-    maybeSend ((!rawGrammar, text));
+    maybeSend (Change (!rawGrammar, text));
   }
-}) 200);
+}) 100);
+
+onRefmt(fun () => {
+  maybeSend Refmt;
+});
+
+maybeSend (Change (!rawGrammar, !rawInput));

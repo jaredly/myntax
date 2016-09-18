@@ -6,7 +6,7 @@ module.exports = {
     worker: './bs_build/worker.js',
   },
   output: {
-    path: './static/',
+    path: './docs/',
     filename: '[name].js',
   }
 }

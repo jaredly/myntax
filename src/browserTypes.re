@@ -1,5 +1,8 @@
 
-type fromMain = (string, string);
+type fromMain =
+  | Change (string, string)
+  | Refmt
+  ;
 type fromWorker =
   | GrammarGood float float /* time to parse, time to convert */
   | GrammarBad PackTypes.Error.partial /* how much was parsed? */

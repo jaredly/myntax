@@ -1,7 +1,9 @@
 
 refmt:
 	rebuild src/refmt.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules
-	# rebuild src/browserTypes.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules
+
+brows:
+	rebuild src/browserTypes.native -use-ocamlfind -X ocaml -X react -X bs_build -X node_modules
 
 test-pretty:
 	./refmt.native pretty parsable/so-far-re parsable/basic-re

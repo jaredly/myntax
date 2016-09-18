@@ -48,34 +48,49 @@ let parseInput fromGrammar text grammar sendMessage => {
   }
 };
 
-let onMessage : (BrowserTypes.fromMain => unit) = fun (newGrammar, newInput) => {
-  if (newGrammar != !grammarText) {
-    grammarText := newGrammar;
-    switch (parseGrammar newGrammar !sendMessage) {
-      | Some made => {
-        grammar := Some made;
-        switch (!inputResult) {
-          | None => parseInput true newInput made !sendMessage;
-          | Some result => {
-            switch (PrettyPrint.toString made result) {
-              | Some x => !sendMessage (BrowserTypes.InputPretty x 0.0)
-              | None => ()
-            }
+let onMessage : (BrowserTypes.fromMain => unit) = fun message => {
+  switch message {
+    | Change (newGrammar, newInput) => {
+      if (newGrammar != !grammarText) {
+        grammarText := newGrammar;
+        switch (parseGrammar newGrammar !sendMessage) {
+          | Some made => {
+            grammar := Some made;
+            switch (!inputResult) {
+              | None => parseInput true newInput made !sendMessage;
+              | Some result => {
+                switch (PrettyPrint.toString made result) {
+                  | Some x => !sendMessage (BrowserTypes.InputPretty x 0.0)
+                  | None => ()
+                }
+              }
+            };
           }
+          | None => ()
         };
+      } else if (newInput != !inputText) {
+        inputText := newInput;
+        switch (!grammar) {
+          | Some grammar => {
+            parseInput false newInput grammar !sendMessage;
+            ()
+          }
+          | None => ()
+        };
+      };
+    }
+    | Refmt => {
+      switch (!grammar, !inputResult) {
+        | (Some grammar, Some result) => {
+          switch (PrettyPrint.toString grammar result) {
+            | Some x => !sendMessage (BrowserTypes.InputPretty x 0.0)
+            | None => ()
+          }
+        }
+        | _ =>  ()
       }
-      | None => ()
-    };
-  } else if (newInput != !inputText) {
-    inputText := newInput;
-    switch (!grammar) {
-      | Some grammar => {
-        parseInput false newInput grammar !sendMessage;
-        ()
-      }
-      | None => ()
-    };
-  };
+    }
+  }
 };
 
 sendMessage := setupComm onMessage;

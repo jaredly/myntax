@@ -6,12 +6,13 @@
 </head>
 <body>
 <div class="side">
+<div id="grammar-status">nothing parsed yet</div>
 <textarea id="grammar"></textarea>
-<div id="grammar-status"></div>
 </div>
 <div class="side">
+<button id="refmt">Pretty Print</button>
+<div id="input-status">nothing parsed yet</div>
 <textarea id="input"></textarea>
-<div id="input-status"></div>
 </div>
 
 <script>
@@ -19,6 +20,7 @@
   "use strict";
   let grammar = document.getElementById("grammar");
   let input = document.getElementById("input");
+  let refmt = document.getElementById("refmt");
 
   window.getValue = text => text.value;
   window.setValue = (text, value) => text.value = value;
@@ -29,6 +31,10 @@
   }
   window.onInput = fn => {
     input.addEventListener("keyup", () => fn(input.value))
+  }
+
+  window.onRefmt = fn => {
+    refmt.addEventListener("click", () => fn());
   }
 
   let tabbable = text => {
