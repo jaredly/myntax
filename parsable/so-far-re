@@ -134,10 +134,16 @@ Statement =
   | lowerIdent "=" Expression -- instance_var
   | Expression -- expr
 
+Expression =
+  | [condition]BinOpExp "?" [consequent]BinOpExp ":" [alternate]BinOpExp -- ternary
+  | BinOpExp -- binopfall
+  | BaseExpression -- base
+
 ;; maybe get operator precedence going?
 ;; I'll do it in the code portion. *much* less cumbersom that way
-Expression =
-  | [left]BaseExpression [op]binOp [right]Expression -- binexp
+BinOpExp =
+  ; TODO Base ([op] Base)+
+  | [left]BaseExpression [op]binOp [right]BinOpExp -- binexp
   | BaseExpression -- base
 
 BaseExpression =
@@ -156,7 +162,7 @@ BaseExpression =
   | BaseExpression &"."& longIdent "=" Expression -- set_attr
   | BaseExpression &"."& longIdent -- get_attr
   ; TODO ternary a level above base?
-  | Expression "?" Expression ":" Expression -- ternary
+  ; | Expression "?" Expression ":" Expression -- ternary
   | "while" Expression Block -- while
   ; | "for" -- for ; maybe ditch?
   | "new" longIdent -- new
@@ -213,6 +219,7 @@ AppArgs = (FnArg &",")* FnArg?
 unOp =
   | "-" ~opChar
   | "-." ~opChar
+  | "?" opChar+
   | unOpChar opChar*
 
 @leaf
@@ -220,21 +227,13 @@ binOp =
   | "!="
   | "or"
   | "mod"
-  | ~unOpChar ~"." ~"//" ~"/*" opChar+
-
-;  | "-"
-;  | "+"
-;  | "*"
-;  | "|>"
-;  | "=="
-;  | "!="
-;  | "!=="
-;  | "==="
+  | ":" opChar+
+  | ~unOpChar ~":" ~"?" ~"." ~"//" ~"/*" opChar+
 
 unOpChar =
   | "!"
-  | "?"
   | "~"
+  ; | "?"
 
 opChar =
   |"!"
