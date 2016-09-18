@@ -129,14 +129,19 @@ Statement =
   | "let" [rec]"rec"? ValueBinding (EOL "and" ValueBinding)* -- value
   | "let" "module" capIdent "=" ModuleDesc -- module
   | "import" "*" "from" longCap -- import
+  | "assert" Expression -- assert
+  | "lazy" Expression -- lazy
+  | lowerIdent "=" Expression -- instance_var
   | Expression -- expr
 
 Expression =
   | BinExp -- binexp
+  | unOp& Expression -- unexp
   | Application -- application
   | FunExpr -- funexpr
   | SwitchExp -- switch
   | TryExp -- try
+  | "("& binOp &")" -- binop
   | "("& TupleBody &")" -- tuple
   | "[|"& (Expression &",")* Expression? &"|]" -- array
   | Block -- block
@@ -150,9 +155,6 @@ Expression =
   ; | "for" -- for ; maybe ditch?
   | "new" longIdent -- new
   | Expression &"#"& lowerIdent -- send
-  | lowerIdent "=" Expression -- instance_var
-  | "assert" Expression -- assert
-  | "lazy" Expression -- lazy
   | longIdent -- ident
   | constant -- const
   | "()" -- unit
@@ -202,17 +204,55 @@ Application = Expression &"("& AppArgs &")"
 AppArgs = (FnArg &",")* FnArg?
 
 ;; maybe get operator precedence going?
-BinExp = Expression binOp Expression
+;; I'll do it in the code portion. *much* less cumbersom that way
+BinExp = [left]Expression [op]binOp [right]Expression
 
-binOp =
-  | "-"
-  | "+"
-  | "*"
-  | "|>"
-  | "=="
+@leaf
+unOp =
+  | "-" ~opChar
+  | "-." ~opChar
+  | unOpChar opChar*
+
+@leaf
+binOp = 
   | "!="
-  | "!=="
-  | "==="
+  | "or"
+  | "mod"
+  | ~unOpChar ~"." ~"//" ~"/*" opChar+
+
+;  | "-"
+;  | "+"
+;  | "*"
+;  | "|>"
+;  | "=="
+;  | "!="
+;  | "!=="
+;  | "==="
+
+unOpChar =
+  | "!"
+  | "?"
+  | "~"
+
+opChar =
+  |"!"
+  |"$"
+  |"%"
+  |"&"
+  |"*"
+  |"+"
+  |"-"
+  |"."
+  |"/"
+  |":"
+  |"<"
+  |"="
+  |">"
+  |"?"
+  |"@"
+  |"^"
+  |"|"
+  |"~"
 
 longIdent = (longCap_ ".")? lowerIdent
 longCap = longCap_ ~"."

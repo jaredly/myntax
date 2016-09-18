@@ -209,7 +209,10 @@ and setup_lr state rulename lr => {
   let lr_head = unwrap lr.head;
   let rec loop =
     fun
-    | [] => assert false
+    | [] => {
+      Printf.eprintf "If this ever happens it's probably OK to just remove this assert... see the old binop brach";
+      assert false
+    }
     | [l, ..._] when l.head == Some lr_head => ()
     | [l, ...ls] => {
         l.head = Some lr_head;
@@ -276,6 +279,7 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines i
     state.cpos = i;
     head.eval_set = head.involved_set; /* B */
     let ans = parse grammar state rulename i isLexical ignoringNewlines isNegated path;
+    /** NOTE(jared): I added oans & the check b/c without it some left recursion still wasn't working */
     let oans = switch (memoentry.ans) {
       | Answer (i, _, _) => i
       | LR _ => -1

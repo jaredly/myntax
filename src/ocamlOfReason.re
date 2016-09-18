@@ -544,7 +544,7 @@ let parseBlock toOcaml (sub, children, loc) => {
   loop children
 };
 
-let unwrapm message::message="" opt => {
+let unwrapm message opt => {
   switch opt {
     | Some x => x
     | None => raise (RU.ConversionFailure ("Unwrapping none " ^ message))
@@ -574,6 +574,18 @@ let rec unwrapSequence fromOcaml exp => {
   }
 };
 
+let stripRuleName ((name, sub), children, loc) => (sub, children, loc);
+
+let stringToIdentLoc loc txt => Location.mkloc (Lident txt) loc;
+
+let parseBinExp toOcaml (_, children, loc) => {
+  let oloc = ocamlLoc loc;
+  let op = RU.getContentsByLabel children "op" |> unwrapm "op" |> stringToIdentLoc oloc;
+  let left = RU.getNodeByLabel children "left" |> unwrapm "left" |> stripRuleName |> toOcaml.expression toOcaml;
+  let right = RU.getNodeByLabel children "right" |> unwrapm "right" |> stripRuleName |> toOcaml.expression toOcaml;
+  H.Exp.apply (H.Exp.ident op) [("", left), ("", right)];
+};
+
 let parseExpression toOcaml (sub, children, loc) => {
   let oloc = ocamlLoc loc;
   switch sub {
@@ -583,6 +595,14 @@ let parseExpression toOcaml (sub, children, loc) => {
         | None => expr
         | Some x => H.Exp.constraint_ expr (parseType x)
       }
+    }
+    | "unexp" => {
+      let ident = RU.getContentsByType children "unOp" |> unwrap |> stringToIdentLoc oloc |> H.Exp.ident;
+      let main = getExpression toOcaml children;
+      H.Exp.apply ident [("", main)];
+    }
+    | "binop" => {
+      RU.getContentsByType children "binOp" |> unwrapm "binOp" |> stringToIdentLoc oloc |> H.Exp.ident;
     }
     | "ident" => {
       let ident = RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent;
@@ -597,11 +617,14 @@ let parseExpression toOcaml (sub, children, loc) => {
     | "tuple" => H.Exp.tuple (RU.getNodesByType children "Expression" (toOcaml.expression toOcaml))
     | "funexpr" => RU.getNodeByType children "FunExpr" |> unwrap |> parseFunExpr toOcaml;
     | "block" => RU.getNodeByType children "Block" |> unwrap |> parseBlock toOcaml;
+    | "binexp" => {
+      RU.getNodeByType children "BinExp" |> unwrap |> parseBinExp toOcaml;
+    }
     | "record" => {
       let extends = RU.getNodeByType children "Expression" |> optMap' (toOcaml.expression toOcaml);
       let items = RU.getNodesByType children "RecordItem" (fun (sub, children, loc) => {
         let oloc = ocamlLoc loc;
-        let name = RU.getNodeByType children "longIdent" |> unwrapm message::"long ident record" |> parseLongIdent;
+        let name = RU.getNodeByType children "longIdent" |> unwrapm "long ident record" |> parseLongIdent;
         let expr = RU.getNodeByType children "Expression" |> optMap' (toOcaml.expression toOcaml);
         let expr = switch expr {
           | Some x => x
@@ -628,15 +651,42 @@ let rec unwrapList fromOcaml ({pexp_desc, _} as expression) => {
   }
 };
 
+let opchars = "!$%&*+-./:<=>?@^|~";
+let startsWithOpChar txt => String.contains opchars (String.get txt 0);
+
+let fromBinExp fromOcaml op left right => {
+  Node ("BinExp", "") [
+    ("left", fromOcaml.fromExpression fromOcaml left),
+    ("op", Leaf ("binOp", "") op mLoc),
+    ("right", fromOcaml.fromExpression fromOcaml right)] mLoc
+};
+
+let wrapExp (sub, children) => ("wrapped", [("", Node ("Expression", sub) children mLoc)]);
+
 let fromExpression fromOcaml ({pexp_desc, _} as expression) => {
   let (sub, children) =
   switch pexp_desc {
-    | Pexp_ident {txt, _} => ("ident", [("", fromLongIdent txt)])
+    | Pexp_ident {txt, _} => switch txt {
+      | Lident txt when startsWithOpChar txt => {
+        ("binop", [("", Leaf ("binOp", "") txt mLoc)])
+      }
+      | _ => ("ident", [("", fromLongIdent txt)])
+    }
     | Pexp_constant constant => ("const", [("", fromConstant constant |> nodeWrap "constant")])
     | Pexp_fun label maybeDefault pattern expr => ("funexpr", [("", fromFunExpr fromOcaml label maybeDefault pattern expr)])
     | Pexp_apply base args => {
-      let exp = fromOcaml.fromExpression fromOcaml base;
-      ("application", [("", exp), ...(List.map (emptyLabeled (fromFnArg fromOcaml)) args)])
+      switch base.pexp_desc {
+        | Pexp_ident {txt: Lident txt, _} when startsWithOpChar txt or txt == "or" or txt == "mod" => {
+          switch args {
+            | [("", arg)] => ("unexp", [("", Leaf ("unOp", "") txt mLoc), ("", fromOcaml.fromExpression fromOcaml arg)]) |> wrapExp
+            | [("", left), ("", right)] => ("binexp", [("", fromBinExp fromOcaml txt left right)]) |> wrapExp
+            | _ => ("application", [("", fromOcaml.fromExpression fromOcaml base), ...(List.map (emptyLabeled (fromFnArg fromOcaml)) args)])
+          }
+        }
+        | _ => {
+          ("application", [("", fromOcaml.fromExpression fromOcaml base), ...(List.map (emptyLabeled (fromFnArg fromOcaml)) args)])
+        }
+      }
     }
     | Pexp_record items extends => {
       let exp = extends |> optMap' (fromOcaml.fromExpression fromOcaml);
