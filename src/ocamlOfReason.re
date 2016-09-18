@@ -776,6 +776,8 @@ let rec parseBaseExpression toOcaml (sub, children, loc) => {
     | "get_attr" => {
       H.Exp.field (RU.getNodeByType children "BaseExpression" |> unwrap |> parseBaseExpression toOcaml) (Location.mkloc (RU.getNodeByType children "longIdent" |> unwrap |> parseLongIdent) oloc)
     }
+    | "unit" => H.Exp.construct (Location.mknoloc (Lident "()")) None
+    | "list" => H.Exp.array (RU.getNodesByType children "Expression" (toOcaml.expression toOcaml))
     | _ => failwith ("not impl - expression - " ^ sub)
   }
 };

@@ -108,19 +108,33 @@ let module Error = {
     !res
   };
 
+  let rec slice lst start => {
+    switch (start, lst) {
+      | (0, _) => lst
+      | (_, [_, ...rest]) => slice rest (start - 1)
+      | _ => raise (Failure "Invalid slice")
+    }
+  };
+
+  let errorsText errors => {
+    (String.concat "" (List.map (fun (isNot, errPath) => {
+      let parts = (errorPathText isNot errPath []);
+      let count = List.length parts;
+      let parts = if (count < 5) parts else ["...", ...slice parts (count - 5)];
+      Printf.sprintf "%s\n" (String.concat " > " parts)
+    }) errors))
+  };
 
   let genErrorText text (pos, errors) => {
-    let showText = String.sub text 0 {
+    let (showText, pad) = if (pos <= 0) (text, 0) else (String.sub text 0 {
       try (String.index_from text pos '\n')
       {
         | Not_found => (String.length text)
       }
-    };
-    (Printf.sprintf "%s\n%s^\n" showText (leftPad "-" ((lastLineLength text pos) - 1) ""))
+    }, ((lastLineLength text pos) - 1));
+    (Printf.sprintf "%s\n%s^\n" showText (leftPad "-" pad ""))
     ^
-    (String.concat "" (List.map (fun (isNot, errPath) => {
-      Printf.sprintf "%s\n" (String.concat " > " (errorPathText isNot errPath []))
-    }) errors));
+    (errorsText errors);
   };
 };
 

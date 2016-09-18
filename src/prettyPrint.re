@@ -409,7 +409,14 @@ and nodeToOutput ignoringNewlines grammar (name, sub) children => {
             let (success, res, unused) = greedy (loop ignoringNewlines) p children 0 1;
             if success {
               let (s2, r2, u2) = loop ignoringNewlines rest unused;
-              (s2, List.concat [res, r2], u2)
+              /* If we didn't consume anything, then don't produce anything -- this is for
+                getting rid of empty syntax
+              */
+              if (unused == children) {
+                (s2, r2, u2)
+              } else {
+                (s2, List.concat [res, r2], u2)
+              }
             } else {
               (success, res, unused)
             }

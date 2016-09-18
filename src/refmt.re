@@ -52,7 +52,7 @@ switch (Runtime.parse grammar "Start" contents) {
   }
   | PackTypes.Result.Success result => {
     Printf.eprintf "Main parse time: %f" (Unix.gettimeofday() -. parseStart);
-    /* print_endline "Good"; */
+    print_endline "Good";
     switch printType {
       | Bin => out_binary (OcamlOfReason.convert result);
       | Debug => printImpl (OcamlOfReason.convert result);

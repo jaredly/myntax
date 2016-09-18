@@ -20,6 +20,17 @@ and head = {
   mutable eval_set: StringSet.t
 };
 
+let show_ans message (pos, _, (epos, errors)) => {
+  Printf.eprintf "%s :: (%d)\n%s\n" message epos (PackTypes.Error.errorsText errors);
+};
+
+let show_ansorlr message ansor => {
+  switch ansor {
+    | Answer ans => show_ans message ans
+    | LR lr => show_ans (message ^ "[lr seed]") lr.seed
+  }
+};
+
 exception Found ans;
 
 let emptyResult pos name isLexical => (R.Leaf (name, "") "" (pos, pos), false);
@@ -38,7 +49,7 @@ let unwrap opt =>
     | None => failwith "Expected Some(x)"
   };
 
-let fst (a, _, _) => a;
+let tfst (a, _, _) => a;
 
 let rec skipWhite i text len ignoreNewlines => {
   if (i >= len) {
@@ -132,8 +143,10 @@ let mergeErrs (i1, errs1) (i2, errs2) => {
     (i1, List.concat [errs1, errs2])
   } else if (i1 < i2) {
     (i2, errs2)
+    /* (i2, List.concat [errs1, errs2]) */
   } else {
     (i1, errs1)
+    /* (i1, List.concat [errs1, errs2]) */
   }
 };
 
@@ -177,6 +190,7 @@ let rec apply_rule grammar state rulename i ignoringNewlines isNegated path => {
   let isLexical = (Char.uppercase (String.get rulename 0)) != (String.get rulename 0);
   switch (recall grammar state rulename i isLexical ignoringNewlines isNegated path) {
   | None =>
+    /* Printf.eprintf "New rule/pos %s %d\n" rulename i; */
     let lr = {seed: (-1, emptyResult i rulename isLexical, (-1, [])), rulename, head: None};
     state.lrstack = [lr, ...state.lrstack];
     let memoentry = {ans: LR lr, pos: i};
@@ -185,13 +199,17 @@ let rec apply_rule grammar state rulename i ignoringNewlines isNegated path => {
     state.lrstack = List.tl state.lrstack;
     memoentry.pos = state.cpos;
     if (lr.head != None) {
+      /* show_ans ("Replacing seed <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") lr.seed; */
+      /* show_ans (">> with ") answer; */
       lr.seed = answer;
       lr_answer grammar state rulename i memoentry isLexical ignoringNewlines isNegated path
     } else {
+      /* show_ansorlr ("Replacing memo <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") memoentry.ans; */
       memoentry.ans = Answer answer;
       answer
     }
   | Some memoentry =>
+    /* Printf.eprintf "Old rule/pos %s %d\n" rulename i; */
     state.cpos = memoentry.pos;
     switch memoentry.ans {
     | LR lr =>
@@ -238,8 +256,9 @@ and lr_answer grammar state rulename i memoentry isLexical ignoringNewlines isNe
     lr.seed
   } else {
     memoentry.ans = Answer lr.seed;
-    if (fst lr.seed == -1) {
-      (-1, emptyResult i rulename isLexical, (-1, []))
+    if (tfst lr.seed == -1) {
+      lr.seed
+      /* (-1, emptyResult i rulename isLexical, (-1, [])) */
     } else {
       grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines isNegated path
     }
@@ -285,7 +304,15 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines i
       | Answer (i, _, _) => i
       | LR _ => -1
     };
-    if (fst ans == -1 || (state.cpos <= memoentry.pos && fst ans <= oans)) {
+    if (tfst ans == -1 || (state.cpos <= memoentry.pos && tfst ans <= oans)) {
+      /** Merge errors with those of previous answer **/
+      switch memoentry.ans {
+        | LR _ => ()
+        | Answer (a, b, oerrs) => {
+          let (_, _, aerrs) = ans;
+          memoentry.ans = Answer (a, b, mergeErrs oerrs aerrs);
+        }
+      };
       ()
     } else {
       memoentry.ans = Answer ans;
@@ -297,13 +324,17 @@ and grow_lr grammar state rulename i memoentry head isLexical ignoringNewlines i
   Hashtbl.remove state.heads i; /* C */
   state.cpos = memoentry.pos;
   switch memoentry.ans {
-    | Answer answer => answer
+    | Answer answer => {
+      let (_, _, (epos, _)) = answer;
+      /* Printf.eprintf "grow_lr < %s(%d) : %d\n" rulename i epos; */
+      answer
+    }
     | LR _ => assert false
   }
 }
 
 and parse grammar state rulename i isLexical ignoringNewlines isNegated path => {
-  /* Printf.printf "parse %s %d\n" rulename i; */
+  /* Printf.eprintf ">> %s %d\n" rulename i; */
   let {P.ignoreNewlines, choices, passThrough, leaf} =
     try (List.assoc rulename grammar.P.rules) {
     | Not_found =>
@@ -404,7 +435,11 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
             }
 
             | [(P.NonTerminal n label) as item, ...rest] => {
+                /* Printf.eprintf "[%s]> %s : %d\n" rulename n i; */
                 let (i', (result, passThrough), errs) = apply_rule grammar state n i ignoringNewlines isNegated [RP.Item item loopIndex, ...path];
+                /* Printf.eprintf "  <-- apply_rule %s %d :: %s %d -> %d\n" n (fst errs) rulename i i'; */
+                /* Printf.eprintf "[%s]< %s : %d\n" rulename n i'; */
+                /* Printf.eprintf "%d) %s\n" (fst errs) (PackTypes.Error.errorsText (snd errs)); */
                 if (i' >= i) {
                   let (i'', children, rest_errs) = loop i' rest path (loopIndex + 1) isNegated;
                   let children = passThrough ? (switch result {
@@ -508,7 +543,10 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
         let subPath = numChoices === 1 ? path : [RP.Choice choiceIndex sub_name, ...path];
         let (i', children, err) = loop i rs subPath 0 isNegated;
         let errs = mergeErrs prevErrors err;
+        /* Printf.eprintf "$$ %d [%d, %d] (%s - %d)\n" (fst errs) (fst prevErrors) (fst err) rulename choiceIndex; */
+        /* Printf.eprintf "PARSE[%s:%d] %d) %s\n" rulename i (fst errs) (PackTypes.Error.errorsText (snd errs)); */
         if (i' >= i) {
+          /* Printf.eprintf "<final>\n"; */
           let name = (rulename, sub_name);
           let loc = (i, i');
           let result = ((leaf ? R.Leaf name (String.sub state.input i (i' - i)) loc : R.Node name children loc), passThrough);
@@ -517,6 +555,7 @@ and parse grammar state rulename i isLexical ignoringNewlines isNegated path => 
           /* let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex)  passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough; */
           (i', result, errs)
         } else {
+          /* Printf.eprintf "<nother choice>\n"; */
           process otherChoices errs (choiceIndex + 1)
         }
       }
