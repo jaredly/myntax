@@ -1,5 +1,5 @@
+[@bs.val] external jsonify : 'a => string = "JSON.stringify";
 
-external jsonify : 'a => string = "JSON.stringify" [@@bs.val];
+let result_to_string = (result) => jsonify(result);
 
-let result_to_string result => jsonify result;
-let resultType_to_string result => jsonify result;
+let resultType_to_string = (result) => jsonify(result);

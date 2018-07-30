@@ -1,3 +1,13 @@
 S src
 B _build/src
 PKG yojson ppx_deriving_yojson ppx_deriving ppx_deriving.std compiler-libs.common
+
+####{BSB GENERATED: NO EDIT
+FLG -ppx /Users/jared/clone/tools/myntax/node_modules/bs-platform/bin/bsppx.exe
+S /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/ocaml
+B /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/ocaml
+FLG -nostdlib -no-alias-deps -color always
+FLG -w -30-40+6+7+27+32..39+44+45+101-40-6+7-26-27-32..39-28-44-45
+S src
+B lib/bs/src
+####BSB GENERATED: NO EDIT}

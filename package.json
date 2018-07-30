@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "bs-platform": "^1.0.1"
+    "bs-platform": "2.0.0"
   }
 }
