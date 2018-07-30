@@ -37,6 +37,9 @@ type toOcaml = {
   structure: (toOcaml, (string, list((string, result)), loc)) => structure_item
 };
 
+let stripQuotes = (str) => String.sub(str, 1, String.length(str) - 2);
+let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
+
 let failexpr = message => H.Exp.apply(
   H.Exp.ident(Location.mknoloc(Longident.Lident("failwith"))),
   [("", Ast_helper.Exp.constant(Const_string(message, None)))]
@@ -107,12 +110,26 @@ let parsePattern = (toOcaml, (sub, children, loc)) => {
 let parseConstant = ((sub, children, loc)) => {
   let raw = RU.getContentsByLabel(children, "val") |> unwrap;
   switch sub {
-    | "string" => Const_string(raw, None)
+    | "string" => Const_string(processString(raw), None)
     | "int" => Const_int(int_of_string(raw))
     | "float" => Const_float(raw)
     | _ => failwith("Unhandled constant type")
   }
 };
+
+let rec listToConstruct = (list, maybeRest, typeC, tupleC) =>
+  switch list {
+  | [] =>
+    switch maybeRest {
+    | None => typeC(Location.mkloc(Lident("[]"), loc), None)
+    | Some(x) => x
+    }
+  | [one, ...rest] =>
+    typeC(
+      Location.mkloc(Lident("::"), loc),
+      Some(tupleC([one, listToConstruct(rest, maybeRest, typeC, tupleC)]))
+    )
+  };
 
 let parseExpression = (toOcaml, (sub, children, loc)) =>
   switch sub {
@@ -122,9 +139,39 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
       RU.getNodesByLabel(children, "args", toOcaml.expression(toOcaml))
       |> List.map(m => ("", m))
     )
+    | "threading_last" => {
+      let target = RU.getNodeByLabel(children, "target") |> unwrap |> stripRuleName |> toOcaml.expression(toOcaml);
+      let items = RU.getNodesByType(children, "ThreadItem", x => x);
+      let rec loop = (target, items) => switch items {
+        | [] => target
+        | [("ident", children, _), ...rest] => 
+          loop(H.Exp.apply(
+            H.Exp.ident(Location.mkloc(parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc))),
+            [("", target)]
+          ), rest)
+        | [("fn_call", children, _), ...rest] => 
+          loop(H.Exp.apply(
+            toOcaml.expression(toOcaml, RU.getNodeByLabel(children, "fn") |> unwrap |> stripRuleName),
+            (RU.getNodesByLabel(children, "args", toOcaml.expression(toOcaml))
+            |> List.map(m => ("", m))) @ [("", target)]
+          ), rest)
+        | _ => failexpr("Unable to")
+      };
+      loop(target, items)
+    }
     | "const" => H.Exp.constant(parseConstant(RU.getNodeByType(children, "constant") |> unwrap))
     | "op" => H.Exp.ident(Location.mkloc(Lident(RU.getContentsByType(children, "operator") |> unwrap), toOcaml.toLoc(loc)))
     | "ident" => H.Exp.ident(Location.mkloc(parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc)))
+    | "array_literal" =>
+      listToConstruct
+        (
+          RU.getNodesByType(children, "Expression", toOcaml.expression(toOcaml)),
+          None,
+          /* RU.getContentsByLabel(children, "rest")
+          |?> (label) => Some(H.Pat.var(Location.mkloc(label, oloc))), */
+          H.Exp.construct,
+          H.Exp.tuple
+        )
     | _ => failexpr("Unexpected expression type: " ++ sub)
   };
 
@@ -139,6 +186,12 @@ let parseLetPair = (toOcaml, (sub, children, loc)) => {
 let parseStructure = (toOcaml, (sub, children, loc)) => {
   switch sub {
     | "eval" => Ast_helper.Str.eval(RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml))
+    | "open" => H.Str.open_(H.Opn.mk(
+      Location.mkloc(
+        parseLongCap(RU.getNodeByType(children, "longCap") |> unwrap),
+        toOcaml.toLoc(loc)
+      )
+    ))
     | "let" => H.Str.value(Nonrecursive, [parseLetPair(
       toOcaml,
       RU.getNodeByType(children, "LetPair") |> unwrap

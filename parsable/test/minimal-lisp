@@ -1,0 +1,10 @@
+
+; ocaml, lisp style
+
+(let words ["Hello world"])
+
+(->> words
+  (List.map String.uppercase)
+  (String.concat " ")
+  print_endline)
+

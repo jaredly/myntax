@@ -11,7 +11,7 @@ Structure =
 | "("& "let-rec" LetPair+ &")" -- let_rec
 | "("& "type" TypeBody &")" -- type
 | "("& "module" capIdent ModuleExpr &")" -- module
-| "("& "open" ModuleExpr &")" -- open
+| "("& "open" longCap &")" -- open
 | Expression -- eval
 
 @ignoreNewlines

@@ -20,9 +20,9 @@ let getGrammar = (raw) => {
   }
 };
 
-let out_binary = (ast: Parsetree.structure) => {
+let out_binary = (ast: Parsetree.structure, input_name) => {
   output_string(stdout, Config.ast_impl_magic_number);
-  output_value(stdout, input);
+  output_value(stdout, input_name);
   output_value(stdout, ast)
 };
 
@@ -125,11 +125,11 @@ let (command, grammarFile, input) =
 let (result, grammar, raw) = getResult(grammarFile, input);
 
 switch command {
-| Bin => out_binary(OcamlOfReason.convert(result))
+| Bin => out_binary(OcamlOfReason.convert(result), input)
 | Debug => printImpl(OcamlOfReason.convert(result))
 /* | DebugLisp => printImpl(LispToOcaml.convert(result)) */
 | DebugLisp => pprintImpl(LispToOcaml.convert(result, input, raw))
-| BinLisp => out_binary(LispToOcaml.convert(result, input, raw))
+| BinLisp => out_binary(LispToOcaml.convert(result, input, raw), input)
 | Pretty(dest) =>
   /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
   /* failwith "no impl" */
