@@ -5,6 +5,7 @@ let getContents = (input) =>
   };
 
 let printImpl = (implementation) => Printast.implementation(Format.std_formatter, implementation);
+let pprintImpl = (implementation) => Pprintast.structure(Format.std_formatter, implementation);
 
 let getGrammar = (raw) => {
   let start = Unix.gettimeofday();
@@ -19,7 +20,7 @@ let getGrammar = (raw) => {
   }
 };
 
-let out_binary = (ast) => {
+let out_binary = (ast: Parsetree.structure) => {
   output_string(stdout, Config.ast_impl_magic_number);
   output_value(stdout, input);
   output_value(stdout, ast)
@@ -43,7 +44,7 @@ let getResult = (grammarFile, input) => {
   /* Runtime.debug := true; */
   let (result, parseTime) = getResult(grammar, contents);
   Printf.eprintf("Main parse time: %f", parseTime);
-  (result, grammar)
+  (result, grammar, contents)
 };
 
 /*
@@ -94,6 +95,8 @@ type printType =
   | Bin
   | Pretty(string)
   | Debug
+  | DebugLisp
+  | BinLisp
   | Dump
   | RoundPretty
   | RoundDump;
@@ -106,6 +109,8 @@ let (command, grammarFile, input) =
       | "bin" => Bin
       | "dump" => Dump
       | "pretty" => Pretty("-")
+      | "debug-lisp" => DebugLisp
+      | "bin-lisp" => BinLisp
       | "round-pretty" => RoundPretty
       | "round-dump" => RoundDump
       | _ => failwith("Invalid command")
@@ -117,11 +122,14 @@ let (command, grammarFile, input) =
   | _ => failwith("Usage: [command=debug] grammarfile inputfile")
   };
 
-let (result, grammar) = getResult(grammarFile, input);
+let (result, grammar, raw) = getResult(grammarFile, input);
 
 switch command {
 | Bin => out_binary(OcamlOfReason.convert(result))
 | Debug => printImpl(OcamlOfReason.convert(result))
+/* | DebugLisp => printImpl(LispToOcaml.convert(result)) */
+| DebugLisp => pprintImpl(LispToOcaml.convert(result, input, raw))
+| BinLisp => out_binary(LispToOcaml.convert(result, input, raw))
 | Pretty(dest) =>
   /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
   /* failwith "no impl" */

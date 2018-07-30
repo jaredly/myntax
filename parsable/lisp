@@ -10,8 +10,8 @@ Structure =
 | "("& "let" LetPair &")" -- let
 | "("& "let-rec" LetPair+ &")" -- let_rec
 | "("& "type" TypeBody &")" -- type
-| "("& "module" capIdent ModuleExpr &")"
-| "("& "open" ModuleExpr &")"
+| "("& "module" capIdent ModuleExpr &")" -- module
+| "("& "open" ModuleExpr &")" -- open
 | Expression -- eval
 
 @ignoreNewlines
@@ -23,7 +23,7 @@ ModuleExpr =
 | longCap -- ident
 | "("& longCap ModuleExpr+ &")" -- functor_call
 
-LetPair = [name]lowerIdent Expression
+LetPair = Pattern Expression
 
 TypePair = TypeName TypeDecl
 
@@ -118,7 +118,7 @@ FnArg =
 
 @ignoreNewlines
 Pattern =
-| longIdent -- ident
+| lowerIdent -- ident
 | longCap -- empty_constr
 | constant
 | "()" -- unit
