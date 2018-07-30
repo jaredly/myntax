@@ -10,10 +10,18 @@ Structure =
 | "("& "let" LetPair &")" -- let
 | "("& "let-rec" LetPair+ &")" -- let_rec
 | "("& "type" TypeBody &")" -- type
+| "("& "module" capIdent ModuleExpr &")"
+| "("& "open" ModuleExpr &")"
 | Expression -- eval
 
 @ignoreNewlines
 TypeBody = TypePair+
+
+ModuleExpr =
+| "("& "=>" "[" "]" Structure* &")" -- arrow
+| "("& "str" Structure* &")" -- structure
+| longCap -- ident
+| "("& longCap ModuleExpr+ &")" -- functor_call
 
 LetPair = [name]lowerIdent Expression
 
@@ -50,6 +58,11 @@ Expression =
 | "("& "["& [index]Expression &"]" [array]Expression &")" -- array_index
 | "("& [attr]string [object]Expression &")" -- js_object_attribute
 | "("& [keyword]attribute [object]Expression &")" -- record_attribute
+| "("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")" -- let
+| "("& "open" ModuleExpr Expression+ &")" -- open
+| "("& "module" capIdent ModuleExpr Expression+ &")" -- module
+    ; not 100% sure I want to do this :P but it could be so handy!!
+| "("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")" -- loop_recur
 | Arrow -- arrow
 | "("& "->>" [target]Expression ThreadItem+ &")" -- threading_last
 | "("& "->" [target]Expression ThreadItem+ &")" -- threading

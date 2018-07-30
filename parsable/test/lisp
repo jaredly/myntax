@@ -30,3 +30,23 @@ and it can do what it want's *)
  (Some "hello") 45
  None 2
  _ 234)
+
+(let parseBlock (=> [toOcaml (, sub children loc)]
+  (open H.Exp
+  (let [oloc (ocamlLoc loc)]
+    (loop [children children]
+      (switch children
+      [] (ident (Location.mkloc (Lident "()") oloc))
+      [(, _ (Leaf _)) ...rest] (recur rest)
+      [(, _ (Node (, "Statement" "expr") children _)) ...rest]
+        (H.Exp.sequence (getExpression toOcaml children) (recur rest))
+      [(, _ (Node (, "Statement" "value") children _)) ...rest]
+        (let [
+          isRec (Ru.getPresenceByLabel children "rec")
+          bindings (Ru.getNodesByType children "ValueBinding" (parseBinding toOcaml))
+        ] (H.Exp.let_ (? isRec Recursive Nonrecursive) bindings (recur rest)))
+      _ (failwith "Unknown statement")
+      ))
+    ))
+  )
+)
