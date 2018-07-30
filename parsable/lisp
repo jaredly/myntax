@@ -7,8 +7,8 @@ Start = ModuleBody
 ModuleBody = Structure*
 
 Structure =
-| "("& "let" LetPair &")" -- let
-| "("& "let-rec" LetPair+ &")" -- let_rec
+| "("& "def" LetPair &")" -- let
+| "("& "def-rec" LetPair+ &")" -- let_rec
 | "("& "type" TypeBody &")" -- type
 | "("& "module" capIdent ModuleExpr &")" -- module
 | "("& "open" longCap &")" -- open

@@ -1,21 +1,23 @@
 
 ; ocaml, lisp style
 
-(let words ["Hello world"])
+(def words ["Hello world"])
 
 (->> words
   (print_endline (String.concat " " (List.map String.uppercase))))
 
 (type person {:name string :age int})
 
-(let me {:name "Jared" :age 10})
-(let olderMe {...me :age 40})
-(let age 20)
-(let you {:name "You" :age}) ; punning is fun
+(def me {:name "Jared" :age 10})
+(def olderMe {...me :age 40})
+(def age 20)
+(def you {:name "You" :age}) ; punning is fun
 
-; ooh you can use attributes as functions!
+(def yourName (:name you)) ; this is simple attribute access `you.name`
+
+; buut you can also use attributes as functions!
 ; :age in an expression context is transformed to `x => x.age`
-(let ages (List.map :age [me olderMe you]))
+(def ages (List.map :age [me olderMe you]))
 
 ; of course we need the threading operators
 (->> ages
