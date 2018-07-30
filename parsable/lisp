@@ -6,12 +6,14 @@ Start = ModuleBody
 @ignoreNewlines
 ModuleBody = Structure*
 
-@ignoreNewlines
 Structure =
 | "("& "let" LetPair &")" -- let
 | "("& "let-rec" LetPair+ &")" -- let_rec
-| "("& "type" TypePair+ &")" -- type
+| "("& "type" TypeBody &")" -- type
 | Expression -- eval
+
+@ignoreNewlines
+TypeBody = TypePair+
 
 LetPair = [name]lowerIdent Expression
 
@@ -48,7 +50,10 @@ Expression =
 | "("& "["& [index]Expression &"]" [array]Expression &")" -- array_index
 | "("& [attr]string [object]Expression &")" -- js_object_attribute
 | "("& [keyword]attribute [object]Expression &")" -- record_attribute
-| "("& "=>" FnArgs [body]Expression* &")" -- arrow
+| Arrow -- arrow
+| "("& "->>" [target]Expression ThreadItem+ &")" -- threading_last
+| "("& "->" [target]Expression ThreadItem+ &")" -- threading
+| Switch -- switch
 | "("& [constr]longCap [args]Expression+ &")" -- constructor
 | "("& "," [args]Expression+ &")" -- tuple
 | "("& [fn]Expression [args]Expression+ &")" -- fn_call
@@ -59,16 +64,37 @@ Expression =
 | operator -- op
 | constant -- const
 
+Switch = "("& "switch" [target]Expression SwitchBody &")"
+
+@ignoreNewlines
+SwitchBody = SwitchCase+
+
+SwitchCase = SwitchCond Expression
+SwitchCond =
+| Pattern "when" Expression -- when
+| Pattern -- plain
+
+ThreadItem =
+| attribute -- attribute
+| longIdent -- ident
+| longCap -- emptyconstr
+| "("& [constr]longCap [args]Expression+ &")" -- constructor
+| "("& [fn]Expression [args]Expression+ &")" -- fn_call
+
 ObjectItem =
 | attribute Expression -- normal
 | attribute -- punned
 
-@ignoreNewlines
+Arrow = "("& "=>" FnArgs [body]Expression* &")"
+
 FnArgs =
 | lowerIdent -- single
 | "()" -- unit
 | "_" -- ignored
-| "["& FnArg+ &"]" -- multiple
+| "["& FnArgItems &"]" -- multiple
+
+@ignoreNewlines
+FnArgItems = FnArg+
 
 @ignoreNewlines
 FnArg =
@@ -81,10 +107,14 @@ FnArg =
 Pattern =
 | longIdent -- ident
 | longCap -- empty_constr
+| constant
 | "()" -- unit
+| "_" -- ignored
 | "["& [item]Pattern* ("..."& [spread]Pattern)? &"]" -- array
 | "("& "," [item]Pattern* &")" -- tuple
+| "("& [constr]longCap [args]Pattern+ &")" -- constructor
 | "{"& PatternObjectItem+ &"}" -- object
+| "(|"& Pattern+ &")" -- or
 
 PatternObjectItem =
 | attribute Pattern -- normal
@@ -142,6 +172,7 @@ reserved =
   | "and"
   | "as"
   | "type"
+  | "switch"
   | "exception"
   | "of"
   | "module"
@@ -173,7 +204,7 @@ opChar =
   |"-"
   |"."
   |"/"
-  |":"
+  ;|":"
   |"<"
   |"="
   |">"

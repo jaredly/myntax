@@ -18,3 +18,15 @@ and it can do what it want's *)
     other {:hello awesome :name string :punned :age int}
     thing Some None (Constr awesome other)
     )
+
+(->> pass
+ (Constr one)
+ :it
+ :other)
+
+(switch thing
+ (| 1 2) 3
+ (Some x) x
+ (Some "hello") 45
+ None 2
+ _ 234)
