@@ -10,4 +10,11 @@ and it can do what it want's *)
 (:get thing)
 
 ; (let fixit [~one ~two ~three=3 ~four as (, one two)] 23 )
-(let fixit (=> [~one ~two ~three=3 ~four as (, one two) [first  ...rest]] 23 ))
+(let fixit (=> [~one ~two ~three=3 ~four as
+(, one two this is long) [first  ...rest]] 23 ))
+
+(type
+    awesome int
+    other {:hello awesome :name string :punned :age int}
+    thing Some None (Constr awesome other)
+    )

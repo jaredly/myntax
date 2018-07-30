@@ -6,14 +6,44 @@ Start = ModuleBody
 @ignoreNewlines
 ModuleBody = Structure*
 
+@ignoreNewlines
 Structure =
 | "("& "let" LetPair &")" -- let
 | "("& "let-rec" LetPair+ &")" -- let_rec
+| "("& "type" TypePair+ &")" -- type
 | Expression -- eval
 
 LetPair = [name]lowerIdent Expression
 
+TypePair = TypeName TypeDecl
 
+TypeName =
+| "("& lowerIdent typeVariable+ &")" -- vbl
+| lowerIdent -- plain
+
+@ignoreNewlines
+TypeDecl =
+| "{"& TypeObjectItem+ &"}" -- record
+| TypeConstructor+ -- constr
+| CoreType -- core
+
+TypeConstructor =
+| longCap -- no_args
+| "("& longCap CoreType+ &")" -- args
+
+TypeObjectItem =
+| attribute CoreType -- normal
+| attribute -- punned
+
+CoreType =
+| longIdent -- constr_no_args
+| typeVariable -- variable
+| "("& longIdent CoreType+ &")" -- constructor
+
+@leaf
+typeVariable = '\'' lowerIdent
+
+@ignoreNewlines
 Expression =
 | "("& "["& [index]Expression &"]" [array]Expression &")" -- array_index
 | "("& [attr]string [object]Expression &")" -- js_object_attribute
@@ -33,18 +63,21 @@ ObjectItem =
 | attribute Expression -- normal
 | attribute -- punned
 
+@ignoreNewlines
 FnArgs =
 | lowerIdent -- single
 | "()" -- unit
 | "_" -- ignored
 | "["& FnArg+ &"]" -- multiple
 
+@ignoreNewlines
 FnArg =
 | argLabel "as" Pattern -- destructured
 | argLabel &"="& Expression -- defaulted
 | argLabel -- labeled
 | Pattern -- unlabeled
 
+@ignoreNewlines
 Pattern =
 | longIdent -- ident
 | longCap -- empty_constr
