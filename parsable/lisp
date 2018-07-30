@@ -1,0 +1,151 @@
+@lineComment(";")
+@blockComment("(**", "*)")
+Start = ModuleBody
+
+@passThrough
+@ignoreNewlines
+ModuleBody = Structure*
+
+Structure =
+| "("& "let" LetPair &")" -- let
+| "("& "let-rec" LetPair+ &")" -- let_rec
+| Expression -- eval
+
+LetPair = [name]lowerIdent Expression
+
+
+Expression =
+| "("& "["& [index]Expression &"]" [array]Expression &")" -- array_index
+| "("& [attr]string [object]Expression &")" -- js_object_attribute
+| "("& [keyword]attribute [object]Expression &")" -- record_attribute
+| "("& "=>" FnArgs [body]Expression* &")" -- arrow
+| "("& [constr]longCap [args]Expression+ &")" -- constructor
+| "("& "," [args]Expression+ &")" -- tuple
+| "("& [fn]Expression [args]Expression+ &")" -- fn_call
+| "["& [items]Expression* ("..."& [spread]Expression)? &"]" -- array_literal
+| "{"& ("..."& [spread]Expression)? ObjectItem &"}" -- object_literal
+| longCap -- empty_constr
+| longIdent -- ident
+| operator -- op
+| constant -- const
+
+ObjectItem =
+| attribute Expression -- normal
+| attribute -- punned
+
+FnArgs =
+| lowerIdent -- single
+| "()" -- unit
+| "_" -- ignored
+| "["& FnArg+ &"]" -- multiple
+
+FnArg =
+| argLabel "as" Pattern -- destructured
+| argLabel &"="& Expression -- defaulted
+| argLabel -- labeled
+| Pattern -- unlabeled
+
+Pattern =
+| longIdent -- ident
+| longCap -- empty_constr
+| "()" -- unit
+| "["& [item]Pattern* ("..."& [spread]Pattern)? &"]" -- array
+| "("& "," [item]Pattern* &")" -- tuple
+| "{"& PatternObjectItem+ &"}" -- object
+
+PatternObjectItem =
+| attribute Pattern -- normal
+| attribute -- punned
+
+@leaf
+argLabel = '~' lowerIdent
+
+@passThrough
+Parened = "("& Expression & ")"
+
+@leaf
+attribute = ':' longIdent
+
+longIdent = (longCap_ ".")? lowerIdent
+longCap = longCap_ ~"."
+
+longCap_ =
+  | longCap_ "." capIdent -- dot
+  | capIdent -- lident
+
+constant =
+  | [val]int64 -- int
+  | [val]string -- string
+  | [val]char -- char
+
+@leaf
+capIdent = ~(reserved ~identchar) 'A..Z' identchar*
+@leaf
+lowerIdent = ~(reserved ~identchar) 'a..z' identchar*
+
+identchar =
+  | alpha
+  | digit
+  | "_"
+
+@leaf
+int64 =  digit+ ~identchar
+
+@leaf
+string = "\"" strchar* "\""
+strchar =
+  | "\\" any
+  | ~"\"" ~"\n" ~"\\" any
+
+@leaf
+char = "'" charchar "'"
+charchar =
+  | "\\" any
+  | ~"'" ~"\n" ~"\\" any
+
+reserved =
+  | "fun"
+  | "let"
+  | "and"
+  | "as"
+  | "type"
+  | "exception"
+  | "of"
+  | "module"
+  | "rec"
+  | "open"
+  | "import"
+  | "try"
+  | "catch"
+  | "from"
+
+alpha =
+  | 'a..z'
+  | 'A..Z'
+digit = '0..9'
+
+@leaf
+operator = ~reservedOps opChar+
+
+reservedOps =
+| "=>"
+
+opChar =
+  |"!"
+  |"$"
+  |"%"
+  |"&"
+  |"*"
+  |"+"
+  |"-"
+  |"."
+  |"/"
+  |":"
+  |"<"
+  |"="
+  |">"
+  |"?"
+  |"@"
+  |"^"
+  |"|"
+  |"~"

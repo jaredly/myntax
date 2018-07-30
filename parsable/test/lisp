@@ -1,0 +1,13 @@
+(+ 2 3)
+
+(let hello 2)
+
+(** this is a comment
+and it can do what it want's *)
+
+(let awesome (do (+ 3 4) (log 3))) ; hello folks
+
+(:get thing)
+
+; (let fixit [~one ~two ~three=3 ~four as (, one two)] 23 )
+(let fixit (=> [~one ~two ~three=3 ~four as (, one two) [first  ...rest]] 23 ))
