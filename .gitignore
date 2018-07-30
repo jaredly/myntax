@@ -4,3 +4,4 @@ static/bundle.js
 *.native
 bs_build
 node_modules
+lib
