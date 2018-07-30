@@ -4,6 +4,8 @@
   },
   "scripts": {
     "start": "bsb -make-world -backend native -w",
-    "lisp": "./lib/bs/native/refmt.native bin-lisp parsable/lisp parsable/test/minimal-lisp > out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl out.bin && node out.js"
+    "lisp": "./lib/bs/native/refmt.native bin-lisp parsable/lisp parsable/test/minimal-lisp > out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl out.bin && node out.js",
+    "ml": "./lib/bs/native/refmt.native debug-lisp parsable/lisp parsable/test/minimal-lisp",
+    "pretty": "./lib/bs/native/refmt.native pretty parsable/lisp parsable/test/minimal-lisp"
   }
 }

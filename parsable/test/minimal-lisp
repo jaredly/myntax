@@ -4,7 +4,21 @@
 (let words ["Hello world"])
 
 (->> words
-  (List.map String.uppercase)
-  (String.concat " ")
-  print_endline)
+  (print_endline (String.concat " " (List.map String.uppercase))))
 
+(type person {:name string :age int})
+
+(let me {:name "Jared" :age 10})
+(let olderMe {...me :age 40})
+(let age 20)
+(let you {:name "You" :age}) ; punning is fun
+
+; ooh you can use attributes as functions!
+; :age in an expression context is transformed to `x => x.age`
+(let ages (List.map :age [me olderMe you]))
+
+; of course we need the threading operators
+(->> ages
+  (List.map string_of_int)
+  (String.concat ", ")
+  print_endline)

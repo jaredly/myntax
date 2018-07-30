@@ -36,6 +36,17 @@ let getContentsByLabel = (children, needle) =>
       }
   );
 
+let getManyContentsByType = (children, needle) =>
+  getChildren(
+    children,
+    (child) =>
+      switch child {
+      | (_, Leaf((name, _), contents, _)) when name == needle => Some(contents)
+      | (_, Node((name, _), _, _)) when name == needle => failwith("expected a leaf")
+      | _ => None
+      }
+  );
+
 let getContentsByType = (children, needle) =>
   getChild(
     children,

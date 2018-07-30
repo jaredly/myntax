@@ -11,7 +11,7 @@ let getGrammar = (raw) => {
   let start = Unix.gettimeofday();
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", raw)) {
   | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
-    print_string(PackTypes.Error.genErrorText(raw, failure));
+    Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
     failwith("Unable to parse grammar")
   | PackTypes.Result.Success(result) =>
     let mid = Unix.gettimeofday();
@@ -19,6 +19,8 @@ let getGrammar = (raw) => {
     (res, mid -. start, Unix.gettimeofday() -. mid)
   }
 };
+
+Printexc.record_backtrace(true);
 
 let out_binary = (ast: Parsetree.structure, input_name) => {
   output_string(stdout, Config.ast_impl_magic_number);
@@ -30,8 +32,8 @@ let getResult = (grammar, contents) => {
   let start = Unix.gettimeofday();
   switch (Runtime.parse(grammar, "Start", contents)) {
   | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
-    print_string(PackTypes.Error.genErrorText(contents, failure));
-    exit(1)
+    Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
+    exit(10)
   | PackTypes.Result.Success(result) => (result, Unix.gettimeofday() -. start)
   }
 };
@@ -100,6 +102,7 @@ type printType =
   | Dump
   | RoundPretty
   | RoundDump;
+
 
 let (command, grammarFile, input) =
   switch Sysop.argv {

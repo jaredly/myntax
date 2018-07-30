@@ -15,6 +15,7 @@ Structure =
 | Expression -- eval
 
 @ignoreNewlines
+@passThrough
 TypeBody = TypePair+
 
 ModuleExpr =
@@ -25,6 +26,7 @@ ModuleExpr =
 
 LetPair = Pattern Expression
 
+; TODO support anonymous types
 TypePair = TypeName TypeDecl
 
 TypeName =
@@ -42,8 +44,8 @@ TypeConstructor =
 | "("& longCap CoreType+ &")" -- args
 
 TypeObjectItem =
-| attribute CoreType -- normal
-| attribute -- punned
+| shortAttribute CoreType -- normal
+| shortAttribute -- punned
 
 CoreType =
 | longIdent -- constr_no_args
@@ -71,9 +73,10 @@ Expression =
 | "("& "," [args]Expression+ &")" -- tuple
 | "("& [fn]Expression [args]Expression+ &")" -- fn_call
 | "["& [items]Expression* ("..."& [spread]Expression)? &"]" -- array_literal
-| "{"& ("..."& [spread]Expression)? ObjectItem &"}" -- object_literal
+| "{"& ("..."& [spread]Expression)? ObjectItem+ &"}" -- object_literal
 | longCap -- empty_constr
 | longIdent -- ident
+| attribute -- attribute
 | operator -- op
 | constant -- const
 
@@ -139,8 +142,8 @@ argLabel = '~' lowerIdent
 @passThrough
 Parened = "("& Expression & ")"
 
-@leaf
 attribute = ':' longIdent
+shortAttribute = ':' lowerIdent
 
 longIdent = (longCap_ ".")? lowerIdent
 longCap = longCap_ ~"."

@@ -19,6 +19,10 @@ module H = Ast_helper;
 module RU = ResultUtils;
 
 let unwrap = ResultUtils.unwrap;
+let unwrapWith = (message, opt) => switch opt {
+  | None => failwith(message)
+  | Some(x) => x
+};
 
 let loc = H.default_loc^;
 
@@ -71,29 +75,42 @@ let parseLongIdent = ((_, children, _)) => {
   | Some(x) => Ldot(x, last)
   | None => Lident(last)
   }
-  /* let leafs = RU.getChildren children (fun (_, child) => {
-       switch child {
-         | Leaf ("lowerIdent", _) contents _ => Some contents
-         | Leaf ("capIdent", _) contents _ => Some contents
-         | _ => None
-       }
-     });
-     let rec loop leafs current => switch leafs {
-       | [contents, ...rest] => loop rest (Ldot current contents)
-       | [] => current
-     };
-     switch leafs {
-       | [leftMost, ...rest] => {
-         loop rest (Lident leftMost)
-       }
-       | [] => failwith "empty longident"
-     }
-     /* loop leafs */ */
 };
-
 
 /* Types */
 
+let parseCoreType = (toOcaml, (sub, children, loc)) => switch sub {
+  | "constr_no_args" => {
+    let name = RU.getNodeByType(children, "longIdent") |> unwrap |> parseLongIdent;
+    H.Typ.constr(Location.mkloc(name, toOcaml.toLoc(loc)), [])
+  }
+  | _ => failwith("unhandled core type sub " ++ sub)
+
+};
+
+let parseTypeKind = (toOcaml, (sub, children, loc)) => {
+  switch sub {
+    | "record" => {
+      Ptype_record(
+        RU.getNodesByType(children, "TypeObjectItem", ((sub, children, loc)) => {
+          let (name, nameLoc) = {
+            let (_, children, loc) = RU.getNodeByType(children, "shortAttribute") |> unwrap;
+            (RU.getContentsByType(children, "lowerIdent") |> unwrap, loc)
+          };
+          let t = sub == "punned"
+          ? H.Typ.constr(Location.mkloc(Lident(name), toOcaml.toLoc(nameLoc)), [])
+          : parseCoreType(toOcaml, RU.getNodeByType(children, "CoreType") |> unwrap)
+          let name = Location.mkloc(name, toOcaml.toLoc(loc));
+          H.Type.field(
+            name,
+            t
+          )
+        })
+      )
+    }
+    | _ => failwith("Unsupported type kind " ++ sub)
+  }
+};
 
 /* Patterns */
 
@@ -139,6 +156,9 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
       RU.getNodesByLabel(children, "args", toOcaml.expression(toOcaml))
       |> List.map(m => ("", m))
     )
+
+    /* Special lispisms */
+
     | "threading_last" => {
       let target = RU.getNodeByLabel(children, "target") |> unwrap |> stripRuleName |> toOcaml.expression(toOcaml);
       let items = RU.getNodesByType(children, "ThreadItem", x => x);
@@ -159,9 +179,28 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
       };
       loop(target, items)
     }
-    | "const" => H.Exp.constant(parseConstant(RU.getNodeByType(children, "constant") |> unwrap))
+    | "attribute" => {
+      let (name, nameLoc) = {
+        let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+        (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
+      };
+      H.Exp.fun_(
+        "",
+        None,
+        H.Pat.var(Location.mknoloc("x")),
+        H.Exp.field(
+          H.Exp.ident(Location.mknoloc(Lident("x"))),
+          Location.mkloc(name, toOcaml.toLoc(nameLoc))
+        )
+      )
+    }
+
     | "op" => H.Exp.ident(Location.mkloc(Lident(RU.getContentsByType(children, "operator") |> unwrap), toOcaml.toLoc(loc)))
     | "ident" => H.Exp.ident(Location.mkloc(parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc)))
+
+
+
+    | "const" => H.Exp.constant(parseConstant(RU.getNodeByType(children, "constant") |> unwrap))
     | "array_literal" =>
       listToConstruct
         (
@@ -172,6 +211,21 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
           H.Exp.construct,
           H.Exp.tuple
         )
+    | "object_literal" =>
+      H.Exp.record(
+        RU.getNodesByType(children, "ObjectItem", ((sub, children, loc)) => {
+          let (name, nameLoc) = {
+            let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+            (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
+          };
+          let t = sub == "punned"
+          ? H.Exp.ident(Location.mkloc(Lident(Longident.last(name)), toOcaml.toLoc(nameLoc)))
+          : toOcaml.expression(toOcaml, RU.getNodeByType(children, "Expression") |> unwrapWith("No expr"));
+
+          (Location.mkloc(name, toOcaml.toLoc(nameLoc)), t)
+        }),
+        RU.getNodeByLabel(children, "spread") |?>> stripRuleName |?>> toOcaml.expression(toOcaml)
+      )
     | _ => failexpr("Unexpected expression type: " ++ sub)
   };
 
@@ -185,7 +239,27 @@ let parseLetPair = (toOcaml, (sub, children, loc)) => {
 
 let parseStructure = (toOcaml, (sub, children, loc)) => {
   switch sub {
-    | "eval" => Ast_helper.Str.eval(RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml))
+    | "eval" => H.Str.eval(RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml))
+    | "type" => H.Str.type_(
+      RU.getNodesByType(children, "TypePair", ((sub, children, loc)) => {
+        let (name, vbls) = {
+          let (sub, children, loc) = RU.getNodeByType(children, "TypeName") |> unwrap;
+          let name = RU.getContentsByType(children, "lowerIdent") |> unwrap;
+          switch (sub) {
+            | "plain" => (name, [])
+            | "vbl" => (name, RU.getManyContentsByType(children, "typeVariable"))
+            | _ => failwith("Invalid typ typ")
+          }
+        };
+        let kind = parseTypeKind(toOcaml, RU.getNodeByType(children, "TypeDecl") |> unwrap);
+        H.Type.mk(
+          ~params=vbls |> List.map(name => (H.Typ.var(name), Invariant)),
+          ~kind,
+          Location.mkloc(name, toOcaml.toLoc(loc))
+        )
+      })
+
+    )
     | "open" => H.Str.open_(H.Opn.mk(
       Location.mkloc(
         parseLongCap(RU.getNodeByType(children, "longCap") |> unwrap),
