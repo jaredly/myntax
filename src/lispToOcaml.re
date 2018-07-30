@@ -114,9 +114,26 @@ let parseTypeKind = (toOcaml, (sub, children, loc)) => {
 
 /* Patterns */
 
-let parsePattern = (toOcaml, (sub, children, loc)) => {
+let rec parsePattern = (toOcaml, (sub, children, loc)) => {
+  let ocamlLoc = toOcaml.toLoc(loc);
   switch sub {
-    | "ident" => H.Pat.var(Location.mkloc(RU.getContentsByType(children, "lowerIdent") |> unwrap, toOcaml.toLoc(loc)))
+    | "ident" => H.Pat.var(~loc=ocamlLoc, Location.mkloc(RU.getContentsByType(children, "lowerIdent") |> unwrap, toOcaml.toLoc(loc)))
+    | "object" => {
+      H.Pat.record(
+        ~loc=ocamlLoc,
+        RU.getNodesByType(children, "PatternObjectItem", ((sub, children, loc)) => {
+          let (name, nameLoc) = {
+            let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+            (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
+          };
+          let t = sub == "punned"
+          ? H.Pat.var(Location.mkloc(Longident.last(name), toOcaml.toLoc(nameLoc)))
+          : parsePattern(toOcaml, RU.getNodeByType(children, "Pattern") |> unwrapWith("No pat"));
+          (Location.mkloc(name, toOcaml.toLoc(nameLoc)), t)
+        }),
+        Open
+      )
+    }
     | _ => failwith("Not supportdd pattern sub: " ++ sub)
   }
 };
@@ -148,10 +165,69 @@ let rec listToConstruct = (list, maybeRest, typeC, tupleC) =>
     )
   };
 
-let parseExpression = (toOcaml, (sub, children, loc)) =>
+let parseArrow = (toOcaml, (sub, children, loc)) => {
+  let res = RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml);
+  let (sub, children, loc) = RU.getNodeByType(children, "FnArgs") |> unwrap;
+  switch sub {
+    | "single" => H.Exp.fun_(
+      "",
+      None,
+      H.Pat.var(
+        Location.mknoloc(RU.getContentsByType(children, "lowerIdent") |> unwrap)
+      ),
+      res
+    )
+    | "unit" => H.Exp.fun_(
+      "",
+      None,
+      H.Pat.construct(Location.mknoloc(Lident("()")), None),
+      res
+    )
+    | "ignored" => H.Exp.fun_(
+      "",
+      None,
+      H.Pat.any(),
+      res
+    )
+    | "multiple" => {
+      let rec loop = (items, res) => switch items {
+        | [] => res
+        | [(sub, children, loc), ...rest] => {
+          let (pattern, label) = switch sub {
+            | "unlabeled" => {
+              (parsePattern(toOcaml, RU.getNodeByType(children, "Pattern") |> unwrap), None);
+            }
+            | "labeled" => {
+              let label = RU.getContentsByLabel(children, "labeled") |> unwrap;
+              let pattern = H.Pat.var(Location.mkloc(label, toOcaml.toLoc(loc)));
+              (pattern, Some(label))
+            }
+            | _ => failwith("Unhandled pattern kind " ++ sub)
+          };
+          loop(rest, H.Exp.fun_(
+            label |? "",
+            None,
+            pattern,
+            res
+          ))
+        }
+      };
+      loop(
+        RU.getNodesByType(children, "FnArg", x => x),
+        res
+      )
+    }
+    | _ => failwith("Can't parse this arrow")
+  }
+};
+
+let parseExpression = (toOcaml, (sub, children, loc)) => {
+
+  let oloc = toOcaml.toLoc(loc);
   switch sub {
     | "array_index" => failexpr("Array index not done")
     | "fn_call" => H.Exp.apply(
+        ~loc=oloc,
       toOcaml.expression(toOcaml, RU.getNodeByLabel(children, "fn") |> unwrap |> stripRuleName),
       RU.getNodesByLabel(children, "args", toOcaml.expression(toOcaml))
       |> List.map(m => ("", m))
@@ -166,6 +242,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
         | [] => target
         | [("ident", children, _), ...rest] => 
           loop(H.Exp.apply(
+        ~loc=oloc,
             H.Exp.ident(Location.mkloc(parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc))),
             [("", target)]
           ), rest)
@@ -185,6 +262,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
         (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
       };
       H.Exp.fun_(
+        ~loc=oloc,
         "",
         None,
         H.Pat.var(Location.mknoloc("x")),
@@ -195,24 +273,46 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
       )
     }
 
-    | "op" => H.Exp.ident(Location.mkloc(Lident(RU.getContentsByType(children, "operator") |> unwrap), toOcaml.toLoc(loc)))
-    | "ident" => H.Exp.ident(Location.mkloc(parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc)))
+    /* Basics */
+    | "op" => H.Exp.ident(
+        ~loc=oloc,
+      Location.mkloc(Lident(RU.getContentsByType(children, "operator") |> unwrap), toOcaml.toLoc(loc)))
+    | "ident" => H.Exp.ident(
+        ~loc=oloc,
+      Location.mkloc(
+        parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc)))
 
+    | "arrow" => parseArrow(toOcaml, RU.getNodeByType(children, "Arrow") |> unwrap)
+    | "record_attribute" => {
+      let (name, nameLoc) = {
+        let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+        (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
+      };
+      H.Exp.field(
+        ~loc=oloc,
+        RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml),
+        Location.mkloc(name, toOcaml.toLoc(nameLoc))
+      )
+    }
 
+    /* Constructors */
 
-    | "const" => H.Exp.constant(parseConstant(RU.getNodeByType(children, "constant") |> unwrap))
+    | "const" => H.Exp.constant(
+      ~loc=oloc,
+      parseConstant(RU.getNodeByType(children, "constant") |> unwrap))
     | "array_literal" =>
       listToConstruct
         (
-          RU.getNodesByType(children, "Expression", toOcaml.expression(toOcaml)),
-          None,
-          /* RU.getContentsByLabel(children, "rest")
-          |?> (label) => Some(H.Pat.var(Location.mkloc(label, oloc))), */
+          RU.getNodesByLabel(children, "items", toOcaml.expression(toOcaml)),
+          RU.getNodeByLabel(children, "spread")
+          |?>> stripRuleName
+          |?>> toOcaml.expression(toOcaml),
           H.Exp.construct,
           H.Exp.tuple
         )
     | "object_literal" =>
       H.Exp.record(
+        ~loc=oloc,
         RU.getNodesByType(children, "ObjectItem", ((sub, children, loc)) => {
           let (name, nameLoc) = {
             let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
@@ -228,6 +328,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) =>
       )
     | _ => failexpr("Unexpected expression type: " ++ sub)
   };
+};
 
 /* Structures */
 
@@ -239,6 +340,23 @@ let parseLetPair = (toOcaml, (sub, children, loc)) => {
 
 let parseStructure = (toOcaml, (sub, children, loc)) => {
   switch sub {
+    | "module" => {
+      let name = RU.getContentsByType(children, "capIdent") |> unwrap;
+      let (sub, children, loc) = RU.getNodeByType(children, "ModuleExpr") |> unwrap;
+      let desc = switch sub {
+        | "structure" => {
+          let items = RU.getNodesByType(children, "Structure", toOcaml.structure(toOcaml));
+          Pmod_structure(items)
+        }
+        | _ => failwith("Unhandled module type")
+      };
+      H.Str.module_(
+        H.Mb.mk(
+          Location.mkloc(name, toOcaml.toLoc(loc)),
+          H.Mod.mk(desc)
+        )
+      )
+    }
     | "eval" => H.Str.eval(RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml))
     | "type" => H.Str.type_(
       RU.getNodesByType(children, "TypePair", ((sub, children, loc)) => {
@@ -282,7 +400,7 @@ let calcBols = text => {
   let lines = Str.split(Str.regexp_string("\n"), text);
   let (_, bols) = Belt.List.reduce(lines, (0, []), ((offset, results), line) => {
     (
-      offset + String.length(line),
+      offset + String.length(line) + 1,
       [offset, ...results]
     )
   });
@@ -295,7 +413,7 @@ let parsingPos = (offset, bols) => {
     | [bol, next, ..._] when next > offset => (i, bol) 
     | [_, ...rest] => loop(i + 1, rest)
   };
-  loop(0, bols)
+  loop(1, bols)
 };
 
 let lexingPos = (fname, offset, bols) => {

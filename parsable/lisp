@@ -59,7 +59,7 @@ typeVariable = '\'' lowerIdent
 Expression =
 | "("& "["& [index]Expression &"]" [array]Expression &")" -- array_index
 | "("& [attr]string [object]Expression &")" -- js_object_attribute
-| "("& [keyword]attribute [object]Expression &")" -- record_attribute
+| "("& attribute Expression &")" -- record_attribute
 | "("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")" -- let
 | "("& "open" ModuleExpr Expression+ &")" -- open
 | "("& "module" capIdent ModuleExpr Expression+ &")" -- module
@@ -101,7 +101,7 @@ ObjectItem =
 | attribute Expression -- normal
 | attribute -- punned
 
-Arrow = "("& "=>" FnArgs [body]Expression* &")"
+Arrow = "("& "=>" FnArgs Expression* &")"
 
 FnArgs =
 | lowerIdent -- single
@@ -110,6 +110,7 @@ FnArgs =
 | "["& FnArgItems &"]" -- multiple
 
 @ignoreNewlines
+@passThrough
 FnArgItems = FnArg+
 
 @ignoreNewlines
@@ -153,6 +154,7 @@ longCap_ =
   | capIdent -- lident
 
 constant =
+  | [val]float -- float
   | [val]int64 -- int
   | [val]string -- string
   | [val]char -- char
@@ -169,6 +171,9 @@ identchar =
 
 @leaf
 int64 =  digit+ ~identchar
+
+@leaf
+float = digit+ '.' digit+
 
 @leaf
 string = "\"" strchar* "\""
@@ -209,6 +214,7 @@ operator = ~reservedOps opChar+
 
 reservedOps =
 | "=>"
+| "..."
 
 opChar =
   |"!"
