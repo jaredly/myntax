@@ -37,7 +37,8 @@ switch (Runtime.parse(grammar, "Start", contents)) {
 | PackTypes.Result.Success(result) =>
   /* print_endline "Good"; */
   /* Json.result_to_string result |> print_endline; */
-  print_endline(
+  /* print_endline(
     PackTypes.Result.show_result(result)
-  )
+  ) */
+  ()
 };

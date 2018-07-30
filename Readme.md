@@ -1,4 +1,13 @@
 
+
+# Grammar grammar
+
+- rules that start with a lowercase letter are "lexical", meaning whitespace is *not* skipped.
+- rules that start with an uppercase letter are non-lexical, so non-newline whitespace is skipped
+- if you annotate a rule with `@ignoreNewlines(true)`, then newlines will also be skipped *recursively* until it gets to a rule that has `@ignoreNewlines(false)`.
+
+
+
 # Making a change to the core grammar type without too much fuss
 
 1. packTypes.re - duplicate the `Parsing` module into a module named `NewParsing`

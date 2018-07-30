@@ -13,7 +13,8 @@ let grammar = %s;
 
 |},
     name,
-    replaceModule(P.show_grammar(grammar))
+    "",
+    /* replaceModule(P.show_grammar(grammar)) */
   );
 
 let main = (~dump=false, ~file=?, ~dest=?, ()) => {
@@ -40,7 +41,8 @@ let main = (~dump=false, ~file=?, ~dest=?, ()) => {
       | None => print_endline(printGrammar(grammar, name))
       }
     } else {
-      print_endline(Json.result_to_string(result))
+      print_endline("wat")
+      /* print_endline(Json.result_to_string(result)) */
     }
   }
 };
