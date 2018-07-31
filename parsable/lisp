@@ -62,6 +62,9 @@ Expression =
 | "("& attribute Expression &")" -- record_attribute
 | "("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")" -- let
 | "("& "open" ModuleExpr Expression+ &")" -- open
+
+| "("& "if" [test]Expression [yes]Expression [no]Expression &")" -- open
+
 | "("& "module" capIdent ModuleExpr Expression+ &")" -- module
     ; not 100% sure I want to do this :P but it could be so handy!!
 | "("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")" -- loop_recur
@@ -71,7 +74,7 @@ Expression =
 | Switch -- switch
 | "("& [constr]longCap [args]Expression+ &")" -- constructor
 | "("& "," [args]Expression+ &")" -- tuple
-| "("& [fn]Expression [args]Expression+ &")" -- fn_call
+| "("& [fn]Expression FnCallArg+ &")" -- fn_call
 | "["& [items]Expression* ("..."& [spread]Expression)? &"]" -- array_literal
 | "{"& ("..."& [spread]Expression)? ObjectItem+ &"}" -- object_literal
 | longCap -- empty_constr
@@ -79,6 +82,11 @@ Expression =
 | attribute -- attribute
 | operator -- op
 | constant -- const
+
+FnCallArg =
+| argLabel "=" Expression -- labeled
+| argLabel -- punned
+| Expression -- expr
 
 Switch = "("& "switch" [target]Expression SwitchBody &")"
 
@@ -116,6 +124,7 @@ FnArgItems = FnArg+
 @ignoreNewlines
 FnArg =
 | argLabel "as" Pattern -- destructured
+| argLabel &"=?" -- optional
 | argLabel &"="& Expression -- defaulted
 | argLabel -- labeled
 | Pattern -- unlabeled

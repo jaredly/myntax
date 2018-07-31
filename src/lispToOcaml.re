@@ -41,6 +41,11 @@ type toOcaml = {
   structure: (toOcaml, (string, list((string, result)), loc)) => structure_item
 };
 
+let sliceToEnd = (s, start) => {
+  let l = String.length(s);
+  start <= l ? String.sub(s, start, l - start) : ""
+};
+
 let stripQuotes = (str) => String.sub(str, 1, String.length(str) - 2);
 let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 
@@ -166,14 +171,14 @@ let rec listToConstruct = (list, maybeRest, typeC, tupleC) =>
   };
 
 let parseArrow = (toOcaml, (sub, children, loc)) => {
-  let res = RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml);
-  let (sub, children, loc) = RU.getNodeByType(children, "FnArgs") |> unwrap;
+  let res = RU.getNodeByType(children, "Expression") |> unwrapWith("no expr") |> toOcaml.expression(toOcaml);
+  let (sub, children, loc) = RU.getNodeByType(children, "FnArgs") |> unwrapWith("no args");
   switch sub {
     | "single" => H.Exp.fun_(
       "",
       None,
       H.Pat.var(
-        Location.mknoloc(RU.getContentsByType(children, "lowerIdent") |> unwrap)
+        Location.mknoloc(RU.getContentsByType(children, "lowerIdent") |> unwrapWith("no ident"))
       ),
       res
     )
@@ -195,10 +200,11 @@ let parseArrow = (toOcaml, (sub, children, loc)) => {
         | [(sub, children, loc), ...rest] => {
           let (pattern, label) = switch sub {
             | "unlabeled" => {
-              (parsePattern(toOcaml, RU.getNodeByType(children, "Pattern") |> unwrap), None);
+              (parsePattern(toOcaml, RU.getNodeByType(children, "Pattern") |> unwrapWith("No pat")), None);
             }
             | "labeled" => {
-              let label = RU.getContentsByLabel(children, "labeled") |> unwrap;
+              let label = RU.getContentsByType(children, "argLabel") |> unwrapWith("No label");
+              let label = sliceToEnd(label, 1);
               let pattern = H.Pat.var(Location.mkloc(label, toOcaml.toLoc(loc)));
               (pattern, Some(label))
             }
@@ -228,10 +234,25 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
     | "array_index" => failexpr("Array index not done")
     | "fn_call" => H.Exp.apply(
         ~loc=oloc,
-      toOcaml.expression(toOcaml, RU.getNodeByLabel(children, "fn") |> unwrap |> stripRuleName),
-      RU.getNodesByLabel(children, "args", toOcaml.expression(toOcaml))
-      |> List.map(m => ("", m))
-    )
+        toOcaml.expression(toOcaml, RU.getNodeByLabel(children, "fn") |> unwrap |> stripRuleName),
+        RU.getNodesByType(children, "FnCallArg", ((sub, children, loc)) => {
+          switch sub {
+            | "expr" => ("", toOcaml.expression(toOcaml, RU.getNodeByType(children, "Expression") |> unwrap))
+            | "labeled" => {
+              let name = RU.getContentsByType(children, "argLabel") |> unwrapWith("no arg label");
+              let name = sliceToEnd(name, 1);
+              let expr = toOcaml.expression(toOcaml, RU.getNodeByType(children, "Expression") |> unwrapWith("No expr"));
+              (name, expr)
+            }
+            | "punned" => {
+              let name = RU.getContentsByType(children, "argLabel") |> unwrapWith("No pun");
+              let name = sliceToEnd(name, 1);
+              (name, H.Exp.ident(Location.mkloc(Lident(name), toOcaml.toLoc(loc))))
+            }
+            | _ => failwith("Unvalid fncallarg sub " ++ sub)
+          }
+        })
+      )
 
     /* Special lispisms */
 
@@ -333,8 +354,8 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
 /* Structures */
 
 let parseLetPair = (toOcaml, (sub, children, loc)) => {
-  let pat = RU.getNodeByType(children, "Pattern") |> unwrap |> parsePattern(toOcaml);
-  let init = RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml);
+  let pat = RU.getNodeByType(children, "Pattern") |> unwrapWith("no pattern") |> parsePattern(toOcaml);
+  let init = RU.getNodeByType(children, "Expression") |> unwrapWith("no expr") |> toOcaml.expression(toOcaml);
   H.Vb.mk(pat, init)
 };
 
@@ -386,7 +407,7 @@ let parseStructure = (toOcaml, (sub, children, loc)) => {
     ))
     | "let" => H.Str.value(Nonrecursive, [parseLetPair(
       toOcaml,
-      RU.getNodeByType(children, "LetPair") |> unwrap
+      RU.getNodeByType(children, "LetPair") |> unwrapWith("no let pair")
     )])
     | _ => Ast_helper.Str.eval(failexpr("Unexpected sub: " ++ sub))
   }
