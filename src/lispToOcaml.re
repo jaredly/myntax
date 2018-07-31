@@ -405,6 +405,9 @@ let parseStructure = (toOcaml, (sub, children, loc)) => {
         toOcaml.toLoc(loc)
       )
     ))
+    | "let_rec" => H.Str.value(Recursive, RU.getNodesByType(children, "LetPair", (pair) => {
+      parseLetPair(toOcaml, pair)
+    }))
     | "let" => H.Str.value(Nonrecursive, [parseLetPair(
       toOcaml,
       RU.getNodeByType(children, "LetPair") |> unwrapWith("no let pair")

@@ -1,0 +1,42 @@
+
+; ocaml, lisp style
+
+(def words ["Hello world"])
+
+(print_endline (String.concat " " (List.map String.uppercase words)))
+
+(module Dogs
+  (str
+    (type dog {:name string :age float})
+    (def fluff {:name "Fluff" :age 0.4})
+    (def humanAge (=> [{:age}]
+      (int_of_float (*. age 7.0))))
+    ))
+
+(type person {:name string :age int})
+
+(def sayHello (=> [~name] (^ "Hello " name)))
+(sayHello ~name="Folks")
+
+(def me {:name "Jared" :age 10})
+(def olderMe {...me :age 40})
+(def age 20)
+(def you {:name "You" :age}) ; punning is fun
+
+(def yourName (:name you)) ; this is simple attribute access `you.name`
+
+; buut you can also use attributes as functions!
+; :age in an expression context is transformed to `x => x.age`
+(def ages (List.map :age [me olderMe you]))
+(def ages [(Dogs.humanAge Dogs.fluff) ...ages])
+
+; of course we need the threading operators
+(->> ages
+  (List.map string_of_int)
+  (String.concat ", ")
+  print_endline)
+
+(def-rec
+  isOdd (=> n (if (<= 1 n) (= n 1) (isEven (- n 1))))
+  isEven (=> n (if (<= 1 n) (= n 0) (isOdd (- n 1))))
+)

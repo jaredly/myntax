@@ -5,3 +5,4 @@ static/bundle.js
 bs_build
 node_modules
 lib
+.bsb.lock

@@ -38,6 +38,20 @@ module Parsing = {
     | Empty /* epsilon */;
 };
 
+module DSL = {
+  open Parsing;
+  let star = x => Star(x);
+  let plus = x => Plus(x);
+  let maybe = x => Optional(x);
+  let group = x => Group(x);
+  let t = (~label=?, t) => Terminal(t, label);
+  let n = (~label=?, t) => NonTerminal(t, label);
+  let hugLeft = x => NoSpaceBefore(x);
+  let hugRight = x => NoSpaceAfter(x);
+};
+
+
+
 let unwrapOr = (a, b) =>
   switch a {
   | Some(x) => x

@@ -147,7 +147,17 @@ let getLeafByType = (children, needle) =>
     children,
     ((label, child)) =>
       switch child {
-      | Leaf((name, sub), contents, loc) when name == needle => Some(((name, sub), contents, loc))
+      | Leaf((name, sub), contents, loc) when name == needle => Some((contents, loc))
+      | _ => None
+      }
+  );
+
+let getLeafByLabel = (children, needle) =>
+  getChild(
+    children,
+    ((label, child)) =>
+      switch child {
+      | Leaf((name, sub), contents, loc) when label == needle => Some((contents, loc))
       | _ => None
       }
   );
