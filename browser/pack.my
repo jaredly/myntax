@@ -1,0 +1,131 @@
+let contents = switch file {
+  case Some(name): Sysop.readFile(name)
+  case None: Sysop.readStdin(())
+}
+switch Runtime.parse(GrammarGrammar.grammar, "Start", contents) {
+  case PackTypes.Result.Failure(maybeResult, (charsParsed, failure)): {
+    Printf.eprintf(
+      "%s\n",
+      PackTypes.Error.genErrorText(contents, failure)
+    )
+    exit(1)
+  }
+  case PackTypes.Result.Success(result): {
+    let name = switch file {
+      case Some(name): name
+      case None: "stdin"
+    }
+    if dump {
+      let grammar = GrammarOfGrammar.convert(result)
+      switch dest {
+        case Some(dest): Printf.fprintf(
+          open_out(dest),
+          "%s",
+          printGrammar(grammar, name)
+        )
+        case None: print_endline(printGrammar(grammar, name))
+      }
+    } else { print_endline(Json.result_to_string(result)) }
+  }
+}
+let parseOptions = options => {
+  let htbl = Hashtbl.create(13)
+  let rec loop = options => switch options {
+    case []: ()
+    case [one]: failwith("Options must be in pairs")
+    case [key, value ...rest]: {
+      Hashtbl.replace(htbl, key, value)
+      loop(rest)
+    }
+  }
+  loop(options)
+  htbl
+}
+let getGrammar = filename => {
+  let contents = Sysop.readFile(filename)
+  switch Runtime.parse(GrammarGrammar.grammar, "Start", contents) {
+    case PackTypes.Result.Failure(maybeResult, (charsParsed, failure)): {
+      Printf.eprintf(
+        "%s\n",
+        PackTypes.Error.genErrorText(contents, failure)
+      )
+      exit(1)
+    }
+    case PackTypes.Result.Success(result): GrammarOfGrammar.convert(result)
+  }
+}
+let examples = (filename, ruleName, options) => {
+  let grammar = getGrammar(filename)
+  let table = parseOptions(options)
+  print_endline(ExampleGenerator.generateExamples(grammar, ruleName, table))
+}
+let ocamlBinaryParser = (use_stdin, filename) => {
+  let chan = switch use_stdin {
+    case true: stdin
+    case false: {
+      let file_chan = open_in(filename)
+      seek_in(file_chan, 0)
+      file_chan
+    }
+  }
+  ignore(really_input_string(chan, String.length(Config.ast_impl_magic_number)))
+  ignore(input_value(chan))
+  input_value(chan)
+}
+let optOr = (orr, opt) => switch opt {
+  case None: orr
+  case Some(x): x
+}
+let prettyBin = (filename, binName) => {
+  let ast = ocamlBinaryParser(false, binName)
+  let grammar = getGrammar(filename)
+  let result = OcamlOfReason.convertFrom(ast)
+  print_endline((PrettyPrint.toString(grammar, result) |> optOr("Unable to pretty print this")))
+}
+let tests = cases => {
+  print_endline("[[ TESTING ]]")
+  List.iter(
+    (rule, text) => switch Runtime.parse(GrammarGrammar.grammar, rule, text) {
+      case PackTypes.Result.Failure(maybeResult, (charsParsed, failure)): print_string(PackTypes.Error.genErrorText(text, failure))
+      case PackTypes.Result.Success(result): ()
+    },
+    cases
+  )
+  Printf.printf("[[ DONE %d ]]\n", List.length(cases))
+}
+let testCases = [
+  ("ident", "Start"),
+  ("white", " "),
+  ("eol", "     \t\n"),
+  ("eol", "     \t"),
+  ("ItemInner", "Rule"),
+  ("ItemInner", "(Rule #eol)"),
+  ("Item", "(Rule #eol)"),
+  ("Item", "Rule?"),
+  ("Choice", "(Rule #eol)* Rule?"),
+  ("Rule", "Start = (Rule #eol)* Rule?"),
+  ("Rule", "Start = \n | (Rule #eol)* Rule?"),
+  (
+    "Start",
+    "Start = \n | (Rule #eol)* Rule?\n | Other\n\nMore = thing"
+  ),
+  ("Comment_eol", "; something\n\n"),
+  ("Rule", "\nStart = 'h'"),
+  ("Rule", "\n\nStart = ;hi\n | 'h'"),
+  ("Start", "\n\nStart = ;hi\n | 'h'"),
+  (
+    "Start",
+    "\nStart = Rule*\n; something\nRule = ;hi\n  | eol? [name]ident \"=\" [choices]Choice #eol\n  | eol? [name]ident \"=\" #eol (\"|\" [choices]Choice #eol)+\n\nChoice = [children]Item+ (\"--\" [name]ident)? (\";\" #[comment]rest_of_line)?\n\nItem = [?neg]\"~\"? [?lexify]\"#\"? (\"[\" [flag]flag? [name]ident \"]\")? [inner]ItemInner [suffix]suffix?\n\nItemInner =\n  | string\n  | ident\n  | \"(\" [:nested]Item+ \")\" -- nested\n  | char_range\n  | char\n\nchar_range = \"'\" [start]single \"..\" [end]single \"'\"\nchar = \"'\" [char]single \"'\"\n\nsingle =\n  | \"\\\\\" any\n  | ~\"'\" ~'\\n' any\n\nstring = '\"' [@contents]strchar* '\"'\nstrchar =\n  | \"\\\\\" any\n  | ~'\"' ~'\\n' any\n\nflag =\n  | \"?\" -- bool ; exists\n  | \":\" -- array\n  | \"@\" -- string ; contents\n\nsuffix =\n  | \"+\"\n  | \"*\"\n  | \"?\"\n\nident = ~\"0\" identchar+\nidentchar =\n  | 'a..z'\n  | 'A..Z'\n  | '0..9'\n  | '_'\n\nrest_of_line = (~\"\\n\" any)*\n\neol = white* eee\neee =\n  | eolchar+\n  | EOF\neolchar =\n  | \"\\n\"\n  | \"\\r\"\nwhite =\n  | \" \"\n  | \"\\t\"\n\n"
+  ),
+  ("Item", "Hello"),
+]
+switch Array.to_list(Sys.argv) {
+  case [_, "test"]: tests(testCases)
+  case [_, "dump"]: main(dump::true, ())
+  case [_, "dump", filename]: main(dump::true, file::filename, ())
+  case [_, "dump", filename, destination]: main(dump::true, file::filename, dest::destination, ())
+  case [_, "examples", filename, ruleName ...rest]: examples(filename, ruleName, rest)
+  case [_, "pretty-bin", filename, binName]: prettyBin(filename, binName)
+  case [_, filename]: main(dump::false, file::filename, ())
+  case _: main(())
+}
