@@ -3,19 +3,21 @@ module DSL = PackTypes.DSL;
 
 [@name "Start"]
 [%%rule (
-  DSL.[n("Expression")],
+  "Expression",
   ([@node "Expression"]expr) => expr
 )];
 
 [@name "Expression"]
 [%%rules [(
-  "add", DSL.[n(~label="left", "Expression"), t("+"), n(~label="right", "Expression")],
+  "add",
+  {|[left]Expression "+" [right]Expression|},
   ([@node.left "Expression"]left, [@node.right "Expression"]right) => left + right
 ), (
-  "sub", DSL.[n(~label="left", "Expression"), t("-"), n(~label="right", "Expression")],
+  "sub",
+  {|[left]Expression "-" [right]Expression|},
   ([@node.left "Expression"]left, [@node.right "Expression"]right) => left - right
 ), (
-  "int", DSL.[n("int")],
+  "int", {|int|},
   ([@text "int"](int, _)) => int_of_string(int)
 )]];
 

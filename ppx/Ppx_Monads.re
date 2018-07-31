@@ -6,101 +6,6 @@
  */
 let fail = (loc, txt) => raise(Location.Error(Location.error(~loc, txt)));
 
-/* let rec process_bindings = (bindings) =>
-  Parsetree.(
-    switch bindings {
-    | [] => assert false
-    | [binding] => (binding.pvb_pat, binding.pvb_expr)
-    | [binding, ...rest] =>
-      let (pattern, expr) = process_bindings(rest);
-      (
-        Ast_helper.Pat.tuple([binding.pvb_pat, pattern]),
-        [%expr Let_syntax.join2([%e binding.pvb_expr], [%e expr])]
-      )
-    }
-  );
-
-let process_let = (contents, loc) => {
-  open Parsetree;
-  let bindings =
-    switch contents {
-    | PStr([{pstr_desc: Pstr_value(Nonrecursive, bindings), pstr_loc}]) => bindings
-    | _ => fail(loc, "extension must contain a nonrecursive let binding")
-    };
-  process_bindings(bindings)
-};
-
-let getExpr = (contents, loc) =>
-  Parsetree.(
-    switch contents {
-    | PStr([{pstr_desc: Pstr_eval(expr, _)}]) => expr
-    | _ => fail(loc, "@else must contain an expression")
-    }
-  ); */
-
-let opt_explanation = {|
-Optional declaration sugar:
-```
-let%opt name = value;
-otherStuff
-```
-is transformed into
-```
-switch (value) {
-| None => None
-| Some(name) =>
-  otherStuff
-}
-```
-This means that `otherStuff` needs to have type `option`.
-
-If you want `otherStuff` to be automatically wrapped in `Some()`,
-then use `let%opt_wrap`.
-Alternatively, if you are just performing a side effect, and want
-the result of the whole thing to be unit, use `let%consume`.
-|};
-
-let opt_wrap_explanation = {|
-Optional declaration sugar:
-```
-let%opt_wrap name = value;
-otherStuff
-```
-is transformed into
-```
-switch (value) {
-| None => None
-| Some(name) => Some({
-    otherStuff
-  })
-}
-```
-The `wrap` suffix means that the `otherStuff` will be automatically
-wrapped in a `Some`.
-
-If you don't want this wrapping, then use `let%opt`.
-Alternatively, if you are just performing a side effect, and want
-the result of the whole thing to be unit, use `let%consume`.
-|};
-
-let opt_consume_explanation = {|
-Optional declaration sugar:
-```
-let%consume name = value;
-otherStuff
-```
-is transformed into
-```
-switch (value) {
-| None => ()
-| Some(name) =>
-  otherStuff
-}
-```
-This is intented for performing side-effects only -- `otherStuff`
-must end up as type `unit`.
-|};
-
 open Parsetree;
 
 /* open Belt.Result; */
@@ -183,7 +88,8 @@ let converterExpr = (fn) => {
     switch expr.pexp_desc {
       | Pexp_fun(label, default, pattern, res) => {
         if (label == "loc") {
-          loop(res, [(label, [%expr _loc]), ...args])
+          /* TODO TODO */
+          loop(res, [(label, [%expr Location.none]), ...args])
         } else {
           switch (pattern.ppat_attributes) {
             | [({txt: "text"}, PStr([str]))] => {
@@ -233,7 +139,23 @@ let converterExpr = (fn) => {
                 ...args
               ])
             }
-            | _ => fail(pattern.ppat_loc, "Arguments must be annotated to indicate how to fulfill the values")
+            | [({txt: "texts"}, PStr([str]))] => {
+              let name = strString(str);
+              loop(res, [
+                ("", [%expr
+                ResultUtils.getLeafsByType(children, [%e strExp(name)])
+                ]),
+                ...args
+              ])
+            }
+            | _ => switch (pattern.ppat_desc) {
+              | Ppat_construct({txt: Lident("()")}, _)
+              | Ppat_any => loop(res, [
+                ("", [%expr ()]),
+                ...args,
+              ])
+              | _ => fail(pattern.ppat_loc, "Arguments must be annotated to indicate how to fulfill the values")
+            }
           }
         }
       }
@@ -242,6 +164,13 @@ let converterExpr = (fn) => {
   };
   let args = loop(fn, []) |> List.rev;
   Ast_helper.Exp.apply(fn, args)
+};
+
+let maybeConvertChoice = choice => switch (choice.pexp_desc) {
+  | Pexp_constant(Const_string(name, _)) => {
+    [%expr Grammar.choice([%e choice])]
+  }
+  | _ => choice
 };
 
 let mapper = _argv =>
@@ -291,7 +220,7 @@ let mapper = _argv =>
                 | [one] => strExpr(one)
                 | _ => fail(item.pstr_loc, "Must contain a single rule")
               };
-              (top, newRules([%expr [("", "", [%e choice])]]), converters, true)
+              (top, newRules([%expr [("", "", [%e maybeConvertChoice(choice)])]]), converters, true)
             } else if (txt == "rule") {
               let choice = switch contents {
                 | [one] => tupleOrSingle(one)
@@ -299,14 +228,14 @@ let mapper = _argv =>
               };
               switch choice {
                 | `Single(choice) =>
-                  (top, newRules([%expr [("", "", [%e choice])]]), converters, true)
+                  (top, newRules([%expr [("", "", [%e maybeConvertChoice(choice)])]]), converters, true)
                 | `Tuple([choice, fn]) =>
                   let fnCall = converterExpr(fn);
                   let converter: (string, Parsetree.expression) = (
                     name,
                     [%expr ((sub, children, _loc)) => [%e fnCall]]
                   );
-                  (top, newRules([%expr [("", "", [%e choice])]]), [converter, ...converters], true)
+                  (top, newRules([%expr [("", "", [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
                 | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
               }
             } else if (txt == "rules") {
@@ -323,7 +252,7 @@ let mapper = _argv =>
                     fn
                   ]) => {
                     let fnCall = converterExpr(fn);
-                    ([%expr [([%e strExp(name)], "", [%e rule]), ...[%e rules]]], [Ast_helper.Exp.case(
+                    ([%expr [([%e strExp(name)], "", [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
                       Ast_helper.Pat.constant(Const_string(name, None)),
                       fnCall
                     ), ...cases])

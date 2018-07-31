@@ -1,5 +1,6 @@
 open PackTypes.Result;
 
+
 module P = PackTypes.Parsing;
 
 let rec getChild = (children, mapper) =>
@@ -139,6 +140,16 @@ let getNodeByLabel = (children, needle) =>
         }
       } else {
         None
+      }
+  );
+
+let getLeafsByType = (children, needle) =>
+  getChildren(
+    children,
+    ((label, child)) =>
+      switch child {
+      | Leaf((name, sub), contents, loc) when name == needle => Some((contents, loc))
+      | _ => None
       }
   );
 
