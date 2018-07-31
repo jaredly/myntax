@@ -9,7 +9,7 @@
   "sources": [
     {"dir": "src", "subdirs": true},
     {"dir": "grammars",
-      "ppx": ["Ppx_Monads"],
+      // "ppx": ["Ppx_Monads"],
     },
     {"dir": "ppx", "type": "ppx"}
   ],

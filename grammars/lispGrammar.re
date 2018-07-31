@@ -5,7 +5,7 @@ module H = Ast_helper;
 
 module DSL = PackTypes.DSL;
 
-let rec convert_Start = ((sub, children, loc)) => {
+/* let rec convert_Start = ((sub, children, loc)) => {
   let structure = ResultUtils.getNodesByType(children, "Structure", convert_Structure);
   structure
 } and convert_Structure = ((sub, children, loc)) => {
@@ -22,18 +22,20 @@ let rec convert_Start = ((sub, children, loc)) => {
       ))
     | _ => assert(false)
   }
-};
+}; */
+
+[@lineComment ";"];
+[@blockComment ("(**", "*)")];
 
 [@name "Start"]
 [%%rule (
-  DSL.n("ModuleBody"),
+  [DSL.n("ModuleBody")],
   ([@nodes "Structure"]structures) => structures
 )];
 
-[@passThrough]
 [@name "ModuleBody"]
-[%%rule (
-  DSL.(star(n("Structure"))),
+[%%passThroughRule (
+  DSL.([star(n("Structure"))]),
 )];
 
 let lp = DSL.(hugRight(t("(")));

@@ -110,6 +110,29 @@ let strExpr = str => switch str.pstr_desc {
   | _ => fail(str.pstr_loc, "Expected an expression")
 };
 
+let tupleItems = str => switch str.pstr_desc {
+  | Pstr_eval({pexp_desc: Pexp_tuple(items)}, _) => items
+  | _ => fail(str.pstr_loc, "Expected a tuple")
+};
+
+let strString = str => switch str.pstr_desc {
+  | Pstr_eval({pexp_desc: Pexp_constant(Const_string(text, _))}, _) => text
+  | _ => fail(str.pstr_loc, "Expected a string")
+};
+
+let rec unrollList = exp => switch exp.pexp_desc {
+  | Pexp_construct({txt: Lident("[]")}, None) => []
+  | Pexp_construct({txt: Lident("::")}, Some({pexp_desc: Pexp_tuple([head, tail])})) => [head, ...unrollList(tail)]
+  | _ => []
+};
+
+let listItems = str => switch str.pstr_desc {
+  | Pstr_eval({pexp_desc: Pexp_construct({txt: Lident("::")}, Some({pexp_desc: Pexp_tuple([head, tail])}))}, _) => {
+    [head, ...unrollList(tail)]
+  }
+  | _ => fail(str.pstr_loc, "Expected a list")
+};
+
 let attrString = (attrs, name) => {
   let rec loop = (items) => switch items {
     | [] => None
@@ -118,7 +141,8 @@ let attrString = (attrs, name) => {
       | _ => fail(loc, "Attr " ++ name ++ " must be a string")
     }
     | [_, ...rest] => loop(rest)
-  }
+  };
+  loop(attrs)
 };
 
 let attrBool = (attrs, name) => {
@@ -135,6 +159,50 @@ let attrBool = (attrs, name) => {
   loop(attrs)
 };
 
+let strExp = name => Ast_helper.Exp.constant(Const_string(name, None));
+let identExp = (~loc=Location.none, lident) => Ast_helper.Exp.ident(~loc, Location.mkloc(lident, loc));
+
+let converterExpr = (fn) => {
+  let rec loop = (expr, args) => {
+    switch expr.pexp_desc {
+      | Pexp_fun(label, default, pattern, res) => {
+        if (label == "loc") {
+          loop(res, [(label, [%expr _loc]), ...args])
+        } else {
+          switch (pattern.ppat_attributes) {
+            | [({txt: "node"}, PStr([str]))] => {
+              let name = strString(str);
+              loop(res, [
+                ("", [%expr
+                switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
+                  | None => failwith("Expected a " ++ [%e strExp(name)])
+                  | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
+                }
+                ]),
+                ...args
+              ])
+            }
+            | [({txt: "nodes"}, PStr([str]))] => {
+              let name = strString(str);
+              loop(res, [
+                ("", [%expr
+                ResultUtils.getNodesByType(children, [%e strExp(name)],
+                [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))])
+                ]),
+                ...args
+              ])
+            }
+            | _ => failwith("Arguments must be annotated to indicate how to fulfill the values")
+          }
+        }
+      }
+      | _ => args
+    }
+  };
+  let args = loop(fn, []) |> List.rev;
+  Ast_helper.Exp.apply(fn, args)
+};
+
 let mapper = _argv =>
   Parsetree.{
     ...Ast_mapper.default_mapper,
@@ -142,7 +210,10 @@ let mapper = _argv =>
       let (top, rules, converters, found) = List.fold_left(((top, rules, converters, found), item) => {
         switch item.pstr_desc {
           | Parsetree.Pstr_extension(({txt: ("rule" | "rules" | "passThroughRule") as txt}, contents), attributes) => {
-            let name = attrString(attributes, "name");
+            let name = switch (attrString(attributes, "name")) {
+              | None => failwith("No name for rule")
+              | Some(name) => name
+            };
             let ignoreNewlines = switch (attrBool(attributes, "ignoreNewlines")) {
               | None => [%expr Inherit]
               | Some(true) => [%expr Yes]
@@ -153,17 +224,34 @@ let mapper = _argv =>
               | _ => fail(item.pstr_loc, "Contents must not be a type or pattern")
             };
 
+            let newRules = choices => [%expr [([%e strExp(name)], {
+                passThrough: true,
+                ignoreNewlines: [%e ignoreNewlines],
+                leaf: false,
+                choices: [%e choices]
+              }), ...[%e rules]]];
+
             if (txt == "passThroughRule") {
               let choice = switch contents {
                 | [one] => strExpr(one)
                 | _ => fail(item.pstr_loc, "Must contain a single structure item")
               };
-              (top, [%expr [{
-                passThrough: true,
-                ignoreNewlines: [%e ignoreNewlines],
-                leaf: false,
-                choices: [[%e choice]]
-              }, ...[%e rules]]], [], true)
+              (top, newRules([%expr [("", "", [%e choice])]]), converters, true)
+            } else if (txt == "rule") {
+              let body = switch contents {
+                | [one] => tupleItems(one)
+                | _ => fail(item.pstr_loc, "Must contain a single structure item")
+              };
+              switch body {
+                | [choice, fn] =>
+                  let fnCall = converterExpr(fn);
+                  let converter: (string, Parsetree.expression) = (
+                    name,
+                    [%expr ((sub, children, _loc)) => [%e fnCall]]
+                  );
+                  (top, newRules([%expr [("", "", [%e choice])]]), [converter, ...converters], true)
+                | _ => fail(item.pstr_loc, "Expected a tuple of two items")
+              };
             } else {
               (top, rules, converters, found)
             }
@@ -179,7 +267,16 @@ let mapper = _argv =>
           blockComment: Some(("(**", "*)")),
           rules: [%e rules]
         }];
-        top @ grammar
+        let converters = Ast_helper.Str.value(
+          Recursive,
+          converters |. Belt.List.map(((name, contents)) => {
+            Ast_helper.Vb.mk(
+              Ast_helper.Pat.var(Location.mknoloc("convert_" ++ name)),
+              contents
+            )
+          })
+        );
+        top @ grammar @ [converters]
       } else {
         top
       }
