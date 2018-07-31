@@ -219,7 +219,7 @@ alpha =
 digit = '0..9'
 
 @leaf
-operator = ~reservedOps opChar+
+operator = ~reservedOps opChar+ ~identchar
 
 reservedOps =
 | "=>"

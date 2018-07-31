@@ -8,6 +8,7 @@
   },
   "sources": [
     {"dir": "src", "subdirs": true},
+    {"dir": "bin"},
     {"dir": "grammars",
       // "ppx": ["Ppx_Monads"],
     },
@@ -17,9 +18,9 @@
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
   // "public": ["Main"],
   "entries": [{
-    "backend": "native",
-    "main-module": "Run"
-  }, {
+  //   "backend": "native",
+  //   "main-module": "Run"
+  // }, {
     "backend": "native",
     "type": "ppx",
     "main-module": "Ppx_Monads"

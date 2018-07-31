@@ -24,7 +24,7 @@ module DSL = PackTypes.DSL;
   }
 }; */
 
-[@lineComment ";"];
+/* [@lineComment ";"];
 [@blockComment ("(**", "*)")];
 
 [@name "Start"]
@@ -43,37 +43,25 @@ let rp = DSL.(hugLeft(t(")")));
 
 [@name "Structure"]
 [%%rules [
-  (
-    "let",
-    DSL.([lp, t("def"), n("LetPair"), rp]),
+  ("let", DSL.([lp, t("def"), n("LetPair"), rp]),
     (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])
   ),
-  (
-    "let_rec",
-    DSL.([lp, t("def-rec"), plus(n("LetPair")), rp]),
+  ( "let_rec", DSL.([lp, t("def-rec"), plus(n("LetPair")), rp]),
     (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)
   ),
-  (
-    "type",
-    DSL.([lp, t("type"), n("TypeBody"), rp]),
+  ( "type", DSL.([lp, t("type"), n("TypeBody"), rp]),
     (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),
   ),
-  (
-    "module",
-    DSL.([lp, t("module"), n("capIdent"), n("ModuleExpr"), rp]),
-    (~loc, [@text "capIdent"]name, [@loc "capIdent"]nameLoc, [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
+  ( "module", DSL.([lp, t("module"), n("capIdent"), n("ModuleExpr"), rp]),
+    (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
       Location.mkloc(name, nameLoc),
       expr
     )),
   ),
-  (
-    "open",
-    DSL.([lp, t("open"), n("longCap"), rp]),
+  ( "open", DSL.([lp, t("open"), n("longCap"), rp]),
     (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))
   ),
-  (
-    "eval",
-    DSL.([n("Expression")]),
+  ( "eval", DSL.([n("Expression")]),
     (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr)
   )
-]]
+]]; */

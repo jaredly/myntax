@@ -46,6 +46,7 @@ module DSL = {
   let group = x => Group(x);
   let t = (~label=?, t) => Terminal(t, label);
   let n = (~label=?, t) => NonTerminal(t, label);
+  let chars = (a, b) => Chars(a, b, None);
   let hugLeft = x => NoSpaceBefore(x);
   let hugRight = x => NoSpaceAfter(x);
 };

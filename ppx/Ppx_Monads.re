@@ -110,6 +110,13 @@ let strExpr = str => switch str.pstr_desc {
   | _ => fail(str.pstr_loc, "Expected an expression")
 };
 
+let tupleOrSingle = str => switch str.pstr_desc {
+  | Pstr_eval({pexp_desc: Pexp_tuple(items)}, _) => `Tuple(items)
+  | Pstr_eval(expr, _) => `Single(expr)
+  | _ => fail(str.pstr_loc, "Expected a tuple or an expression")
+};
+
+
 let tupleItems = str => switch str.pstr_desc {
   | Pstr_eval({pexp_desc: Pexp_tuple(items)}, _) => items
   | _ => fail(str.pstr_loc, "Expected a tuple")
@@ -162,6 +169,15 @@ let attrBool = (attrs, name) => {
 let strExp = name => Ast_helper.Exp.constant(Const_string(name, None));
 let identExp = (~loc=Location.none, lident) => Ast_helper.Exp.ident(~loc, Location.mkloc(lident, loc));
 
+let startsWith = (s, prefix) => {
+  if (prefix == "") {
+    true
+  } else {
+    let p = String.length(prefix);
+    p <= String.length(s) && String.sub(s, 0, p) == prefix
+  }
+};
+
 let converterExpr = (fn) => {
   let rec loop = (expr, args) => {
     switch expr.pexp_desc {
@@ -170,6 +186,18 @@ let converterExpr = (fn) => {
           loop(res, [(label, [%expr _loc]), ...args])
         } else {
           switch (pattern.ppat_attributes) {
+            | [({txt: "text"}, PStr([str]))] => {
+              let name = strString(str);
+              loop(res, [
+                ("", [%expr
+                switch (ResultUtils.getLeafByType(children, [%e strExp(name)])) {
+                  | None => failwith("Expected a " ++ [%e strExp(name)])
+                  | Some((contents, loc)) => (contents, loc)
+                }
+                ]),
+                ...args
+              ])
+            }
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
               loop(res, [
@@ -177,6 +205,19 @@ let converterExpr = (fn) => {
                 switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
                   | None => failwith("Expected a " ++ [%e strExp(name)])
                   | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
+                }
+                ]),
+                ...args
+              ])
+            }
+            | [({txt}, PStr([str]))] when startsWith(txt, "node.") => {
+              let name = strString(str);
+              let label = String.sub(txt, 5, String.length(txt) - 5);
+              loop(res, [
+                ("", [%expr
+                switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
+                  | None => failwith("Expected a " ++ [%e strExp(name)])
+                  | Some(((_, sub), children, loc)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc))
                 }
                 ]),
                 ...args
@@ -192,7 +233,7 @@ let converterExpr = (fn) => {
                 ...args
               ])
             }
-            | _ => failwith("Arguments must be annotated to indicate how to fulfill the values")
+            | _ => fail(pattern.ppat_loc, "Arguments must be annotated to indicate how to fulfill the values")
           }
         }
       }
@@ -211,8 +252,16 @@ let mapper = _argv =>
         switch item.pstr_desc {
           | Parsetree.Pstr_extension(({txt: ("rule" | "rules" | "passThroughRule") as txt}, contents), attributes) => {
             let name = switch (attrString(attributes, "name")) {
-              | None => failwith("No name for rule")
+              | None => fail(item.pstr_loc, "No name for rule")
               | Some(name) => name
+            };
+            let passThrough = switch (attrBool(attributes, "passThrough")) {
+              | None => false
+              | Some(n) => n
+            };
+            let leaf = switch (attrBool(attributes, "leaf")) {
+              | None => false
+              | Some(n) => n
             };
             let ignoreNewlines = switch (attrBool(attributes, "ignoreNewlines")) {
               | None => [%expr Inherit]
@@ -225,24 +274,79 @@ let mapper = _argv =>
             };
 
             let newRules = choices => [%expr [([%e strExp(name)], {
-                passThrough: true,
+                passThrough: [%e Ast_helper.Exp.construct(
+                  Location.mknoloc(Longident.Lident(passThrough ? "true" : "false")),
+                  None
+                )],
                 ignoreNewlines: [%e ignoreNewlines],
-                leaf: false,
+                leaf: [%e Ast_helper.Exp.construct(
+                  Location.mknoloc(Longident.Lident(leaf ? "true" : "false")),
+                  None
+                )],
                 choices: [%e choices]
               }), ...[%e rules]]];
 
             if (txt == "passThroughRule") {
               let choice = switch contents {
                 | [one] => strExpr(one)
-                | _ => fail(item.pstr_loc, "Must contain a single structure item")
+                | _ => fail(item.pstr_loc, "Must contain a single rule")
               };
               (top, newRules([%expr [("", "", [%e choice])]]), converters, true)
             } else if (txt == "rule") {
-              let body = switch contents {
-                | [one] => tupleItems(one)
-                | _ => fail(item.pstr_loc, "Must contain a single structure item")
+              let choice = switch contents {
+                | [one] => tupleOrSingle(one)
+                | _ => fail(item.pstr_loc, "Must contain a single tuple")
               };
-              switch body {
+              switch choice {
+                | `Single(choice) =>
+                  (top, newRules([%expr [("", "", [%e choice])]]), converters, true)
+                | `Tuple([choice, fn]) =>
+                  let fnCall = converterExpr(fn);
+                  let converter: (string, Parsetree.expression) = (
+                    name,
+                    [%expr ((sub, children, _loc)) => [%e fnCall]]
+                  );
+                  (top, newRules([%expr [("", "", [%e choice])]]), [converter, ...converters], true)
+                | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
+              }
+            } else if (txt == "rules") {
+
+              let body = switch contents {
+                | [one] => listItems(one)
+                | _ => fail(item.pstr_loc, "Must contain a single list")
+              };
+              let (rules, cases) = body |. Belt.List.reduceReverse(([%expr []], []), ((rules, cases), expr) => {
+                switch (expr.pexp_desc) {
+                  | Pexp_tuple([
+                    {pexp_desc: Pexp_constant(Const_string(name, _))},
+                    rule,
+                    fn
+                  ]) => {
+                    let fnCall = converterExpr(fn);
+                    ([%expr [([%e strExp(name)], "", [%e rule]), ...[%e rules]]], [Ast_helper.Exp.case(
+                      Ast_helper.Pat.constant(Const_string(name, None)),
+                      fnCall
+                    ), ...cases])
+                  }
+                  | _ => fail(expr.pexp_loc, "Invalid rule item")
+                }
+              });
+              let cases = cases @ [
+                Ast_helper.Exp.case(
+                  Ast_helper.Pat.any(),
+                  Ast_helper.Exp.assert_(Ast_helper.Exp.construct(Location.mknoloc(Longident.Lident("false")), None))
+                  
+                )
+              ];
+
+              let sw = Ast_helper.Exp.match([%expr sub], cases);
+              let converter  = (
+                name,
+                [%expr ((sub, children, _loc)) => [%e sw]]
+              );
+              (top, newRules(rules), [converter, ...converters], true)
+
+              /* switch body {
                 | [choice, fn] =>
                   let fnCall = converterExpr(fn);
                   let converter: (string, Parsetree.expression) = (
@@ -251,7 +355,8 @@ let mapper = _argv =>
                   );
                   (top, newRules([%expr [("", "", [%e choice])]]), [converter, ...converters], true)
                 | _ => fail(item.pstr_loc, "Expected a tuple of two items")
-              };
+              }; */
+
             } else {
               (top, rules, converters, found)
             }

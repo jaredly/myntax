@@ -13,6 +13,8 @@ S ppx
 B lib/bs/native/ppx
 S grammars
 B lib/bs/native/grammars
+S bin
+B lib/bs/native/bin
 S src
 B lib/bs/native/src
 ####BSB GENERATED: NO EDIT}
