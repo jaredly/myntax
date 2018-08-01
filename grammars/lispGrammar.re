@@ -23,16 +23,20 @@ module DSL = PackTypes.DSL;
 [@ignoreNewlines]
 [@name "Structure"]
 [%%rules [
-  ("let", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
-  ( "let_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
-  ( "type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
-  ( "module", {|"("& "module" capIdent ModuleExpr &")"|},
+  ("det", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
+  ("det_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
+  ("type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
+  ("module", {|"("& "module" capIdent ModuleExpr &")"|},
     (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
       Location.mkloc(name, nameLoc),
       expr
     )),
   ),
   ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
+  ( "external", {|"("& "external" lowerIdent CoreType string+ &")"|}, 
+    (~loc, [@text "lowerIdent"](text, tloc), [@node "CoreType"]typ, [@texts "string"]prim) =>
+      H.Str.primitive(~loc, H.Val.mk(~loc, ~prim=List.map(fst, prim) |> List.map(processString), Location.mkloc(text, tloc), typ))
+  ),
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
@@ -160,6 +164,11 @@ module DSL = PackTypes.DSL;
     {|"("& longIdent CoreType+ &")"|},
     (~loc, [@node "longIdent"]ident, [@nodes "CoreType"]args) => H.Typ.constr(~loc, ident, args)
   ),
+  (
+    "arrow",
+    {|"("& "=>" "["& [args]CoreType+ &"]" CoreType &")"|},
+    (~loc, [@node.args "CoreType"]args, [@node "CoreType"]res) => H.Typ.arrow("", args, res)
+  )
 ]];
 
 [@leaf]
@@ -248,6 +257,15 @@ let rec expressionSequence = exprs => switch exprs {
           | `Fn(fn, args) => H.Exp.apply(fn, [("", target), ...args])
           | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple([target, ...args])))
         }
+      })
+    }
+  ),
+  (
+    "threading_as",
+    {|"("& "as->" [target]Expression Pattern [items]Expression* &")"|},
+    (~loc, [@node.target "Expression"]target, [@node "Pattern"]pat, [@nodes.items "Expression"]items) => {
+      Belt.List.reduce(items, target, (target, item) => {
+        H.Exp.apply(H.Exp.fun_("", None, pat, item), [("", target)])
       })
     }
   ),
@@ -434,28 +452,36 @@ let rec expressionSequence = exprs => switch exprs {
 [@name "FnArgItems"]
 [%%passThroughRule "FnArg+"];
 
+let argPat = (label, mtyp) => switch (mtyp) {
+  | None => H.Pat.var(label)
+  | Some(t) => H.Pat.constraint_(H.Pat.var(label), t)
+};
+
 [@ignoreNewlines]
 [@name "FnArg"]
 [%%rules [
   (
     "destructured",
-    {|argLabel "as" Pattern|},
-    (~loc, [@node "argLabel"]label, [@node "Pattern"]pattern) => (label.txt, None, pattern)
+    {|argLabelWithConstraint "as" Pattern|},
+    (~loc, [@node "argLabelWithConstraint"](label, mtyp), [@node "Pattern"]pattern) => (label.txt, None, switch mtyp {
+      | None => pattern
+      | Some(mtyp) => H.Pat.constraint_(pattern, mtyp)
+    })
   ),
   (
     "optional",
     {|argLabel &"=?"|},
-    (~loc, [@node "argLabel"]label) => ("?" ++ label.txt, None, H.Pat.var(label))
+    (~loc, [@node "argLabelWithConstraint"](label, mtyp)) => ("?" ++ label.txt, None, argPat(label, mtyp))
   ),
   (
     "defaulted",
-    {|argLabel &"="& Expression|},
-    (~loc, [@node "argLabel"]label, [@node "Expression"]expr) => (label.txt, Some(expr), H.Pat.var(label))
+    {|argLabelWithConstraint &"="& Expression|},
+    (~loc, [@node "argLabelWithConstraint"](label, mtyp), [@node "Expression"]expr) => (label.txt, Some(expr), argPat(label, mtyp))
   ),
   (
     "labeled",
-    {|argLabel|},
-    (~loc, [@node "argLabel"]label) => (label.txt, None, H.Pat.var(label))
+    {|argLabelWithConstraint|},
+    (~loc, [@node "argLabelWithConstraint"](label, mtyp)) => (label.txt, None, argPat(label, mtyp))
   ),
   (
     "unlabeled",
@@ -542,6 +568,9 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   ),
 ]];
 
+[@name "argLabelWithConstraint"]
+[%%rule ("argLabel (':' CoreType)?", (~loc, [@node "argLabel"]ident, [@node_opt "CoreType"]typ) => (ident, typ))]
+
 [@name "argLabel"]
 [%%rule ("'~' lowerIdent", ([@text "lowerIdent"](text, loc)) => Location.mkloc(text, loc))];
 
@@ -585,7 +614,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 [%%rules [
   ("float", {|[val]float|}, ([@text "float"](t, _)) => Const_float(t)),
   ("int", {|[val]int64|}, ([@text "int64"](t, _)) => Const_int(int_of_string(t))),
-  ("string", {|[val]string|}, ([@text "string"](t, _)) => Const_string(processString(t), None)),
+  ("string", {|ConstString|}, ([@node "ConstString"]t) => t),
   ("char", {|[val]char|}, ([@text "char"](t, _)) => Const_char(t.[0]) /* TODO fixx */
   ),
 ]];
@@ -599,6 +628,8 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   "digit",
   {|"_"|},
 ]];
+
+[@name "ConstString"][%%rule ("string", ([@text "string"](t, loc)) => Const_string(processString(t), None))];
 
 [@leaf] [@name "int64"][%%rule {|digit+ ~identchar|}];
 [@leaf] [@name "float"][%%rule {|digit+ '.' digit+|}];
@@ -627,6 +658,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   {|"type"|},
   {|"switch"|},
   {|"exception"|},
+  {|"external"|},
   {|"of"|},
   {|"module"|},
   {|"rec"|},

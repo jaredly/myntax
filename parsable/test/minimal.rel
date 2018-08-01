@@ -10,11 +10,13 @@
     (def fluff {:name "Fluff" :age 0.4})
     (def humanAge (=> [{:age}]
       (int_of_float (*. age 7.0))))
-    ) )
+    ))
 
 (type person {:name string :age int})
 
-(def sayHello (=> [~name] (^ "Hello " name)))
+(external log (=> [int] unit) "console.log")
+
+(def sayHello (=> [~name:string] (^ "Hello " name)))
 (sayHello ~name="Folks")
 
 (def me {:name "Jared" :age 10})
@@ -34,6 +36,14 @@
   (List.map string_of_int)
   (String.concat ", ")
   print_endline)
+
+(as-> ages v
+  (Belt.List.map v string_of_int)
+  (String.concat ", " v)
+  (switch v
+    "Something" "other thing"
+    _ v)
+  (print_endline v))
 
 (print_endline ([0] [|"Hello"|]))
 (print_endline ("name" (Obj.magic Array.get)))
