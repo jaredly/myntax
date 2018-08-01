@@ -123,7 +123,7 @@ let skipALineComment = (i, start, text, len) => {
     try ({
       let l = String.index_from(text, i, '\n');
       incLine(l + 1);
-      l
+      l + 1
     }) {
     | Not_found => len /* go to end */
     }
