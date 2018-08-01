@@ -169,7 +169,7 @@ module Result = {
   [@deriving (yojson, show)]
   type rule = (string, string);
   [@deriving (yojson, show)]
-  type loc = (Lexing.position, Lexing.position);
+  type loc = Location.t;
   [@deriving (yojson, show)]
   type result =
     | Leaf(rule, string, loc)
@@ -185,8 +185,8 @@ module Result = {
   let showPos = ({Lexing.pos_lnum, pos_cnum, pos_bol}) => {
     Printf.sprintf("%d:%d(%d)", pos_lnum, pos_cnum - pos_bol, pos_cnum)
   };
-  let showLoc = ((st, en)) => {
-    showPos(st) ++ " - " ++ showPos(en)
+  let showLoc = ({Location.loc_start, loc_end}) => {
+    showPos(loc_start) ++ " - " ++ showPos(loc_end)
   };
   let rec showNode = (label, node, indent) => switch node {
     | Leaf((rule, sub), string, loc) => (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")" ++ ": " ++ String.escaped(string)

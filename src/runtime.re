@@ -91,7 +91,13 @@ let posForLoc = i => {
   }
 };
 
-let emptyResult = (pos, name, isLexical) => (R.Leaf((name, ""), "", (posForLoc(pos), posForLoc(pos))), false);
+let locForOffs = (a, b) => {
+  Location.loc_start: posForLoc(a),
+  loc_end: posForLoc(b),
+  loc_ghost: false,
+};
+
+let emptyResult = (pos, name, isLexical) => (R.Leaf((name, ""), "", locForOffs(pos, pos)), false);
 
 let unwrap = (opt) =>
   switch opt {
@@ -567,7 +573,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
               let children =
                 switch label {
                 | Some(x) => [
-                    (x, R.Leaf(("", target_string), target_string, (posForLoc(i), posForLoc(i + slen)))),
+                    (x, R.Leaf(("", target_string), target_string, locForOffs(i, i + slen))),
                     ...children
                   ]
                 | None => children
@@ -585,7 +591,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
             let contents = String.sub(state.input, i, 1);
             let children =
               switch label {
-              | Some(x) => [(x, R.Leaf(("", contents), contents, (posForLoc(i), posForLoc(i + 1)))), ...children]
+              | Some(x) => [(x, R.Leaf(("", contents), contents, locForOffs(i, i + 1))), ...children]
               | None => children
               };
             (i'', children, err)
@@ -608,7 +614,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
             let contents = String.sub(state.input, i, 1);
             let children =
               switch label {
-              | Some(x) => [(x, R.Leaf(("", contents), contents, (posForLoc(i), posForLoc(i + 1)))), ...children]
+              | Some(x) => [(x, R.Leaf(("", contents), contents, locForOffs(i, i + 1))), ...children]
               | None => children
               };
             (i'', children, errs)
@@ -653,7 +659,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
       if (i' >= i) {
         /* Printf.eprintf "<final>\n"; */
         let name = (rulename, sub_name);
-        let loc = (posForLoc(i), posForLoc(i'));
+        let loc = locForOffs(i, i');
         let result = (
           leaf ?
             R.Leaf(name, String.sub(state.input, i, i' - i), loc) : R.Node(name, children, loc),

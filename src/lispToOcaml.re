@@ -454,11 +454,7 @@ let convert = (result, fname, text) => {
     RU.getNodesByType(children, "Structure", toOcaml.structure({
       ...toOcaml,
       /* TODO */
-      toLoc: ((startPos, endPos)) => {
-        Location.loc_start: lexingPos(fname, startPos, bols),
-        loc_end: lexingPos(fname, endPos, bols),
-        loc_ghost: false,
-      }
+      toLoc: x => x
     }))
   | _ => failwith("")
   };

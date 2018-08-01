@@ -40,7 +40,7 @@ let optOr = (orr, opt) =>
 
 let stripRuleName = (((name, sub), children, loc)) => (sub, children, loc);
 
-let mLoc = (Lexing.dummy_pos, Lexing.dummy_pos);
+let mLoc = Location.none;
 
 let mLeaf = Leaf(("", ""), "", mLoc);
 
@@ -1405,5 +1405,5 @@ let convertFrom = (structures) =>
   Node(
     ("Start", ""),
     List.map(labeled("", fromOcaml.fromStructure(fromOcaml)), structures),
-    (Lexing.dummy_pos, Lexing.dummy_pos)
+    Location.none
   );

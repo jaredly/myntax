@@ -8,7 +8,7 @@ module DSL = PackTypes.DSL;
 [@lineComment ";"];
 [@blockComment ("(**", "*)")];
 
-/* [@name "Start"]
+[@name "Start"]
 [%%rule (
   "ModuleBody",
   ([@nodes "Structure"]structures) => structures
@@ -106,75 +106,251 @@ module DSL = PackTypes.DSL;
       []
     )
   )
-]]; */
+]];
 
+[@ignoreNewLines]
+[@name "TypeKind"]
+[%%rules [
+  (
+    "record",
+    {|"{"& TypeObjectItem+ &"}"|},
+    (~loc, [@nodes "TypeObjectItem"]items) =>
+      Ptype_record(
+        RU.getNodesByType(children, "TypeObjectItem", ((sub, children, loc)) => {
+        })
+      )
+  ), (
+    "constructors",
+    {|TypeConstructor+|},
+    () => ()
+  ), (
+    "alias",
+    {|CoreType|},
+    () => ()
+  )
+]]
+
+[@name "TypeObjectItem"]
+[%%rules [
+  (
+    "normal",
+    "shortAttribute CoreType",
+    (~loc, [@node "shortAttribute"](name, nameLoc), [@node "CoreType"]t) => {
+      H.Type.field(~loc, Location.mkloc(name, nameLoc), t)
+    }
+  ), (
+    "punned",
+    "shortAttribute",
+    (~loc, [@node "shortAttribute"](name, nameLoc)) => {
+      H.Type.field(~loc,
+        Location.mkloc(name, nameLoc),
+        H.Typ.constr(~loc=nameLoc, Location.mkloc(Lident(name), toOcaml.toLoc(nameLoc)), [])
+      )
+    }
+  )
+]];
+
+[@name "shortAttribute"]
+[%%rule (
+  {|":" lowerIdent|},
+  ([@text "lowerIdent"]pair) => pair
+)];
+
+[@name "TypeConstructor"]
+[%%rules [
+  (
+    "no_args",
+    {|longCap|},
+    (~loc, [@node "longCap"]lident) => ()
+  ), (
+    "args",
+    {|"("& longCap CoreType+ &")"|},
+    (~loc, [@node "longCap"]lident, [@node "CoreType"]core) => ()
+  )
+]];
+
+[@name "CoreType"]
+[%%rules [
+  (
+    "constr_no_args",
+    {|longIdent|},
+    () => ()
+  ),
+  (
+    "variable",
+    {|typeVariable|},
+    () => ()
+  ),
+  (
+    "constructor",
+    {|"("& longIdent CoreType+ &")"|},
+    () => ()
+  ),
+]];
+
+[@leaf]
+[@name "typeVariable"]
+[%%rule {|'\'' lowerIdent|}];
+
+[@ignoreNewlines]
+[@name "Expression"]
+[%%rules [
+  (
+    "array_index",
+    {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
+    () => ()
+  ),
+  (
+    "js_object_attribute",
+    {|"("& [attr]string [object]Expression &")"|},
+    () => ()
+  ),
+  (
+    "record_attribute",
+    {|"("& attribute Expression &")"|},
+    () => ()
+  ),
+  (
+    "let",
+    {|"("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
+    () => ()
+  ),
+  (
+    "open",
+    {|"("& "open" ModuleExpr Expression+ &")"|},
+    () => ()
+  ),
+  (
+    "open",
+    {|"("& "if" [test]Expression [yes]Expression [no]Expression &")"|},
+    () => ()
+  ),
+  (
+    "module",
+    {|"("& "module" capIdent ModuleExpr Expression+ &")"|},
+    () => ()
+  ),
+    /* ; not 100% sure I want to do this :P but it could be so handy!! */
+  (
+    "loop_recur",
+    {|"("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
+    () => failwith("not impl")
+  ),
+  (
+    "arrow",
+    {|Arrow|},
+    () => failwith("not impl")
+  ),
+  (
+    "threading_last",
+    {|"("& "->>" [target]Expression ThreadItem+ &")"|},
+    () => failwith("not impl")
+  ),
+  (
+    "threading",
+    {|"("& "->" [target]Expression ThreadItem+ &")"|},
+    () => failwith("not impl")
+  ),
+  (
+    "switch",
+    {|Switch|},
+    () => failwith("not impl")
+  ),
+  (
+    "constructor",
+    {|"("& [constr]longCap [args]Expression+ &")"|},
+    () => failwith("not impl")
+  ),
+  (
+    "tuple",
+    {|"("& "," [args]Expression+ &")"|},
+    () => failwith("not impl")
+  ),
+  (
+    "fn_call",
+    {|"("& [fn]Expression FnCallArg+ &")"|},
+    () => failwith("not impl")
+  ),
+  (
+    "array_literal",
+    {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
+    () => failwith("not impl")
+  ),
+  (
+    "object_literal",
+    {|"{"& ("..."& [spread]Expression)? ObjectItem+ &"}"|},
+    () => failwith("not impl")
+  ),
+  (
+    "empty_constr",
+    {|longCap|},
+    () => failwith("not impl")
+  ),
+  (
+    "ident",
+    {|longIdent|},
+    () => failwith("not impl")
+  ),
+  (
+    "attribute",
+    {|attribute|},
+    () => failwith("not impl")
+  ),
+  (
+    "op",
+    {|operator|},
+    () => failwith("not impl")
+  ),
+  (
+    "const",
+    {|constant|},
+    () => failwith("not impl")
+  ),
+]];
+
+[@name "FnCallArg"]
+[%%rules [
+  (
+    "labeled",
+    {|argLabel "=" Expression|},
+    () => failwith("not impl labeled"),  ),
+  (
+    "punned",
+    {|argLabel|},
+    () => failwith("not impl punned"),
+  ),
+  (
+    "expr",
+    {|Expression|},
+    () => failwith("not impl expr"),
+  ),
+]];
+
+[@name "Switch"]
+[%%rule {|"("& "switch" [target]Expression SwitchBody &")"|}];
 
 /*
 
-@ignoreNewlines
-TypeDecl =
-| "{"& TypeObjectItem+ &"}" -- record
-| TypeConstructor+ -- constr
-| CoreType -- core
 
-TypeConstructor =
-| longCap -- no_args
-| "("& longCap CoreType+ &")" -- args
-
-TypeObjectItem =
-| shortAttribute CoreType -- normal
-| shortAttribute -- punned
-
-CoreType =
-| longIdent -- constr_no_args
-| typeVariable -- variable
-| "("& longIdent CoreType+ &")" -- constructor
-
-@leaf
-typeVariable = '\'' lowerIdent
-
-@ignoreNewlines
-Expression =
-| "("& "["& [index]Expression &"]" [array]Expression &")" -- array_index
-| "("& [attr]string [object]Expression &")" -- js_object_attribute
-| "("& attribute Expression &")" -- record_attribute
-| "("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")" -- let
-| "("& "open" ModuleExpr Expression+ &")" -- open
-
-| "("& "if" [test]Expression [yes]Expression [no]Expression &")" -- open
-
-| "("& "module" capIdent ModuleExpr Expression+ &")" -- module
-    ; not 100% sure I want to do this :P but it could be so handy!!
-| "("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")" -- loop_recur
-| Arrow -- arrow
-| "("& "->>" [target]Expression ThreadItem+ &")" -- threading_last
-| "("& "->" [target]Expression ThreadItem+ &")" -- threading
-| Switch -- switch
-| "("& [constr]longCap [args]Expression+ &")" -- constructor
-| "("& "," [args]Expression+ &")" -- tuple
-| "("& [fn]Expression FnCallArg+ &")" -- fn_call
-| "["& [items]Expression* ("..."& [spread]Expression)? &"]" -- array_literal
-| "{"& ("..."& [spread]Expression)? ObjectItem+ &"}" -- object_literal
-| longCap -- empty_constr
-| longIdent -- ident
-| attribute -- attribute
-| operator -- op
-| constant -- const
-
-FnCallArg =
-| argLabel "=" Expression -- labeled
-| argLabel -- punned
-| Expression -- expr
-
-Switch = "("& "switch" [target]Expression SwitchBody &")"
 
 @ignoreNewlines
 SwitchBody = SwitchCase+
 
 SwitchCase = SwitchCond Expression
-SwitchCond =
-| Pattern "when" Expression -- when
-| Pattern -- plain
+
+[@name "SwitchCond"]
+[%%rules [
+  (
+    "when",
+    {|Pattern "when" Expression|},
+    () => failwith("not impl when"),
+  ),
+  (
+    "plain",
+    {|Pattern|},
+    () => failwith("not impl plain"),
+  ),
+]]
 
 ThreadItem =
 | attribute -- attribute
