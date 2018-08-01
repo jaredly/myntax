@@ -87,118 +87,93 @@ let converterExpr = (fn) => {
   let rec loop = (expr, args) => {
     switch expr.pexp_desc {
       | Pexp_fun(label, default, pattern, res) => {
-        if (label == "loc") {
-          /* TODO TODO */
-          loop(res, [(label, [%expr Location.none]), ...args])
+        let arg = if (label == "loc") {
+          [%expr _loc]
         } else {
           switch (pattern.ppat_attributes) {
             | [({txt: "text"}, PStr([str]))] => {
               let name = strString(str);
-              loop(res, [
-                ("", [%expr
-                switch (ResultUtils.getLeafByType(children, [%e strExp(name)])) {
-                  | None => failwith("Expected a " ++ [%e strExp(name)])
-                  | Some((contents, loc)) => (contents, loc)
-                }
-                ]),
-                ...args
-              ])
+              [%expr
+              switch (ResultUtils.getLeafByType(children, [%e strExp(name)])) {
+                | None => failwith("Expected a " ++ [%e strExp(name)])
+                | Some((contents, loc)) => (contents, loc)
+              }
+              ]
             }
             | [({txt: "node_opt"}, PStr([str]))] => {
               let name = strString(str);
-              loop(res, [
-                ("", [%expr
+                [%expr
                 switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
                   | None => None
                   | Some(node) => Some([%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node))
-                }
-                ]),
-                ...args
-              ])
+                }]
             }
             | [({txt}, PStr([str]))] when startsWith(txt, "node_opt.") => {
               let name = strString(str);
               let label = String.sub(txt, 9, String.length(txt) - 9);
-              loop(res, [
-                ("", [%expr
+                [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
                   | None => None
                   | Some(((_, sub), children, loc)) => Some([%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc)))
                 }
-                ]),
-                ...args
-              ])
+              ]
             }
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
-              loop(res, [
-                ("", [%expr
+                [%expr
                 switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
                   | None => failwith("Expected a " ++ [%e strExp(name)])
                   | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
                 }
-                ]),
-                ...args
-              ])
+              ]
             }
             | [({txt}, PStr([str]))] when startsWith(txt, "node.") => {
               let name = strString(str);
               let label = String.sub(txt, 5, String.length(txt) - 5);
-              loop(res, [
-                ("", [%expr
+                [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
                   | None => failwith("Expected a " ++ [%e strExp(name)])
                   | Some(((_, sub), children, loc)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc))
                 }
-                ]),
-                ...args
-              ])
+              ]
             }
             | [({txt}, PStr([str]))] when startsWith(txt, "nodes.") => {
               let name = strString(str);
               let label = String.sub(txt, 6, String.length(txt) - 6);
-              loop(res, [
-                ("", [%expr
+                [%expr
                   ResultUtils.getNodesByLabel(children, [%e strExp(label)], [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))])
-                ]),
-                ...args
-              ])
+              ]
             }
             | [({txt: "nodes"}, PStr([str]))] => {
               let name = strString(str);
-              loop(res, [
-                ("", [%expr
+                [%expr
                 ResultUtils.getNodesByType(children, [%e strExp(name)],
                 [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))])
-                ]),
-                ...args
-              ])
+              ]
             }
             | [({txt: "texts"}, PStr([str]))] => {
               let name = strString(str);
-              loop(res, [
-                ("", [%expr
+                [%expr
                 ResultUtils.getLeafsByType(children, [%e strExp(name)])
-                ]),
-                ...args
-              ])
+              ]
             }
             | _ => switch (pattern.ppat_desc) {
               | Ppat_construct({txt: Lident("()")}, _)
-              | Ppat_any => loop(res, [
-                ("", [%expr ()]),
-                ...args,
-              ])
+              | Ppat_any => [%expr ()]
               | _ => fail(pattern.ppat_loc, "Arguments must be annotated to indicate how to fulfill the values")
             }
-          }
-        }
+          };
+        };
+        let (expr, _) = loop(res, [("", arg), ...args]);
+        (Ast_helper.Exp.let_(Nonrecursive, [Ast_helper.Vb.mk(pattern, arg)], expr), [])
       }
-      | _ => args
+      | _ => (expr, args)
     }
   };
-  let args = loop(fn, []) |> List.rev;
-  Ast_helper.Exp.apply(fn, args)
+  let (expr, args) = loop(fn, []);
+  /* let args = args |> List.rev;
+  Ast_helper.Exp.apply(fn, args) */
+  expr
 };
 
 let maybeConvertChoice = choice => switch (choice.pexp_desc) {

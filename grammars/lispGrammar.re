@@ -134,12 +134,12 @@ module DSL = PackTypes.DSL;
 [%%rules [
   (
     "no_args",
-    {|longCap|},
-    (~loc, [@node "longCap"]lident) => H.Type.constructor(~loc, lident)
+    {|capIdent|},
+    (~loc, [@text "capIdent"](text, tloc)) => H.Type.constructor(~loc, Location.mkloc(text, tloc))
   ), (
     "args",
-    {|"("& longCap CoreType+ &")"|},
-    (~loc, [@node "longCap"]lident, [@nodes "CoreType"]args) => H.Type.constructor(~loc, ~args, lident)
+    {|"("& capIdent CoreType+ &")"|},
+    (~loc, [@text "capIdent"](text, tloc), [@nodes "CoreType"]args) => H.Type.constructor(~loc, ~args, Location.mkloc(text, tloc))
   )
 ]];
 
