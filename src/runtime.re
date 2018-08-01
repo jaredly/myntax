@@ -85,8 +85,8 @@ let posForLoc = i => {
   {
     Lexing.pos_cnum: i,
     pos_lnum: lno,
-    /* pos_bol: bol, */
-    pos_bol: 0,
+    pos_bol: bol,
+    /* pos_bol: 0, */
     pos_fname: fname^
   }
 };
@@ -447,9 +447,10 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
     | [] => ((-1), emptyResult(i, rulename, isLexical), prevErrors)
     | [(sub_name, comment, rs), ...otherChoices] =>
       let rec loop = (i, items, path, loopIndex, isNegated) => {
-        /* If in a NonLexical context, skip whitespace before trying to match a rule */
+        /* If in a NonLexical context, skip whitespace before trying to match a rule
+         * Unless there are no more items. */
         let (i, items) =
-          if (isLexical) {
+          if (isLexical || items == []) {
             (i, items)
           } else {
             switch items {
