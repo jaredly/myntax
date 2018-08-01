@@ -181,12 +181,12 @@ let rec expressionSequence = exprs => switch exprs {
     "array_index",
     {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
     (~loc, [@node.index "Expression"]index, [@node.array "Expression"]array) =>
-      H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Ldot(Lident("Array"), "get"), loc)), [("", index)])
+      H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Ldot(Lident("Array"), "get"), loc)), [("", array), ("", index)])
   ),
   (
     "js_object_attribute",
-    {|"("& [attr]string [object]Expression &")"|},
-    () => failwith("not impl js_obj")
+    {|"("& string Expression &")"|},
+    (~loc, [@text "string"](attr, aloc), [@node "Expression"]object_) => H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Lident("##"), loc)), [("", object_), ("", H.Exp.ident(~loc=aloc, Location.mkloc(Lident(processString(attr)), aloc)))])
   ),
   (
     "record_attribute",
@@ -254,12 +254,17 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "switch",
     {|Switch|},
-    () => failwith("not impl switch")
+    ([@node "Switch"]s) => s
   ),
   (
     "constructor",
     {|"("& longCap Expression+ &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
+  ),
+  (
+    "empty_constr",
+    {|longCap|},
+    (~loc, [@node "longCap"]ident) => H.Exp.construct(ident, None)
   ),
   (
     "tuple",
@@ -273,6 +278,11 @@ let rec expressionSequence = exprs => switch exprs {
   ),
   (
     "array_literal",
+    {|"[|"& [items]Expression* &"|]"|},
+    (~loc, [@nodes.items "Expression"]items) => H.Exp.array(~loc, items)
+  ),
+  (
+    "list_literal",
     {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
     (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(items, spread, H.Exp.construct, H.Exp.tuple)
   ),
@@ -280,11 +290,6 @@ let rec expressionSequence = exprs => switch exprs {
     "object_literal",
     {|"{"& ("..."& Expression)? ObjectItem+ &"}"|},
     (~loc, [@node_opt "Expression"]spread, [@nodes "ObjectItem"]items) => H.Exp.record(items, spread)
-  ),
-  (
-    "empty_constr",
-    {|longCap|},
-    () => failwith("not impl empt")
   ),
   (
     "ident",
@@ -328,26 +333,24 @@ let rec expressionSequence = exprs => switch exprs {
 ]];
 
 [@name "Switch"]
-[%%rule {|"("& "switch" [target]Expression SwitchBody &")"|}];
+[%%rule (
+  {|"("& "switch" Expression SwitchBody &")"|},
+  (~loc, [@node "Expression"]expr, [@nodes "SwitchCase"]cases) => H.Exp.match(expr, cases)
+)];
 
 [@ignoreNewlines]
-[@name "SwitchBody"][%%rule "SwitchCase+"];
+[@name "SwitchBody"][%%passThroughRule "SwitchCase+"];
 
-[@name "SwitchCase"][%%rule "SwitchCond Expression"];
+[@name "SwitchCase"]
+[%%rule ("SwitchCond Expression", (~loc, [@node "SwitchCond"](pat, guard), [@node "Expression"]expr) => {
+  H.Exp.case(pat, ~guard?, expr)
+})];
 
 [@name "SwitchCond"]
-[%%rules [
-  (
-    "when",
-    {|Pattern "when" Expression|},
-    () => failwith("not impl when"),
-  ),
-  (
-    "plain",
-    {|Pattern|},
-    () => failwith("not impl plain"),
-  ),
-]];
+[%%rule (
+  {|Pattern ("when" Expression)?|},
+  (~loc, [@node "Pattern"]pattern, [@node_opt "Expression"]guard) => (pattern, guard)
+)];
 
 [@name "ThreadItem"]
 [%%rules [
@@ -498,13 +501,13 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   ),
   (
     "tuple",
-    {|"("& "," [item]Pattern* &")"|},
-    () => failwith("not impl tuple"),
+    {|"("& "," Pattern* &")"|},
+    (~loc, [@nodes "Pattern"]patterns) => H.Pat.tuple(~loc, patterns)
   ),
   (
     "constructor",
-    {|"("& [constr]longCap [args]Pattern+ &")"|},
-    () => failwith("not impl constructor"),
+    {|"("& longCap Pattern+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Pattern"]args) => H.Pat.construct(~loc, ident, Some(H.Pat.tuple(args)))
   ),
   (
     "object",
@@ -514,7 +517,14 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   (
     "or",
     {|"(|"& Pattern+ &")"|},
-    () => failwith("not impl or"),
+    (~loc, [@nodes "Pattern"]opts) => {
+      let rec loop = opts => switch opts {
+        | [] => assert(false)
+        | [one] => one
+        | [one, ...rest] => H.Pat.or_(~loc, one, loop(rest))
+      };
+      loop(opts)
+    }
   ),
 ]];
 
@@ -661,7 +671,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   {|"?"|},
   {|"@"|},
   {|"^"|},
-  {|"|"|},
+  {|"|" ~"]"|},
   {|"~"|},
 ]];
 

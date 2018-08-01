@@ -1,6 +1,5 @@
 
 ; ocaml, lisp style
-
 (def words ["Hello world"])
 
 (print_endline (String.concat " " (List.map String.uppercase words)))
@@ -35,6 +34,13 @@
   (List.map string_of_int)
   (String.concat ", ")
   print_endline)
+
+(print_endline ([0] [|"Hello"|]))
+(print_endline ("name" (Obj.magic Array.get)))
+
+(def res (switch 3
+  4 2
+  x (- x 2)))
 
 (def-rec
   isOdd (=> n (if (<= 1 n) (= n 1) (isEven (- n 1))))
