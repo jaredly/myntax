@@ -50,7 +50,7 @@ let (command, grammarFile, input) =
   | _ => failwith("Usage: [command=debug] grammarfile inputfile")
   };
 
-let (result, raw) = getResult(LispGrammar.grammar, input);
+let (result, raw) = getResult(LispGrammar.grammar, getContents(input));
 
 switch command {
 | Debug => printImpl(LispGrammar.convert_Start(result))
