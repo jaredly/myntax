@@ -11,19 +11,21 @@ let out_binary = (ast: Parsetree.structure, input_name) => {
   output_value(stdout, ast)
 };
 
-let printImpl = (implementation) => Printast.implementation(Format.std_formatter, implementation);
-let pprintImpl = (implementation) => Pprintast.structure(Format.std_formatter, implementation);
-
-let getResult = (grammar, contents) => {
+let getResult = (grammar, entry, contents) => {
   let start = Unix.gettimeofday();
-  switch (Runtime.parse(grammar, "Start", contents)) {
+  switch (Runtime.parse(grammar, entry, contents)) {
   | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(10)
-  | PackTypes.Result.Success(Node((_, sub), children, loc)) => ((sub, children, loc), Unix.gettimeofday() -. start)
-  | PackTypes.Result.Success(Leaf(_)) => assert(false)
+  | PackTypes.Result.Success(Node((_, sub), children, loc)) => {
+    print_endline(PackTypes.Result.showLoc(loc));
+    ((sub, children, loc), Unix.gettimeofday() -. start)
+  }
+  | PackTypes.Result.Success(Leaf(_)) => failwith("parse should not be a leaf")
   }
 };
+
+Printexc.record_backtrace(true);
 
 type printType =
   | Bin
@@ -32,10 +34,10 @@ type printType =
   | Ml
   ;
 
-let (command, grammarFile, input) =
+let (command, input) =
   switch Sysop.argv {
-  | [|_, "pretty", grammarFile, input, output|] => (Pretty(output), grammarFile, input)
-  | [|_, command, grammarFile, input|] => (
+  | [|_, "pretty", input, output|] => (Pretty(output), input)
+  | [|_, command, input|] => (
       switch command {
       | "bin" => Bin
       | "ml" => Ml
@@ -43,19 +45,22 @@ let (command, grammarFile, input) =
       | "pretty" => Pretty("-")
       | _ => failwith("Invalid command")
       },
-      grammarFile,
       input
     )
-  | [|_, grammarFile, input|] => (Debug, grammarFile, input)
+  | [|_, input|] => (Debug, input)
   | _ => failwith("Usage: [command=debug] grammarfile inputfile")
   };
 
-let (result, raw) = getResult(LispGrammar.grammar, getContents(input));
+let (result, raw) = getResult(LispGrammar.grammar, "Start", getContents(input));
+let converted = LispGrammar.convert_Start(result);
+print_endline(string_of_int(List.length(converted)));
 
-switch command {
-| Debug => printImpl(LispGrammar.convert_Start(result))
-| Ml => pprintImpl(LispGrammar.convert_Start(result))
-| Bin => out_binary(LispGrammar.convert_Start(result), input)
+Printast.implementation(Format.std_formatter, converted);
+
+/* switch command {
+| Debug => Printast.implementation(Format.std_formatter, converted)
+| Ml =>    Pprintast.structure(Format.std_formatter, converted)
+| Bin =>   out_binary(converted, input)
 | Pretty(dest) =>
   switch (PrettyPrint.startToString(LispGrammar.grammar, result)) {
   | Some(x) =>
@@ -65,5 +70,5 @@ switch command {
     }
   | None => failwith("Failed to pretty print :(")
   }
-};
+}; */
 

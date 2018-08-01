@@ -5,9 +5,10 @@
   "scripts": {
     "start": "bsb -make-world -backend native -w",
     "clean": "bsb -clean-world",
-    "lisp": "./lib/bs/native/lisp.native bin parsable/lisp parsable/test/minimal.rel > out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl out.bin && node out.js",
-    "ml": "./lib/bs/native/lisp.native ml parsable/lisp parsable/test/minimal.rel",
-    "debug": "./lib/bs/native/lisp.native debug parsable/lisp parsable/test/minimal.rel",
-    "pretty": "./lib/bs/native/lisp.native pretty parsable/lisp parsable/test/minimal.rel"
+    "lisp": "./lib/bs/native/lisp.native bin parsable/test/minimal.rel > out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl out.bin && node out.js",
+    "ml": "./lib/bs/native/lisp.native ml parsable/test/minimal.rel",
+    "mll": "./lib/bs/native/refmt.native ml-lisp parsable/lisp parsable/test/minimal.rel",
+    "debug": "./lib/bs/native/lisp.native debug parsable/test/minimal.rel",
+    "pretty": "./lib/bs/native/lisp.native pretty parsable/test/minimal.rel"
   }
 }

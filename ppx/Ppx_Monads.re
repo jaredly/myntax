@@ -104,6 +104,18 @@ let converterExpr = (fn) => {
                 ...args
               ])
             }
+            | [({txt: "node_opt"}, PStr([str]))] => {
+              let name = strString(str);
+              loop(res, [
+                ("", [%expr
+                switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
+                  | None => None
+                  | Some(node) => Some([%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node))
+                }
+                ]),
+                ...args
+              ])
+            }
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
               loop(res, [

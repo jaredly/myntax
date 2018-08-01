@@ -14,11 +14,11 @@ module DSL = PackTypes.DSL;
 [@name "Start"]
 [%%rule (
   "ModuleBody",
-  ([@nodes "Structure"]structures) => structures
+  ([@node "ModuleBody"]s) => s
 )];
 
 [@name "ModuleBody"]
-[%%passThroughRule "Structure+"];
+[%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
 [@name "Structure"]
 [%%rules [
@@ -31,7 +31,7 @@ module DSL = PackTypes.DSL;
       expr
     )),
   ),
-  ( "open", {|open longCap|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
+  ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
@@ -45,16 +45,8 @@ module DSL = PackTypes.DSL;
     {|"("& "=>" "[" "]" Structure* &")"|},
     () => failwith("not impl")
   ),
-  (
-    "structure",
-    {|"("& "str" Structure* &")"|},
-    () => failwith("not impl")
-  ),
-  (
-    "ident",
-    {|longCap|},
-    () => failwith("not impl")
-  ),
+  ("structure", {|"("& "str" Structure* &")"|}, (~loc, [@nodes "Structure"]items) => H.Mod.mk(~loc, Pmod_structure(items))),
+  ("ident", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Mod.mk(~loc, Pmod_ident(ident))),
   (
     "functor_call",
     {|"("& longCap ModuleExpr+ &")"|},
@@ -64,7 +56,7 @@ module DSL = PackTypes.DSL;
 
 [@name "LetPair"]
 [%%rule (
-  {|Pattern Expressoin|},
+  {|Pattern Expression|},
   ([@node "Pattern"]pattern, [@node "Expression"]expr) => H.Vb.mk(pattern, expr)
 )];
 
@@ -72,32 +64,21 @@ module DSL = PackTypes.DSL;
 [%%rule (
   {|TypeName TypeKind|},
   (~loc, [@node "TypeName"](name, vbls), [@node "TypeKind"]kind) => {
-    H.Type.mk(
-      ~loc,
-      ~params=vbls,
-      ~kind,
-      name,
-    )
+    H.Type.mk(~loc, ~params=vbls, ~kind, name)
   },
 )];
 
 [@name "TypeName"]
 [%%rules [
   (
-    "vbl",
-    {|"("& lowerIdent typeVariable+ &")"|},
+    "vbl", {|"("& lowerIdent typeVariable+ &")"|},
     (~loc, [@text "lowerIdent"](name, loc), [@texts "typeVariable"]vbls) => (
       Location.mkloc(name, loc),
       vbls |> List.map(((name, loc)) => (H.Typ.var(~loc, name), Invariant)),
     )
   ),
   (
-    "plain",
-    {|lowerIdent|},
-    (~loc, [@text "lowerIdent"](name, loc)) => (
-      Location.mkloc(name, loc),
-      []
-    )
+    "plain", {|lowerIdent|}, (~loc, [@text "lowerIdent"](name, loc)) => (Location.mkloc(name, loc), [])
   )
 ]];
 
@@ -164,17 +145,17 @@ module DSL = PackTypes.DSL;
   (
     "constr_no_args",
     {|longIdent|},
-    () => failwith("ct")
+    (~loc, [@node "longIdent"]ident) => H.Typ.constr(~loc, ident, [])
   ),
   (
     "variable",
     {|typeVariable|},
-    () => failwith("ct")
+    ([@text "typeVariable"](name, loc)) => H.Typ.var(~loc, name)
   ),
   (
     "constructor",
     {|"("& longIdent CoreType+ &")"|},
-    () => failwith("ct")
+    (~loc, [@node "longIdent"]ident, [@nodes "CoreType"]args) => H.Typ.constr(~loc, ident, args)
   ),
 ]];
 
@@ -258,8 +239,8 @@ module DSL = PackTypes.DSL;
   ),
   (
     "fn_call",
-    {|"("& [fn]Expression FnCallArg+ &")"|},
-    () => failwith("not impl")
+    {|"("& Expression FnCallArg+ &")"|},
+    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => H.Exp.apply(~loc, fn, args)
   ),
   (
     "array_literal",
@@ -289,12 +270,12 @@ module DSL = PackTypes.DSL;
   (
     "op",
     {|operator|},
-    () => failwith("not impl")
+    ([@text "operator"](op, loc)) => H.Exp.ident(Location.mkloc(Lident(op), loc))
   ),
   (
     "const",
     {|constant|},
-    () => failwith("not impl")
+    ([@node "constant"]c) => H.Exp.constant(c)
   ),
 ]];
 
@@ -312,7 +293,7 @@ module DSL = PackTypes.DSL;
   (
     "expr",
     {|Expression|},
-    () => failwith("not impl expr"),
+    ([@node "Expression"]exp) => ("", exp)
   ),
 ]];
 
@@ -522,10 +503,16 @@ module DSL = PackTypes.DSL;
 [@name "attribute"][%%rule {|':' longIdent|}];
 [@name "shortAttribute"][%%rule {|':' lowerIdent|}];
 
-[@name "longIdent"][%%rule {|(longCap_ ".")? lowerIdent|}];
+[@name "longIdent"][%%rule (
+  {|(longCap_ ".")? lowerIdent|},
+  (~loc, [@node_opt "longCap_"]base, [@text "lowerIdent"](text, _)) => switch base {
+    | None => Location.mkloc(Lident(text), loc)
+    | Some((base, loc)) => Location.mkloc(Ldot(base, text), loc)
+  }
+)];
 [@name "longCap"][%%rule (
   {|longCap_ ~"."|},
-  ([@node "longCap_"]l) => l
+  ([@node "longCap_"](l, loc)) => Location.mkloc(l, loc)
 )];
 
 [@name "longCap_"]
@@ -533,36 +520,21 @@ module DSL = PackTypes.DSL;
   (
     "dot",
     {|longCap_ "." capIdent|},
-    () => failwith("not impl dot"),
+    (~loc, [@node "longCap_"](base, _), [@text "capIdent"](text, _)) => (Ldot(base, text), loc)
   ),
   (
     "lident",
     {|capIdent|},
-    () => failwith("not impl lident"),
+    ([@text "capIdent"](text, loc)) => (Lident(text), loc)
   ),
 ]];
 
 [@name "constant"]
 [%%rules [
-  (
-    "float",
-    {|[val]float|},
-    () => failwith("not impl float"),
-  ),
-  (
-    "int",
-    {|[val]int64|},
-    () => failwith("not impl int"),
-  ),
-  (
-    "string",
-    {|[val]string|},
-    () => failwith("not impl string"),
-  ),
-  (
-    "char",
-    {|[val]char|},
-    () => failwith("not impl char"),
+  ("float", {|[val]float|}, ([@text "float"](t, _)) => Const_float(t)),
+  ("int", {|[val]int64|}, ([@text "int64"](t, _)) => Const_int(int_of_string(t))),
+  ("string", {|[val]string|}, ([@text "string"](t, _)) => Const_string(t, None)),
+  ("char", {|[val]char|}, ([@text "char"](t, _)) => Const_char(t.[0]) /* TODO fixx */
   ),
 ]];
 
