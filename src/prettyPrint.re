@@ -421,3 +421,8 @@ let toString = (~maxWidth=50, grammar: grammar, result) =>
     )
   | None => None
   };
+
+let startToString = (~maxWidth=50, grammar, (sub, children, loc)) => {
+  let node = Node(("Start", sub), children, loc);
+  toString(~maxWidth, grammar, node)
+};

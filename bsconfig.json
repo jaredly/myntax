@@ -29,6 +29,9 @@
     "main-module": "Refmt"
   }, {
     "backend": "native",
+    "main-module": "Lisp"
+  }, {
+    "backend": "native",
     "main-module": "Pack"
   }],
   "refmt": 3

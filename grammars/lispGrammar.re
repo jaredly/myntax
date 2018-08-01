@@ -22,27 +22,17 @@ module DSL = PackTypes.DSL;
 
 [@name "Structure"]
 [%%rules [
-  ("let", {|"("& "def" LetPair &")"|},
-    (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])
-  ),
-  ( "let_rec", {|"("& "def-rec" LetPair+ &")"|},
-    (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)
-  ),
-  ( "type", {|"("& "type" TypeBody &")"|},
-    (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),
-  ),
+  ("let", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
+  ( "let_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
+  ( "type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
   ( "module", {|"("& "module" capIdent ModuleExpr &")"|},
     (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
       Location.mkloc(name, nameLoc),
       expr
     )),
   ),
-  ( "open", {|open longCap|},
-    (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))
-  ),
-  ( "eval", "Expression",
-    (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr)
-  )
+  ( "open", {|open longCap|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
+  ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
 [@name "TypeBody"]
@@ -587,7 +577,7 @@ module DSL = PackTypes.DSL;
 ]];
 
 
-[@leaf] [@name "int64"][%%rule {|}] digit+ ~identchar|}];
+[@leaf] [@name "int64"][%%rule {|digit+ ~identchar|}];
 [@leaf] [@name "float"][%%rule {|digit+ '.' digit+|}];
 [@leaf] [@name "string"][%%rule {|"\"" strchar* "\""|}];
 
