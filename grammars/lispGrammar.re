@@ -8,7 +8,7 @@ module DSL = PackTypes.DSL;
 [@lineComment ";"];
 [@blockComment ("(**", "*)")];
 
-[@name "Start"]
+/* [@name "Start"]
 [%%rule (
   "ModuleBody",
   ([@nodes "Structure"]structures) => structures
@@ -106,7 +106,7 @@ module DSL = PackTypes.DSL;
       []
     )
   )
-]];
+]]; */
 
 
 /*

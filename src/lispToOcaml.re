@@ -28,7 +28,7 @@ let loc = H.default_loc^;
 
 let str = H.Str.eval(H.Exp.array([]));
 
-type loc = (int, int);
+type loc = PackTypes.Result.loc;
 
 type fromOcaml = {
   fromStructure: (fromOcaml, structure_item) => result,
@@ -441,8 +441,9 @@ let parsingPos = (offset, bols) => {
 };
 
 let lexingPos = (fname, offset, bols) => {
-  let (lno, bol) = parsingPos(offset, bols);
-  {Lexing.pos_lnum: lno, pos_bol: bol, pos_cnum: offset, pos_fname: fname}
+  /* let (lno, bol) = parsingPos(offset, bols); */
+  /* {Lexing.pos_lnum: lno, pos_bol: bol, pos_cnum: offset, pos_fname: fname} */
+  offset
 };
 
 let convert = (result, fname, text) => {

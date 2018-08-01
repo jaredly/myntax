@@ -42,8 +42,6 @@ let show_ansorlr = (message, ansor) =>
 
 exception Found(ans);
 
-let emptyResult = (pos, name, isLexical) => (R.Leaf((name, ""), "", (pos, pos)), false);
-
 type state = {
   mutable lrstack: list(lr),
   memo: Hashtbl.t((StringSet.elt, int), memoentry),
@@ -52,6 +50,29 @@ type state = {
   len: int,
   input: string
 };
+
+/* let pos = ref((0, 0)); */
+let lno = ref(0);
+let bols = ref([0]);
+let fname = ref("- no file -");
+
+let incLine = bol => {
+  bols := [bol, ...bols^];
+  lno := lno^ + 1;
+};
+
+let posForLoc = i => {
+  let bols = bols^;
+  let lno = lno^;
+  let rec loop = (lno, bols) => switch bols {
+    | [] => (0, 0)
+    | [a, ...rest] => i > a ? (lno, a) : loop(lno - 1, rest)
+  };
+  let (lno, bol) = loop(lno, bols);
+  {Lexing.pos_cnum: i, pos_lnum: lno, pos_bol: bol, pos_fname: fname^}
+};
+
+let emptyResult = (pos, name, isLexical) => (R.Leaf((name, ""), "", (posForLoc(pos), posForLoc(pos))), false);
 
 let unwrap = (opt) =>
   switch opt {
@@ -68,7 +89,10 @@ let rec skipWhite = (i, text, len, ignoreNewlines) =>
     switch text.[i] {
     | ' ' => skipWhite(i + 1, text, len, ignoreNewlines)
     | '\t' => skipWhite(i + 1, text, len, ignoreNewlines)
-    | '\n' when ignoreNewlines => skipWhite(i + 1, text, len, ignoreNewlines)
+    | '\n' when ignoreNewlines => {
+      incLine(i + 1);
+      skipWhite(i + 1, text, len, ignoreNewlines)
+    }
     | _ => i
     }
   };
@@ -77,7 +101,11 @@ let skipALineComment = (i, start, text, len) => {
   let sl = String.length(start);
   /* TODO maybe iterate? */
   if (sl + i < len && String.sub(text, i, sl) == start) {
-    try (String.index_from(text, i, '\n')) {
+    try ({
+      let l = String.index_from(text, i, '\n');
+      incLine(l);
+      l
+    }) {
     | Not_found => len /* go to end */
     }
   } else {
@@ -516,7 +544,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
               let children =
                 switch label {
                 | Some(x) => [
-                    (x, R.Leaf(("", target_string), target_string, (i, i + slen))),
+                    (x, R.Leaf(("", target_string), target_string, (posForLoc(i), posForLoc(i + slen)))),
                     ...children
                   ]
                 | None => children
@@ -534,7 +562,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
             let contents = String.sub(state.input, i, 1);
             let children =
               switch label {
-              | Some(x) => [(x, R.Leaf(("", contents), contents, (i, i + 1))), ...children]
+              | Some(x) => [(x, R.Leaf(("", contents), contents, (posForLoc(i), posForLoc(i + 1)))), ...children]
               | None => children
               };
             (i'', children, err)
@@ -557,7 +585,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
             let contents = String.sub(state.input, i, 1);
             let children =
               switch label {
-              | Some(x) => [(x, R.Leaf(("", contents), contents, (i, i + 1))), ...children]
+              | Some(x) => [(x, R.Leaf(("", contents), contents, (posForLoc(i), posForLoc(i + 1)))), ...children]
               | None => children
               };
             (i'', children, errs)
@@ -602,7 +630,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
       if (i' >= i) {
         /* Printf.eprintf "<final>\n"; */
         let name = (rulename, sub_name);
-        let loc = (i, i');
+        let loc = (posForLoc(i), posForLoc(i'));
         let result = (
           leaf ?
             R.Leaf(name, String.sub(state.input, i, i' - i), loc) : R.Node(name, children, loc),

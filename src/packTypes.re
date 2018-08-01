@@ -169,7 +169,7 @@ module Result = {
   [@deriving (yojson, show)]
   type rule = (string, string);
   [@deriving (yojson, show)]
-  type loc = (int, int);
+  type loc = (Lexing.position, Lexing.position);
   [@deriving (yojson, show)]
   type result =
     | Leaf(rule, string, loc)

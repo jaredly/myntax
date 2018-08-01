@@ -21,13 +21,12 @@ let loc = H.default_loc^;
 
 let str = H.Str.eval(H.Exp.array([]));
 
-type loc = (int, int);
-
 type fromOcaml = {
   fromStructure: (fromOcaml, structure_item) => result,
   fromExpression: (fromOcaml, expression) => result
 };
 
+type loc = PackTypes.Result.loc;
 type toOcaml = {
   expression: (toOcaml, (string, list((string, result)), loc)) => expression,
   structure: (toOcaml, (string, list((string, result)), loc)) => structure_item
@@ -41,7 +40,7 @@ let optOr = (orr, opt) =>
 
 let stripRuleName = (((name, sub), children, loc)) => (sub, children, loc);
 
-let mLoc = (0, 0);
+let mLoc = (Lexing.dummy_pos, Lexing.dummy_pos);
 
 let mLeaf = Leaf(("", ""), "", mLoc);
 
@@ -1406,5 +1405,5 @@ let convertFrom = (structures) =>
   Node(
     ("Start", ""),
     List.map(labeled("", fromOcaml.fromStructure(fromOcaml)), structures),
-    (0, 0)
+    (Lexing.dummy_pos, Lexing.dummy_pos)
   );
