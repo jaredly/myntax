@@ -1,0 +1,18 @@
+(module Dogs
+  (str
+    (type dog {:name string :age float})
+    (def fluff {:name "Fluff" :age 0.4})
+    (def humanAge (=> [{:age}]
+      (int_of_float (*. age 7.0))))
+    ) )
+
+(+ 2 3 A.B.c)
+
+(let [a 2] a)
+[2 3 4]
+(def words ["Hello world"])
+(print_endline (String.concat " " (List.map String.uppercase words)))
+
+
+
+2

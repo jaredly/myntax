@@ -1,0 +1,38 @@
+{
+  "name": "myntax",
+  "bsc-flags": "-g",
+  "ocaml-flags": ["-g", "-bin-annot"],
+  "warnings": {
+    "number": "-40-6+7-26-27-32..39-28-44-45",
+    "error": "+8"
+  },
+  "sources": [
+    {"dir": "src", "subdirs": true},
+    {"dir": "bin"},
+    {"dir": "grammars",
+      // "ppx": ["Ppx_Monads"],
+    },
+    {"dir": "ppx", "type": "ppx"}
+  ],
+  "ppx-flags": ["Ppx_Monads"],
+  "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
+  // "public": ["Main"],
+  "entries": [{
+  //   "backend": "native",
+  //   "main-module": "Run"
+  // }, {
+    "backend": "native",
+    "type": "ppx",
+    "main-module": "Ppx_Monads"
+  }, {
+    "backend": "native",
+    "main-module": "Refmt"
+  }, {
+    "backend": "native",
+    "main-module": "Lisp"
+  }, {
+    "backend": "native",
+    "main-module": "Pack"
+  }],
+  "refmt": 3
+}

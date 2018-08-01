@@ -1,0 +1,54 @@
+(+ 2 3)
+
+(let hello 2)
+
+(** this is a comment
+and it can do what it want's *)
+
+(let awesome (do (+ 3 4) (log 3))) ; hello folks
+
+(:get thing)
+
+; (let fixit [~one ~two ~three=3 ~four as (, one two)] 23 )
+(let fixit (=> [~one ~two ~three=3 ~four as
+(, one two this is long) [first  ...rest]] 23 ))
+
+(fixit ~one="hello" ~two ~three)
+
+(type
+    awesome int
+    other {:hello awesome :name string :punned :age int}
+    thing Some None (Constr awesome other)
+    )
+
+(->> pass
+ (Constr one)
+ :it
+ :other)
+
+(switch thing
+ (| 1 2) 3
+ (Some x) x
+ (Some "hello") 45
+ None 2
+ _ 234)
+
+(let parseBlock (=> [toOcaml (, sub children loc)]
+  (open H.Exp
+  (let [oloc (ocamlLoc loc)]
+    (loop [children children]
+      (switch children
+      [] (ident (Location.mkloc (Lident "()") oloc))
+      [(, _ (Leaf _)) ...rest] (recur rest)
+      [(, _ (Node (, "Statement" "expr") children _)) ...rest]
+        (H.Exp.sequence (getExpression toOcaml children) (recur rest))
+      [(, _ (Node (, "Statement" "value") children _)) ...rest]
+        (let [
+          isRec (Ru.getPresenceByLabel children "rec")
+          bindings (Ru.getNodesByType children "ValueBinding" (parseBinding toOcaml))
+        ] (H.Exp.let_ (? isRec Recursive Nonrecursive) bindings (recur rest)))
+      _ (failwith "Unknown statement")
+      ))
+    ))
+  )
+)
