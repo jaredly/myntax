@@ -1,6 +1,9 @@
 
 open Asttypes;
 open Parsetree;
+
+open Longident;
+
 module H = Ast_helper;
 
 module DSL = PackTypes.DSL;
@@ -50,22 +53,22 @@ module DSL = PackTypes.DSL;
   (
     "arrow",
     {|"("& "=>" "[" "]" Structure* &")"|},
-    () => ()
+    () => failwith("not impl")
   ),
   (
     "structure",
     {|"("& "str" Structure* &")"|},
-    () => ()
+    () => failwith("not impl")
   ),
   (
     "ident",
     {|longCap|},
-    () => ()
+    () => failwith("not impl")
   ),
   (
     "functor_call",
     {|"("& longCap ModuleExpr+ &")"|},
-    () => ()
+    () => failwith("not impl")
   )
 ]];
 
@@ -77,8 +80,8 @@ module DSL = PackTypes.DSL;
 
 [@name "TypePair"]
 [%%rule (
-  {|TypeName TypeDecl|},
-  (~loc, [@node "TypeName"](name, vbls), [@node "TypeDecl"]kind) => {
+  {|TypeName TypeKind|},
+  (~loc, [@node "TypeName"](name, vbls), [@node "TypeKind"]kind) => {
     H.Type.mk(
       ~loc,
       ~params=vbls,
@@ -115,18 +118,15 @@ module DSL = PackTypes.DSL;
     "record",
     {|"{"& TypeObjectItem+ &"}"|},
     (~loc, [@nodes "TypeObjectItem"]items) =>
-      Ptype_record(
-        RU.getNodesByType(children, "TypeObjectItem", ((sub, children, loc)) => {
-        })
-      )
+      Ptype_record(items)
   ), (
     "constructors",
     {|TypeConstructor+|},
-    () => ()
+    () => failwith("a")
   ), (
     "alias",
     {|CoreType|},
-    () => ()
+    () => failwith("a")
   )
 ]]
 
@@ -144,7 +144,7 @@ module DSL = PackTypes.DSL;
     (~loc, [@node "shortAttribute"](name, nameLoc)) => {
       H.Type.field(~loc,
         Location.mkloc(name, nameLoc),
-        H.Typ.constr(~loc=nameLoc, Location.mkloc(Lident(name), toOcaml.toLoc(nameLoc)), [])
+        H.Typ.constr(~loc=nameLoc, Location.mkloc(Lident(name), nameLoc), [])
       )
     }
   )
@@ -174,17 +174,17 @@ module DSL = PackTypes.DSL;
   (
     "constr_no_args",
     {|longIdent|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "variable",
     {|typeVariable|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "constructor",
     {|"("& longIdent CoreType+ &")"|},
-    () => ()
+    () => failwith("ct")
   ),
 ]];
 
@@ -198,37 +198,37 @@ module DSL = PackTypes.DSL;
   (
     "array_index",
     {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "js_object_attribute",
     {|"("& [attr]string [object]Expression &")"|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "record_attribute",
     {|"("& attribute Expression &")"|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "let",
     {|"("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "open",
     {|"("& "open" ModuleExpr Expression+ &")"|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "open",
     {|"("& "if" [test]Expression [yes]Expression [no]Expression &")"|},
-    () => ()
+    () => failwith("ct")
   ),
   (
     "module",
     {|"("& "module" capIdent ModuleExpr Expression+ &")"|},
-    () => ()
+    () => failwith("ct")
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
   (
@@ -533,7 +533,10 @@ module DSL = PackTypes.DSL;
 [@name "shortAttribute"][%%rule {|':' lowerIdent|}];
 
 [@name "longIdent"][%%rule {|(longCap_ ".")? lowerIdent|}];
-[@name "longCap"][%%rule {|longCap_ ~"."|}];
+[@name "longCap"][%%rule (
+  {|longCap_ ~"."|},
+  ([@node "longCap_"]l) => l
+)];
 
 [@name "longCap_"]
 [%%rules [
