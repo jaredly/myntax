@@ -198,6 +198,12 @@ let rec expressionSequence = exprs => switch exprs {
     (~loc, [@text "string"](attr, aloc), [@node "Expression"]object_) => H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Lident("##"), loc)), [("", object_), ("", H.Exp.ident(~loc=aloc, Location.mkloc(Lident(processString(attr)), aloc)))])
   ),
   (
+    "setField",
+    {|"("& "<-" attribute [target]Expression [value]Expression &")"|},
+    (~loc, [@node "attribute"]attribute, [@node.target "Expression"]target, [@node.value "Expression"]value) =>
+      H.Exp.setfield(~loc, target, attribute, value)
+  ),
+  (
     "record_attribute",
     {|"("& attribute Expression &")"|},
     (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => H.Exp.field(~loc, expr, attr)
@@ -206,7 +212,27 @@ let rec expressionSequence = exprs => switch exprs {
     "let",
     {|"("& "let" "["& ValueBinding+ &"]" Expression+ &")"|},
     (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
-      H.Exp.let_(Nonrecursive, bindings, expressionSequence(contents))
+      H.Exp.let_(~loc, Nonrecursive, bindings, expressionSequence(contents))
+  ),
+  (
+    "do",
+    {|"("& "do" Expression* &")"|},
+    (~loc, [@nodes "Expression"]exprs) => expressionSequence(exprs)
+  ),
+  (
+    "assert",
+    {|"("& "assert" Expression &")"|},
+    (~loc, [@node "Expression"]expr) => H.Exp.assert_(~loc, expr)
+  ),
+  (
+    "lazy",
+    {|"("& "lazy" Expression &")"|},
+    (~loc, [@node "Expression"]expr) => H.Exp.lazy_(~loc, expr)
+  ),
+  (
+    "constraint",
+    {|"("& ":" Expression CoreType &")"|},
+    (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
   ),
   (
     "open",
@@ -219,8 +245,13 @@ let rec expressionSequence = exprs => switch exprs {
     (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
   ),
   (
+    "module_pack",
+    {|"("& "module" ModuleExpr &")"|},
+    (~loc, [@node "ModuleExpr"]modexp) => H.Exp.pack(~loc, modexp)
+  ),
+  (
     "module",
-    {|"("& "module" capIdent ModuleExpr Expression+ &")"|},
+    {|"("& "module" capIdent ModuleExpr Expression* &")"|},
     (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
@@ -275,6 +306,11 @@ let rec expressionSequence = exprs => switch exprs {
     ([@node "Switch"]s) => s
   ),
   (
+    "try",
+    {|"("& "try" [target]Expression SwitchCase+ &")"|},
+    (~loc, [@node "Expression"]target, [@nodes "SwitchCase"]cases) => H.Exp.try_(~loc, target, cases)
+  ),
+  (
     "constructor",
     {|"("& longCap Expression+ &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
@@ -283,6 +319,16 @@ let rec expressionSequence = exprs => switch exprs {
     "empty_constr",
     {|longCap|},
     (~loc, [@node "longCap"]ident) => H.Exp.construct(ident, None)
+  ),
+  (
+    "constructor_poly",
+    {|"("& polyIdent Expression+ &")"|},
+    (~loc, [@node "polyIdent"]ident, [@nodes "Expression"]exprs) => H.Exp.variant(~loc, ident.txt, Some(H.Exp.tuple(exprs)))
+  ),
+  (
+    "empty_poly",
+    {|polyIdent|},
+    (~loc, [@node "polyIdent"]ident) => H.Exp.variant(~loc, ident.txt, None)
   ),
   (
     "tuple",
@@ -351,10 +397,15 @@ let rec expressionSequence = exprs => switch exprs {
 ]];
 
 [@name "Switch"]
-[%%rule (
+[%%rules [(
+  "switch",
   {|"("& "switch" Expression SwitchBody &")"|},
-  (~loc, [@node "Expression"]expr, [@nodes "SwitchCase"]cases) => H.Exp.match(expr, cases)
-)];
+  (~loc, [@node "Expression"]expr, [@nodes "SwitchCase"]cases) => H.Exp.match(~loc, expr, cases)
+), (
+  "switch_function",
+  {|"("& "switch" "_" SwitchBody &")"|},
+  (~loc, [@nodes "SwitchCase"]cases) => H.Exp.function_(~loc, cases)
+)]];
 
 [@ignoreNewlines]
 [@name "SwitchBody"][%%passThroughRule "SwitchCase+"];
@@ -618,6 +669,8 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   ("char", {|[val]char|}, ([@text "char"](t, _)) => Const_char(t.[0]) /* TODO fixx */
   ),
 ]];
+
+[@name "polyIdent"][%%rule ("'`' capIdent", ([@text "capIdent"](name, loc)) => Location.mkloc(name, loc))];
 
 [@leaf] [@name "capIdent"][%%rule {|~(reserved ~identchar) 'A..Z' identchar*|}];
 [@leaf] [@name "lowerIdent"][%%rule {|~(reserved ~identchar) 'a..z' identchar*|}];

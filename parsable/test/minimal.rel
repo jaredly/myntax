@@ -31,6 +31,9 @@
 (def ages (List.map :age [me olderMe you]))
 (def ages [(Dogs.humanAge Dogs.fluff) ...ages])
 
+(def aref (ref "10"))
+(<- :contents aref "30")
+
 ; of course we need the threading operators
 (->> ages
   (List.map string_of_int)
