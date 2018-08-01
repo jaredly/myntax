@@ -329,14 +329,10 @@ module DSL = PackTypes.DSL;
 [@name "Switch"]
 [%%rule {|"("& "switch" [target]Expression SwitchBody &")"|}];
 
-/*
+[@ignoreNewlines]
+[@name "SwitchBody"][%%rule "SwitchCase+"];
 
-
-
-@ignoreNewlines
-SwitchBody = SwitchCase+
-
-SwitchCase = SwitchCond Expression
+[@name "SwitchCase"][%%rule "SwitchCond Expression"];
 
 [@name "SwitchCond"]
 [%%rules [
@@ -350,155 +346,318 @@ SwitchCase = SwitchCond Expression
     {|Pattern|},
     () => failwith("not impl plain"),
   ),
-]]
+]];
 
-ThreadItem =
-| attribute -- attribute
-| longIdent -- ident
-| longCap -- emptyconstr
-| "("& [constr]longCap [args]Expression+ &")" -- constructor
-| "("& [fn]Expression [args]Expression+ &")" -- fn_call
+[@name "ThreadItem"]
+[%%rules [
+  (
+    "attribute",
+    {|attribute|},
+    () => failwith("not impl attribute"),
+  ),
+  (
+    "ident",
+    {|longIdent|},
+    () => failwith("not impl ident"),
+  ),
+  (
+    "emptyconstr",
+    {|longCap|},
+    () => failwith("not impl emptyconstr"),
+  ),
+  (
+    "constructor",
+    {|"("& [constr]longCap [args]Expression+ &")"|},
+    () => failwith("not impl constructor"),
+  ),
+  (
+    "fn_call",
+    {|"("& [fn]Expression [args]Expression+ &")"|},
+    () => failwith("not impl fn_call"),
+  ),
+]];
 
-ObjectItem =
-| attribute Expression -- normal
-| attribute -- punned
+[@name "ObjectItem"]
+[%%rules [
+  (
+    "normal",
+    {|attribute Expression|},
+    () => failwith("not impl normal"),
+  ),
+  (
+    "punned",
+    {|attribute|},
+    () => failwith("not impl punned"),
+  ),
+]];
 
-Arrow = "("& "=>" FnArgs Expression* &")"
+[@name "Arrow"][%%rule {|"("& "=>" FnArgs Expression* &")"|}];
 
-FnArgs =
-| lowerIdent -- single
-| "()" -- unit
-| "_" -- ignored
-| "["& FnArgItems &"]" -- multiple
+[@name "FnArgs"]
+[%%rules [
+  (
+    "single",
+    {|lowerIdent|},
+    () => failwith("not impl single"),
+  ),
+  (
+    "unit",
+    {|"()"|},
+    () => failwith("not impl unit"),
+  ),
+  (
+    "ignored",
+    {|"_"|},
+    () => failwith("not impl ignored"),
+  ),
+  (
+    "multiple",
+    {|"["& FnArgItems &"]"|},
+    () => failwith("not impl multiple"),
+  ),
+]];
 
-@ignoreNewlines
-@passThrough
-FnArgItems = FnArg+
+[@ignoreNewlines]
+[@name "FnArgItems"]
+[%%passThroughRule "FnArg+"];
 
-@ignoreNewlines
-FnArg =
-| argLabel "as" Pattern -- destructured
-| argLabel &"=?" -- optional
-| argLabel &"="& Expression -- defaulted
-| argLabel -- labeled
-| Pattern -- unlabeled
+[@ignoreNewlines]
+[@name "FnArg"]
+[%%rules [
+  (
+    "destructured",
+    {|argLabel "as" Pattern|},
+    () => failwith("not impl destructured"),
+  ),
+  (
+    "optional",
+    {|argLabel &"=?"|},
+    () => failwith("not impl optional"),
+  ),
+  (
+    "defaulted",
+    {|argLabel &"="& Expression|},
+    () => failwith("not impl defaulted"),
+  ),
+  (
+    "labeled",
+    {|argLabel|},
+    () => failwith("not impl labeled"),
+  ),
+  (
+    "unlabeled",
+    {|Pattern|},
+    () => failwith("not impl unlabeled"),
+  ),
+]];
 
-@ignoreNewlines
-Pattern =
-| lowerIdent -- ident
-| longCap -- empty_constr
-| constant
-| "()" -- unit
-| "_" -- ignored
-| "["& [item]Pattern* ("..."& [spread]Pattern)? &"]" -- array
-| "("& "," [item]Pattern* &")" -- tuple
-| "("& [constr]longCap [args]Pattern+ &")" -- constructor
-| "{"& PatternObjectItem+ &"}" -- object
-| "(|"& Pattern+ &")" -- or
 
-PatternObjectItem =
-| attribute Pattern -- normal
-| attribute -- punned
+[@ignoreNewlines]
+[@name "Pattern"]
+[%%rules [
+  (
+    "ident",
+    {|lowerIdent|},
+    () => failwith("not impl ident"),
+  ),
+  (
+    "empty_constr",
+    {|longCap|},
+    () => failwith("not impl empty_constr"),
+  ),
+  (
+    "constant",
+    {|constant|},
+    () => failwith("not impl constant"),
+  ),
+  (
+    "unit",
+    {|"()"|},
+    () => failwith("not impl unit"),
+  ),
+  (
+    "ignored",
+    {|"_"|},
+    () => failwith("not impl ignored"),
+  ),
+  (
+    "array",
+    {|"["& [item]Pattern* ("..."& [spread]Pattern)? &"]"|},
+    () => failwith("not impl array"),
+  ),
+  (
+    "tuple",
+    {|"("& "," [item]Pattern* &")"|},
+    () => failwith("not impl tuple"),
+  ),
+  (
+    "constructor",
+    {|"("& [constr]longCap [args]Pattern+ &")"|},
+    () => failwith("not impl constructor"),
+  ),
+  (
+    "object",
+    {|"{"& PatternObjectItem+ &"}"|},
+    () => failwith("not impl object"),
+  ),
+  (
+    "or",
+    {|"(|"& Pattern+ &")"|},
+    () => failwith("not impl or"),
+  ),
+]];
 
-@leaf
-argLabel = '~' lowerIdent
+[@name "PatternObjectItem"]
+[%%rules [
+  (
+    "normal",
+    {|attribute Pattern|},
+    () => failwith("not impl normal"),
+  ),
+  (
+    "punned",
+    {|attribute|},
+    () => failwith("not impl punned"),
+  ),
+]];
 
-@passThrough
-Parened = "("& Expression & ")"
+[@leaf]
+[@name "argLabel"]
+[%%rule "'~' lowerIdent"];
 
-attribute = ':' longIdent
-shortAttribute = ':' lowerIdent
+[@passThrough]
+[@name "Parened"]
+[%%rule {|"("& Expression & ")"|}];
 
-longIdent = (longCap_ ".")? lowerIdent
-longCap = longCap_ ~"."
+[@name "attribute"][%%rule {|':' longIdent|}];
+[@name "shortAttribute"][%%rule {|':' lowerIdent|}];
 
-longCap_ =
-  | longCap_ "." capIdent -- dot
-  | capIdent -- lident
+[@name "longIdent"][%%rule {|(longCap_ ".")? lowerIdent|}];
+[@name "longCap"][%%rule {|longCap_ ~"."|}];
 
-constant =
-  | [val]float -- float
-  | [val]int64 -- int
-  | [val]string -- string
-  | [val]char -- char
+[@name "longCap_"]
+[%%rules [
+  (
+    "dot",
+    {|longCap_ "." capIdent|},
+    () => failwith("not impl dot"),
+  ),
+  (
+    "lident",
+    {|capIdent|},
+    () => failwith("not impl lident"),
+  ),
+]];
 
-@leaf
-capIdent = ~(reserved ~identchar) 'A..Z' identchar*
-@leaf
-lowerIdent = ~(reserved ~identchar) 'a..z' identchar*
+[@name "constant"]
+[%%rules [
+  (
+    "float",
+    {|[val]float|},
+    () => failwith("not impl float"),
+  ),
+  (
+    "int",
+    {|[val]int64|},
+    () => failwith("not impl int"),
+  ),
+  (
+    "string",
+    {|[val]string|},
+    () => failwith("not impl string"),
+  ),
+  (
+    "char",
+    {|[val]char|},
+    () => failwith("not impl char"),
+  ),
+]];
 
-identchar =
-  | alpha
-  | digit
-  | "_"
+[@leaf] [@name "capIdent"][%%rule {|~(reserved ~identchar) 'A..Z' identchar*|}];
+[@leaf] [@name "lowerIdent"][%%rule {|~(reserved ~identchar) 'a..z' identchar*|}];
 
-@leaf
-int64 =  digit+ ~identchar
+[@name "identchar"]
+[%%rules [
+  "alpha",
+  "digit",
+  {|"_"|},
+]];
 
-@leaf
-float = digit+ '.' digit+
 
-@leaf
-string = "\"" strchar* "\""
-strchar =
-  | "\\" any
-  | ~"\"" ~"\n" ~"\\" any
+[@leaf] [@name "int64"][%%rule {|}] digit+ ~identchar|}];
+[@leaf] [@name "float"][%%rule {|digit+ '.' digit+|}];
+[@leaf] [@name "string"][%%rule {|"\"" strchar* "\""|}];
 
-@leaf
-char = "'" charchar "'"
-charchar =
-  | "\\" any
-  | ~"'" ~"\n" ~"\\" any
+[@name "strchar"]
+[%%rules [
+  {|"\\" any|},
+  {|~"\"" ~"\n" ~"\\" any|}
+]];
 
-reserved =
-  | "fun"
-  | "let"
-  | "and"
-  | "as"
-  | "type"
-  | "switch"
-  | "exception"
-  | "of"
-  | "module"
-  | "rec"
-  | "open"
-  | "import"
-  | "try"
-  | "catch"
-  | "from"
+[@leaf] [@name "char"][%%rule {|"'" charchar "'"|}];
 
-alpha =
-  | 'a..z'
-  | 'A..Z'
-digit = '0..9'
+[@name "charchar"]
+[%%rules [
+  {|"\\" any|},
+  {|~"'" ~"\n" ~"\\" any|}
+]];
 
-@leaf
-operator = ~reservedOps opChar+ ~identchar
+[@name "reserved"]
+[%%rules [
+  {|"fun"|},
+  {|"let"|},
+  {|"and"|},
+  {|"as"|},
+  {|"type"|},
+  {|"switch"|},
+  {|"exception"|},
+  {|"of"|},
+  {|"module"|},
+  {|"rec"|},
+  {|"open"|},
+  {|"import"|},
+  {|"try"|},
+  {|"catch"|},
+  {|"from"|}
+]];
 
-reservedOps =
-| "=>"
-| "..."
+[@name "alpha"]
+[%%rules [
+  {|'a..z'|},
+  {|'A..Z'|},
+]];
 
-opChar =
-  |"!"
-  |"$"
-  |"%"
-  |"&"
-  |"*"
-  |"+"
-  |"-"
-  |"."
-  |"/"
-  ;|":"
-  |"<"
-  |"="
-  |">"
-  |"?"
-  |"@"
-  |"^"
-  |"|"
-  |"~"
- */
+[@name "digit"][%%rule {|'0..9'|}];
+
+[@leaf] [@name "operator"][%%rule {|~reservedOps opChar+ ~identchar|}];
+
+[@name "reservedOps"]
+[%%rules [
+  {|"=>"|},
+  {|"..."|},
+]];
+
+[@name "opChar"]
+[%%rules [
+  {|"!"|},
+  {|"$"|},
+  {|"%"|},
+  {|"&"|},
+  {|"*"|},
+  {|"+"|},
+  {|"-"|},
+  {|"."|},
+  {|"/"|},
+  /* {|":"|}, */
+  {|"<"|},
+  {|"="|},
+  {|">"|},
+  {|"?"|},
+  {|"@"|},
+  {|"^"|},
+  {|"|"|},
+  {|"~"|},
+]];
 
 
 

@@ -257,6 +257,9 @@ let mapper = _argv =>
                       fnCall
                     ), ...cases])
                   }
+                  | Pexp_constant(Const_string(contents, _)) => {
+                    ([%expr [("", "", [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
+                  }
                   | _ => fail(expr.pexp_loc, "Invalid rule item")
                 }
               });
