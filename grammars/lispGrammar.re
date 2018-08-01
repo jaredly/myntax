@@ -200,54 +200,54 @@ let rec expressionSequence = exprs => switch exprs {
   ),
   (
     "open",
-    {|"("& "open" ModuleExpr Expression+ &")"|},
-    () => failwith("ct")
+    {|"("& "open" longCap Expression+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
   ),
   (
     "open",
-    {|"("& "if" [test]Expression [yes]Expression [no]Expression &")"|},
-    () => failwith("ct")
+    {|"("& "if" [test]Expression [yes]Expression [no]Expression? &")"|},
+    (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
   ),
   (
     "module",
     {|"("& "module" capIdent ModuleExpr Expression+ &")"|},
-    () => failwith("ct")
+    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
   (
     "loop_recur",
     {|"("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
-    () => failwith("not impl")
+    () => failwith("not impl loop")
   ),
   (
     "arrow",
     {|Arrow|},
-    () => failwith("not impl")
+    ([@node "Arrow"]arrow) => arrow
   ),
   (
     "threading_last",
     {|"("& "->>" [target]Expression ThreadItem+ &")"|},
-    () => failwith("not impl")
+    () => failwith("not impl threadd")
   ),
   (
     "threading",
     {|"("& "->" [target]Expression ThreadItem+ &")"|},
-    () => failwith("not impl")
+    () => failwith("not impl thre")
   ),
   (
     "switch",
     {|Switch|},
-    () => failwith("not impl")
+    () => failwith("not impl switch")
   ),
   (
     "constructor",
-    {|"("& [constr]longCap [args]Expression+ &")"|},
-    () => failwith("not impl")
+    {|"("& [constr]longCap Expression+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
   ),
   (
     "tuple",
-    {|"("& "," [args]Expression+ &")"|},
-    () => failwith("not impl")
+    {|"("& "," Expression+ &")"|},
+    (~loc, [@nodes "Expression"]exprs) => H.Exp.tuple(~loc, exprs)
   ),
   (
     "fn_call",
@@ -262,12 +262,12 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "object_literal",
     {|"{"& ("..."& [spread]Expression)? ObjectItem+ &"}"|},
-    () => failwith("not impl")
+    () => failwith("not impl obj")
   ),
   (
     "empty_constr",
     {|longCap|},
-    () => failwith("not impl")
+    () => failwith("not impl empt")
   ),
   (
     "ident",
@@ -277,7 +277,7 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "attribute",
     {|attribute|},
-    () => failwith("not impl")
+    () => failwith("not impl attr")
   ),
   (
     "op",
@@ -375,29 +375,38 @@ let rec expressionSequence = exprs => switch exprs {
   ),
 ]];
 
-[@name "Arrow"][%%rule {|"("& "=>" FnArgs Expression* &")"|}];
+[@name "Arrow"][%%rule (
+  {|"("& "=>" FnArgs Expression* &")"|},
+  (~loc, [@node "FnArgs"]args, [@nodes "Expression"]exprs) => {
+    let rec loop = args => switch args {
+      | [] => expressionSequence(exprs)
+      | [(label, expr, pat), ...rest] => H.Exp.fun_(~loc=pat.ppat_loc, label, expr, pat, loop(rest))
+    };
+    loop(args)
+  }
+)];
 
 [@name "FnArgs"]
 [%%rules [
   (
     "single",
     {|lowerIdent|},
-    () => failwith("not impl single"),
+    ([@text "lowerIdent"](text, loc)) => [("", None, H.Pat.var(Location.mkloc(text, loc)))]
   ),
   (
     "unit",
     {|"()"|},
-    () => failwith("not impl unit"),
+    (~loc) => [("", None, H.Pat.var(Location.mkloc("()", loc)))]
   ),
   (
     "ignored",
     {|"_"|},
-    () => failwith("not impl ignored"),
+    (~loc) => [("", None, H.Pat.any(~loc, ()))]
   ),
   (
     "multiple",
     {|"["& FnArgItems &"]"|},
-    () => failwith("not impl multiple"),
+    (~loc, [@nodes "FnArg"]args) => args
   ),
 ]];
 
@@ -411,27 +420,27 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "destructured",
     {|argLabel "as" Pattern|},
-    () => failwith("not impl destructured"),
+    (~loc, [@node "argLabel"]label, [@node "Pattern"]pattern) => (label.txt, None, pattern)
   ),
   (
     "optional",
     {|argLabel &"=?"|},
-    () => failwith("not impl optional"),
+    (~loc, [@node "argLabel"]label) => ("?" ++ label.txt, None, H.Pat.var(label))
   ),
   (
     "defaulted",
     {|argLabel &"="& Expression|},
-    () => failwith("not impl defaulted"),
+    (~loc, [@node "argLabel"]label, [@node "Expression"]expr) => (label.txt, Some(expr), H.Pat.var(label))
   ),
   (
     "labeled",
     {|argLabel|},
-    () => failwith("not impl labeled"),
+    (~loc, [@node "argLabel"]label) => (label.txt, None, H.Pat.var(label))
   ),
   (
     "unlabeled",
     {|Pattern|},
-    () => failwith("not impl unlabeled"),
+    (~loc, [@node "Pattern"]pattern) => ("", None, pattern)
   ),
 ]];
 
@@ -506,9 +515,8 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   ),
 ]];
 
-[@leaf]
 [@name "argLabel"]
-[%%rule "'~' lowerIdent"];
+[%%rule ("'~' lowerIdent", ([@text "lowerIdent"](text, loc)) => Location.mkloc(text, loc))];
 
 [@passThrough]
 [@name "Parened"]

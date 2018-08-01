@@ -120,12 +120,10 @@ let converterExpr = (fn) => {
             }
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
-                [%expr
-                switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
-                  | None => failwith("Expected a " ++ [%e strExp(name)])
-                  | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
-                }
-              ]
+              [%expr switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
+                | None => failwith("Expected a " ++ [%e strExp(name)])
+                | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
+              }]
             }
             | [({txt}, PStr([str]))] when startsWith(txt, "node.") => {
               let name = strString(str);
@@ -164,8 +162,13 @@ let converterExpr = (fn) => {
             }
           };
         };
+        let ploc = switch (pattern.ppat_attributes) {
+          | [({loc}, _)] => loc
+          | _ => pattern.ppat_loc
+        };
         let (expr, _) = loop(res, [("", arg), ...args]);
-        (Ast_helper.Exp.let_(Nonrecursive, [Ast_helper.Vb.mk(pattern, arg)], expr), [])
+        let arg = {...arg, pexp_loc: ploc};
+        (Ast_helper.Exp.let_(~loc=ploc, Nonrecursive, [Ast_helper.Vb.mk(~loc=ploc, pattern, arg)], expr), [])
       }
       | _ => (expr, args)
     }
