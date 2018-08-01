@@ -18,7 +18,7 @@ let getResult = (grammar, entry, contents) => {
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(10)
   | PackTypes.Result.Success(Node((_, sub), children, loc)) => {
-    print_endline(PackTypes.Result.showLoc(loc));
+    /* print_endline(PackTypes.Result.showLoc(loc)); */
     ((sub, children, loc), Unix.gettimeofday() -. start)
   }
   | PackTypes.Result.Success(Leaf(_)) => failwith("parse should not be a leaf")
@@ -53,11 +53,11 @@ let (command, input) =
 
 let (result, raw) = getResult(LispGrammar.grammar, "Start", getContents(input));
 let converted = LispGrammar.convert_Start(result);
-print_endline(string_of_int(List.length(converted)));
+/* print_endline(string_of_int(List.length(converted))); */
 
-Printast.implementation(Format.std_formatter, converted);
+/* Printast.implementation(Format.std_formatter, converted); */
 
-/* switch command {
+switch command {
 | Debug => Printast.implementation(Format.std_formatter, converted)
 | Ml =>    Pprintast.structure(Format.std_formatter, converted)
 | Bin =>   out_binary(converted, input)
@@ -70,5 +70,5 @@ Printast.implementation(Format.std_formatter, converted);
     }
   | None => failwith("Failed to pretty print :(")
   }
-}; */
+};
 

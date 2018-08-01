@@ -118,7 +118,7 @@ let converterExpr = (fn) => {
             }
             | [({txt}, PStr([str]))] when startsWith(txt, "node_opt.") => {
               let name = strString(str);
-              let label = String.sub(txt, 5, String.length(txt) - 5);
+              let label = String.sub(txt, 9, String.length(txt) - 9);
               loop(res, [
                 ("", [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
@@ -156,7 +156,7 @@ let converterExpr = (fn) => {
             }
             | [({txt}, PStr([str]))] when startsWith(txt, "nodes.") => {
               let name = strString(str);
-              let label = String.sub(txt, 5, String.length(txt) - 5);
+              let label = String.sub(txt, 6, String.length(txt) - 6);
               loop(res, [
                 ("", [%expr
                   ResultUtils.getNodesByLabel(children, [%e strExp(label)], [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))])

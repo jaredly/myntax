@@ -14,12 +14,13 @@ module DSL = PackTypes.DSL;
 [@name "Start"]
 [%%rule (
   "ModuleBody",
-  ([@node "ModuleBody"]s) => s
+  ([@node "ModuleBody"]body) => body
 )];
 
 [@name "ModuleBody"]
 [%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
+[@ignoreNewlines]
 [@name "Structure"]
 [%%rules [
   ("let", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
@@ -64,7 +65,10 @@ module DSL = PackTypes.DSL;
 [%%rule (
   {|TypeName TypeKind|},
   (~loc, [@node "TypeName"](name, vbls), [@node "TypeKind"]kind) => {
-    H.Type.mk(~loc, ~params=vbls, ~kind, name)
+    switch kind {
+      | `Kind(kind) => H.Type.mk(~loc, ~params=vbls, ~kind, name)
+      | `Manifest(manifest) => H.Type.mk(~loc, ~params=vbls, ~manifest, name)
+    }
   },
 )];
 
@@ -88,16 +92,15 @@ module DSL = PackTypes.DSL;
   (
     "record",
     {|"{"& TypeObjectItem+ &"}"|},
-    (~loc, [@nodes "TypeObjectItem"]items) =>
-      Ptype_record(items)
+    (~loc, [@nodes "TypeObjectItem"]items) => `Kind(Ptype_record(items))
   ), (
     "constructors",
     {|TypeConstructor+|},
-    () => failwith("a")
+    (~loc, [@nodes "TypeConstructor"]decls) => `Kind(Ptype_variant(decls))
   ), (
     "alias",
     {|CoreType|},
-    () => failwith("a")
+    ([@node "CoreType"]t) => `Manifest(t)
   )
 ]]
 
@@ -132,11 +135,11 @@ module DSL = PackTypes.DSL;
   (
     "no_args",
     {|longCap|},
-    (~loc, [@node "longCap"]lident) => ()
+    (~loc, [@node "longCap"]lident) => H.Type.constructor(~loc, lident)
   ), (
     "args",
     {|"("& longCap CoreType+ &")"|},
-    (~loc, [@node "longCap"]lident, [@node "CoreType"]core) => ()
+    (~loc, [@node "longCap"]lident, [@nodes "CoreType"]args) => H.Type.constructor(~loc, ~args, lident)
   )
 ]];
 

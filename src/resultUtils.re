@@ -118,7 +118,7 @@ let getNodesByType = (children, needle, nodeMapper) =>
 let getNodesByLabel = (children, needle, nodeMapper) =>
   getChildren(
     children,
-    ((label, child)) =>
+    ((label, child)) => {
       if (label == needle) {
         switch child {
         | Node((name, sub), children, loc) => Some(nodeMapper((sub, children, loc)))
@@ -127,6 +127,7 @@ let getNodesByLabel = (children, needle, nodeMapper) =>
       } else {
         None
       }
+    }
   );
 
 let getNodeByLabel = (children, needle) =>
