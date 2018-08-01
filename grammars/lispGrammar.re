@@ -562,7 +562,10 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
     "ident", {|lowerIdent|}, (~loc, [@text "lowerIdent"](text, tloc)) => H.Pat.var(~loc, Location.mkloc(text, tloc))
   ),
   (
-    "empty_constr", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Pat.construct(~loc, ident, None)
+    "interval",
+    {|[f]constant ".." [s]constant|},
+    (~loc, [@node.f "constant"]f, [@node.s "constant"]s) =>
+      H.Pat.interval(~loc, f, s)
   ),
   (
     "constant",
@@ -580,6 +583,22 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
     "tuple",
     {|"("& "," Pattern* &")"|},
     (~loc, [@nodes "Pattern"]patterns) => H.Pat.tuple(~loc, patterns)
+  ),
+  (
+    "empty_constr", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Pat.construct(~loc, ident, None)
+  ),
+  (
+    "poly",
+    {|"("& polyIdent Pattern+ &")"|},
+    (~loc, [@node "polyIdent"]ident, [@nodes "Pattern"]args) => H.Pat.variant(~loc, ident.txt, Some(H.Pat.tuple(args)))
+  ),
+  (
+    "empty_poly", {|polyIdent|}, (~loc, [@node "polyIdent"]ident) => H.Pat.variant(~loc, ident.txt, None)
+  ),
+  (
+    "exception",
+    {|"("& "exception" Pattern &")"|},
+    (~loc, [@node "Pattern"]arg) => H.Pat.exception_(arg)
   ),
   (
     "constructor",
