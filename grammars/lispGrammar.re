@@ -260,7 +260,7 @@ module DSL = PackTypes.DSL;
   (
     "ident",
     {|longIdent|},
-    () => failwith("not impl")
+    (~loc, [@node "longIdent"]ident) => H.Exp.ident(~loc, ident)
   ),
   (
     "attribute",
