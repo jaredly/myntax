@@ -322,8 +322,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
       ~loc=oloc,
       parseConstant(RU.getNodeByType(children, "constant") |> unwrap))
     | "array_literal" =>
-      listToConstruct
-        (
+      listToConstruct(
           RU.getNodesByLabel(children, "items", toOcaml.expression(toOcaml)),
           RU.getNodeByLabel(children, "spread")
           |?>> stripRuleName

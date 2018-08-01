@@ -72,3 +72,5 @@ switch command {
   }
 };
 
+
+print_newline();

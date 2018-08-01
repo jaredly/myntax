@@ -121,7 +121,7 @@ let converterExpr = (fn) => {
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
               [%expr switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
-                | None => failwith("Expected a " ++ [%e strExp(name)])
+                | None => failwith("Expected a " ++ [%e strExp(name)] ++ " " ++ PackTypes.Result.showLoc(_loc))
                 | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
               }]
             }
@@ -130,7 +130,7 @@ let converterExpr = (fn) => {
               let label = String.sub(txt, 5, String.length(txt) - 5);
                 [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
-                  | None => failwith("Expected a " ++ [%e strExp(name)])
+                  | None => failwith("Expected a " ++ [%e strExp(name)] ++ " " ++ PackTypes.Result.showLoc(_loc))
                   | Some(((_, sub), children, loc)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc))
                 }
               ]
@@ -197,10 +197,10 @@ let mapper = _argv =>
               | None => fail(item.pstr_loc, "No name for rule")
               | Some(name) => name
             };
-            let passThrough = switch (attrBool(attributes, "passThrough")) {
+            let passThrough = txt == "passThroughRule"; /*switch (attrBool(attributes, "passThrough")) {
               | None => false
               | Some(n) => n
-            };
+            };*/
             let leaf = switch (attrBool(attributes, "leaf")) {
               | None => false
               | Some(n) => n

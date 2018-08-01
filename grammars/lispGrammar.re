@@ -41,11 +41,11 @@ module DSL = PackTypes.DSL;
 
 [@name "ModuleExpr"]
 [%%rules [
-  (
+  /* (
     "arrow",
     {|"("& "=>" "[" "]" Structure* &")"|},
     () => failwith("not impl")
-  ),
+  ), */
   ("structure", {|"("& "str" Structure* &")"|}, (~loc, [@nodes "Structure"]items) => H.Mod.mk(~loc, Pmod_structure(items))),
   ("ident", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Mod.mk(~loc, Pmod_ident(ident))),
   (
@@ -180,7 +180,8 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "array_index",
     {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
-    () => failwith("not impl array_index")
+    (~loc, [@node.index "Expression"]index, [@node.array "Expression"]array) =>
+      H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Ldot(Lident("Array"), "get"), loc)), [("", index)])
   ),
   (
     "js_object_attribute",
@@ -204,7 +205,7 @@ let rec expressionSequence = exprs => switch exprs {
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
   ),
   (
-    "open",
+    "if",
     {|"("& "if" [test]Expression [yes]Expression [no]Expression? &")"|},
     (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
   ),
@@ -226,13 +227,29 @@ let rec expressionSequence = exprs => switch exprs {
   ),
   (
     "threading_last",
-    {|"("& "->>" [target]Expression ThreadItem+ &")"|},
-    () => failwith("not impl threadd")
+    {|"("& "->>" Expression ThreadItem+ &")"|},
+    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
+      Belt.List.reduce(items, target, (target, (loc, item)) => {
+        switch item {
+          | `Attribute(attr) => H.Exp.field(~loc, target, attr)
+          | `Fn(fn, args) => H.Exp.apply(fn, args @ [("", target)])
+          | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple(args @ [target])))
+        }
+      })
+    }
   ),
   (
     "threading",
     {|"("& "->" [target]Expression ThreadItem+ &")"|},
-    () => failwith("not impl thre")
+    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
+      Belt.List.reduce(items, target, (target, (loc, item)) => {
+        switch item {
+          | `Attribute(attr) => H.Exp.field(~loc, target, attr)
+          | `Fn(fn, args) => H.Exp.apply(fn, [("", target), ...args])
+          | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple([target, ...args])))
+        }
+      })
+    }
   ),
   (
     "switch",
@@ -241,7 +258,7 @@ let rec expressionSequence = exprs => switch exprs {
   ),
   (
     "constructor",
-    {|"("& [constr]longCap Expression+ &")"|},
+    {|"("& longCap Expression+ &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
   ),
   (
@@ -261,8 +278,8 @@ let rec expressionSequence = exprs => switch exprs {
   ),
   (
     "object_literal",
-    {|"{"& ("..."& [spread]Expression)? ObjectItem+ &"}"|},
-    () => failwith("not impl obj")
+    {|"{"& ("..."& Expression)? ObjectItem+ &"}"|},
+    (~loc, [@node_opt "Expression"]spread, [@nodes "ObjectItem"]items) => H.Exp.record(items, spread)
   ),
   (
     "empty_constr",
@@ -277,7 +294,7 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "attribute",
     {|attribute|},
-    () => failwith("not impl attr")
+    (~loc, [@node "attribute"]attr) => H.Exp.fun_(~loc, "", None, H.Pat.var(Location.mkloc("x", loc)), H.Exp.field(H.Exp.ident(Location.mkloc(Lident("x"), loc)), attr))
   ),
   (
     "op",
@@ -296,12 +313,12 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "labeled",
     {|argLabel "=" Expression|},
-    () => failwith("not impl labeled"),
+    ([@node "argLabel"]label, [@node "Expression"]expr) => (label.txt, expr)
   ),
   (
     "punned",
     {|argLabel|},
-    () => failwith("not impl punned"),
+    ([@node "argLabel"]label) => (label.txt, H.Exp.ident(Location.mkloc(Lident(label.txt), label.loc)))
   ),
   (
     "expr",
@@ -337,27 +354,27 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "attribute",
     {|attribute|},
-    () => failwith("not impl attribute"),
+    (~loc, [@node "attribute"]attr) => (loc, `Attribute(attr))
   ),
   (
     "ident",
     {|longIdent|},
-    () => failwith("not impl ident"),
+    (~loc, [@node "longIdent"]ident) => (loc, `Fn(H.Exp.ident(~loc, ident), []))
   ),
   (
     "emptyconstr",
     {|longCap|},
-    () => failwith("not impl emptyconstr"),
+    (~loc, [@node "longCap"]ident) => (loc, `Construct(ident, []))
   ),
   (
     "constructor",
-    {|"("& [constr]longCap [args]Expression+ &")"|},
-    () => failwith("not impl constructor"),
+    {|"("& longCap Expression+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Expression"]args) => (loc, `Construct(ident, args))
   ),
   (
     "fn_call",
-    {|"("& [fn]Expression [args]Expression+ &")"|},
-    () => failwith("not impl fn_call"),
+    {|"("& [fn]Expression [args]FnCallArg+ &")"|},
+    (~loc, [@node.fn "Expression"]fn, [@nodes.args "FnCallArg"]args) => (loc, `Fn(fn, args))
   ),
 ]];
 
@@ -366,12 +383,12 @@ let rec expressionSequence = exprs => switch exprs {
   (
     "normal",
     {|attribute Expression|},
-    () => failwith("not impl normal"),
+    (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => (attr, expr)
   ),
   (
     "punned",
     {|attribute|},
-    () => failwith("not impl punned"),
+    (~loc, [@node "attribute"]attr) => (attr, H.Exp.ident(Location.mkloc(Lident(Longident.last(attr.txt)), attr.loc)))
   ),
 ]];
 
@@ -492,7 +509,7 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   (
     "object",
     {|"{"& PatternObjectItem+ &"}"|},
-    () => failwith("not impl object"),
+    (~loc, [@nodes "PatternObjectItem"]items) => H.Pat.record(~loc, items, Open)
   ),
   (
     "or",
@@ -506,12 +523,12 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   (
     "normal",
     {|attribute Pattern|},
-    () => failwith("not impl normal"),
+    (~loc, [@node "attribute"]attr, [@node "Pattern"]pattern) => (attr, pattern)
   ),
   (
     "punned",
     {|attribute|},
-    () => failwith("not impl punned"),
+    (~loc, [@node "attribute"]attr) => (attr, H.Pat.var(Location.mkloc(Longident.last(attr.txt), attr.loc)))
   ),
 ]];
 
@@ -551,11 +568,14 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   ),
 ]];
 
+let stripQuotes = (str) => String.sub(str, 1, String.length(str) - 2);
+let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
+
 [@name "constant"]
 [%%rules [
   ("float", {|[val]float|}, ([@text "float"](t, _)) => Const_float(t)),
   ("int", {|[val]int64|}, ([@text "int64"](t, _)) => Const_int(int_of_string(t))),
-  ("string", {|[val]string|}, ([@text "string"](t, _)) => Const_string(t, None)),
+  ("string", {|[val]string|}, ([@text "string"](t, _)) => Const_string(processString(t), None)),
   ("char", {|[val]char|}, ([@text "char"](t, _)) => Const_char(t.[0]) /* TODO fixx */
   ),
 ]];
@@ -569,7 +589,6 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   "digit",
   {|"_"|},
 ]];
-
 
 [@leaf] [@name "int64"][%%rule {|digit+ ~identchar|}];
 [@leaf] [@name "float"][%%rule {|digit+ '.' digit+|}];
