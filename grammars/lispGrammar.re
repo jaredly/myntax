@@ -163,28 +163,37 @@ module DSL = PackTypes.DSL;
 [@name "typeVariable"]
 [%%rule {|'\'' lowerIdent|}];
 
+[@name "ValueBinding"][%%rule ("Pattern Expression", (~loc, [@node "Pattern"]pat, [@node "Expression"]expr) => H.Vb.mk(~loc, pat, expr))]
+
+let rec expressionSequence = exprs => switch exprs {
+  | [] => H.Exp.construct(Location.mknoloc(Lident("()")), None)
+  | [one] => one
+  | [one, ...rest] => H.Exp.sequence(one, expressionSequence(rest))
+};
+
 [@ignoreNewlines]
 [@name "Expression"]
 [%%rules [
   (
     "array_index",
     {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
-    () => failwith("ct")
+    () => failwith("not impl array_index")
   ),
   (
     "js_object_attribute",
     {|"("& [attr]string [object]Expression &")"|},
-    () => failwith("ct")
+    () => failwith("not impl js_obj")
   ),
   (
     "record_attribute",
     {|"("& attribute Expression &")"|},
-    () => failwith("ct")
+    (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => H.Exp.field(~loc, expr, attr)
   ),
   (
     "let",
-    {|"("& "let" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
-    () => failwith("ct")
+    {|"("& "let" "["& ValueBinding+ &"]" Expression+ &")"|},
+    (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
+      H.Exp.let_(Nonrecursive, bindings, expressionSequence(contents))
   ),
   (
     "open",
@@ -245,7 +254,7 @@ module DSL = PackTypes.DSL;
   (
     "array_literal",
     {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
-    () => failwith("not impl")
+    (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(items, spread, H.Exp.construct, H.Exp.tuple)
   ),
   (
     "object_literal",
@@ -284,7 +293,8 @@ module DSL = PackTypes.DSL;
   (
     "labeled",
     {|argLabel "=" Expression|},
-    () => failwith("not impl labeled"),  ),
+    () => failwith("not impl labeled"),
+  ),
   (
     "punned",
     {|argLabel|},
@@ -422,39 +432,40 @@ module DSL = PackTypes.DSL;
   ),
 ]];
 
+let rec listToConstruct = (list, maybeRest, construct, tuple) =>
+  switch list {
+  | [] =>
+    switch maybeRest {
+    | None => construct(Location.mkloc(Lident("[]"), Location.none), None)
+    | Some(x) => x
+    }
+  | [one, ...rest] =>
+    construct(
+      Location.mkloc(Lident("::"), Location.none),
+      Some(tuple([one, listToConstruct(rest, maybeRest, construct, tuple)]))
+    )
+  };
 
 [@ignoreNewlines]
 [@name "Pattern"]
 [%%rules [
   (
-    "ident",
-    {|lowerIdent|},
-    () => failwith("not impl ident"),
+    "ident", {|lowerIdent|}, (~loc, [@text "lowerIdent"](text, tloc)) => H.Pat.var(~loc, Location.mkloc(text, tloc))
   ),
   (
-    "empty_constr",
-    {|longCap|},
-    () => failwith("not impl empty_constr"),
+    "empty_constr", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Pat.construct(~loc, ident, None)
   ),
   (
     "constant",
     {|constant|},
-    () => failwith("not impl constant"),
+    (~loc, [@node "constant"]const) => H.Pat.constant(~loc, const)
   ),
-  (
-    "unit",
-    {|"()"|},
-    () => failwith("not impl unit"),
-  ),
-  (
-    "ignored",
-    {|"_"|},
-    () => failwith("not impl ignored"),
-  ),
+  ("unit", {|"()"|}, (~loc) => H.Pat.construct(~loc, Location.mkloc(Lident("()"), loc), None)),
+  ("ignored", {|"_"|}, (~loc) => H.Pat.any(~loc, ())),
   (
     "array",
-    {|"["& [item]Pattern* ("..."& [spread]Pattern)? &"]"|},
-    () => failwith("not impl array"),
+    {|"["& [items]Pattern* ("..."& [spread]Pattern)? &"]"|},
+    (~loc, [@nodes.items "Pattern"]items, [@node_opt.spread "Pattern"]spread) => listToConstruct(items, spread, H.Pat.construct, H.Pat.tuple)
   ),
   (
     "tuple",
@@ -500,7 +511,7 @@ module DSL = PackTypes.DSL;
 [@name "Parened"]
 [%%rule {|"("& Expression & ")"|}];
 
-[@name "attribute"][%%rule {|':' longIdent|}];
+[@name "attribute"][%%rule ({|':' longIdent|}, ([@node "longIdent"]ident) => ident)];
 [@name "shortAttribute"][%%rule {|':' lowerIdent|}];
 
 [@name "longIdent"][%%rule (

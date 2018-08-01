@@ -116,6 +116,19 @@ let converterExpr = (fn) => {
                 ...args
               ])
             }
+            | [({txt}, PStr([str]))] when startsWith(txt, "node_opt.") => {
+              let name = strString(str);
+              let label = String.sub(txt, 5, String.length(txt) - 5);
+              loop(res, [
+                ("", [%expr
+                switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
+                  | None => None
+                  | Some(((_, sub), children, loc)) => Some([%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc)))
+                }
+                ]),
+                ...args
+              ])
+            }
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
               loop(res, [
@@ -137,6 +150,16 @@ let converterExpr = (fn) => {
                   | None => failwith("Expected a " ++ [%e strExp(name)])
                   | Some(((_, sub), children, loc)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc))
                 }
+                ]),
+                ...args
+              ])
+            }
+            | [({txt}, PStr([str]))] when startsWith(txt, "nodes.") => {
+              let name = strString(str);
+              let label = String.sub(txt, 5, String.length(txt) - 5);
+              loop(res, [
+                ("", [%expr
+                  ResultUtils.getNodesByLabel(children, [%e strExp(label)], [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))])
                 ]),
                 ...args
               ])
