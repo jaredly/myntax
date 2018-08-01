@@ -52,13 +52,26 @@ type state = {
 };
 
 /* let pos = ref((0, 0)); */
-let lno = ref(0);
+let lno = ref(1);
 let bols = ref([0]);
+let lastBol = ref(0);
 let fname = ref("- no file -");
 
+let startFile = (name) => {
+  fname := name;
+  lno := 1;
+  bols := [0];
+  lastBol := 0;
+};
+
 let incLine = bol => {
-  bols := [bol, ...bols^];
-  lno := lno^ + 1;
+  /* print_endline("Inc " ++ string_of_int(bol)); */
+  if (bol > lastBol^) {
+    bols := [bol, ...bols^];
+    lastBol := bol;
+    lno := lno^ + 1;
+    /* print_endline("New line number " ++ string_of_int(lno^)); */
+  }
 };
 
 let posForLoc = i => {
@@ -66,10 +79,16 @@ let posForLoc = i => {
   let lno = lno^;
   let rec loop = (lno, bols) => switch bols {
     | [] => (0, 0)
-    | [a, ...rest] => i > a ? (lno, a) : loop(lno - 1, rest)
+    | [a, ...rest] => i >= a ? (lno, a) : loop(lno - 1, rest)
   };
   let (lno, bol) = loop(lno, bols);
-  {Lexing.pos_cnum: i, pos_lnum: lno, pos_bol: bol, pos_fname: fname^}
+  {
+    Lexing.pos_cnum: i,
+    pos_lnum: lno,
+    /* pos_bol: bol, */
+    pos_bol: 0,
+    pos_fname: fname^
+  }
 };
 
 let emptyResult = (pos, name, isLexical) => (R.Leaf((name, ""), "", (posForLoc(pos), posForLoc(pos))), false);
@@ -103,7 +122,7 @@ let skipALineComment = (i, start, text, len) => {
   if (sl + i < len && String.sub(text, i, sl) == start) {
     try ({
       let l = String.index_from(text, i, '\n');
-      incLine(l);
+      incLine(l + 1);
       l
     }) {
     | Not_found => len /* go to end */
@@ -125,6 +144,9 @@ let skipABlockComment = (i, (first, last), text, len) => {
       } else if (text.[i] == fc && String.sub(text, i, ll) == last) {
         i + ll
       } else {
+        if (text.[i] == '\n') {
+          incLine(i + 1)
+        };
         loop(i + 1)
       };
     loop(i)
@@ -659,6 +681,7 @@ let initialState = (input) => {
 };
 
 let parse = (grammar: PackTypes.Parsing.grammar, start, input) => {
+  startFile("File name");
   let state = initialState(input);
   /* TODO ignoringNewlines should be configurable? */
   let (i, (result, _), errs) = apply_rule(grammar, state, start, 0, false, false, []);

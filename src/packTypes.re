@@ -174,6 +174,29 @@ module Result = {
   type result =
     | Leaf(rule, string, loc)
     | Node(rule, list((string, result)), loc) /* label, child */;
+
+  let white = n => {
+    let buffer = Buffer.create(n);
+    for (_ in 0 to n) {
+      Buffer.add_char(buffer, ' ');
+    };
+    Buffer.contents(buffer)
+  };
+  let showPos = ({Lexing.pos_lnum, pos_cnum, pos_bol}) => {
+    Printf.sprintf("%d:%d(%d)", pos_lnum, pos_cnum - pos_bol, pos_cnum)
+  };
+  let showLoc = ((st, en)) => {
+    showPos(st) ++ " - " ++ showPos(en)
+  };
+  let rec showNode = (label, node, indent) => switch node {
+    | Leaf((rule, sub), string, loc) => (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")" ++ ": " ++ String.escaped(string)
+    | Node((rule, sub), children, loc) =>
+      (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")"
+      ++ String.concat(
+        "\n",
+        List.map(((label, node)) => white(indent) ++ showNode(label, node, indent + 2), children)
+      )
+  };
   /* let resultTypeDescription rt => switch rt {
        | Terminal s => "Terminal(" ^ s ^ ")"
        | Lexical (name, sub, index) text passThrough => "Lexical(" ^ name ^ "," ^ text ^ "," ^ (string_of_int index) ^ ")"

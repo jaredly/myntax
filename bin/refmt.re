@@ -48,7 +48,7 @@ let num = switch res {
   | Node(("Start", sub), children, loc) => MathGrammar.convert_Start((sub, children, loc))
   | _ => assert(false)
 };
-print_endline(string_of_int(num));
+/* print_endline(string_of_int(num)); */
 
 let getResult = (grammarFile, input) => {
   let contents = getContents(input);
@@ -110,6 +110,7 @@ type printType =
   | Pretty(string)
   | Debug
   | DebugLisp
+  | MlLisp
   | BinLisp
   | Dump
   | RoundPretty
@@ -125,6 +126,7 @@ let (command, grammarFile, input) =
       | "dump" => Dump
       | "pretty" => Pretty("-")
       | "debug-lisp" => DebugLisp
+      | "ml-lisp" => MlLisp
       | "bin-lisp" => BinLisp
       | "round-pretty" => RoundPretty
       | "round-dump" => RoundDump
@@ -142,8 +144,8 @@ let (result, grammar, raw) = getResult(grammarFile, input);
 switch command {
 | Bin => out_binary(OcamlOfReason.convert(result), input)
 | Debug => printImpl(OcamlOfReason.convert(result))
-/* | DebugLisp => printImpl(LispToOcaml.convert(result)) */
-| DebugLisp => pprintImpl(LispToOcaml.convert(result, input, raw))
+| DebugLisp => printImpl(LispToOcaml.convert(result, input, raw))
+| MlLisp => pprintImpl(LispToOcaml.convert(result, input, raw))
 | BinLisp => out_binary(LispToOcaml.convert(result, input, raw), input)
 | Pretty(dest) =>
   /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
