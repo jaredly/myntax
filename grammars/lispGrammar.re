@@ -19,8 +19,10 @@ module H = Ast_helper;
 [@name "ModuleBody"]
 [%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
+/** Forms that are valid at the top level of a file or module */
 [@name "Structure"]
 [%%rules [
+  ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   /** Define a toplevel value. */
   ("def", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
   ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
@@ -31,13 +33,282 @@ module H = Ast_helper;
       expr
     )),
   ),
-  ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   ( "external", {|"("& "external" lowerIdent CoreType string+ &")"|}, 
     (~loc, [@text "lowerIdent"](text, tloc), [@node "CoreType"]typ, [@texts "string"]prim) =>
       H.Str.primitive(~loc, H.Val.mk(~loc, ~prim=List.map(fst, prim) |> List.map(processString), Location.mkloc(text, tloc), typ))
   ),
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
+
+[@ignoreNewlines]
+[@name "Expression"]
+[%%rules [
+  (
+    "ident",
+    {|longIdent|},
+    (~loc, [@node "longIdent"]ident) => H.Exp.ident(~loc, ident)
+  ),
+  (
+    "const",
+    {|constant|},
+    ([@node "constant"]c) => H.Exp.constant(c)
+  ),
+
+  (
+    "constructor",
+    {|"("& longCap Expression+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
+  ),
+  (
+    "empty_constr",
+    {|longCap|},
+    (~loc, [@node "longCap"]ident) => H.Exp.construct(ident, None)
+  ),
+  (
+    "constructor_poly",
+    {|"("& polyIdent Expression+ &")"|},
+    (~loc, [@node "polyIdent"]ident, [@nodes "Expression"]exprs) => H.Exp.variant(~loc, ident.txt, Some(H.Exp.tuple(exprs)))
+  ),
+  (
+    "empty_poly",
+    {|polyIdent|},
+    (~loc, [@node "polyIdent"]ident) => H.Exp.variant(~loc, ident.txt, None)
+  ),
+
+  (
+    "attribute",
+    {|attribute|},
+    (~loc, [@node "attribute"]attr) => H.Exp.fun_(~loc, "", None, H.Pat.var(Location.mkloc("x", loc)), H.Exp.field(H.Exp.ident(Location.mkloc(Lident("x"), loc)), attr))
+  ),
+  (
+    "op",
+    {|operator|},
+    ([@text "operator"](op, loc)) => H.Exp.ident(Location.mkloc(Lident(op), loc))
+  ),
+
+  (
+    "tuple",
+    {|"("& "," Expression+ &")"|},
+    (~loc, [@nodes "Expression"]exprs) => H.Exp.tuple(~loc, exprs)
+  ),
+  (
+    "fn_call",
+    {|"("& Expression FnCallArg+ &")"|},
+    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => H.Exp.apply(~loc, fn, args)
+  ),
+  (
+    "array_literal",
+    {|"[|"& [items]Expression* &"|]"|},
+    (~loc, [@nodes.items "Expression"]items) => H.Exp.array(~loc, items)
+  ),
+  (
+    "list_literal",
+    {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
+    (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(items, spread, H.Exp.construct, H.Exp.tuple)
+  ),
+  (
+    "object_literal",
+    {|"{"& ("..."& Expression)? ObjectItem+ &"}"|},
+    (~loc, [@node_opt "Expression"]spread, [@nodes "ObjectItem"]items) => H.Exp.record(items, spread)
+  ),
+
+  (
+    "let",
+    {|"("& "let" "["& ValueBinding+ &"]" Expression+ &")"|},
+    (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
+      H.Exp.let_(~loc, Nonrecursive, bindings, expressionSequence(contents))
+  ),
+  (
+    "do",
+    {|"("& "do" Expression* &")"|},
+    (~loc, [@nodes "Expression"]exprs) => expressionSequence(exprs)
+  ),
+  (
+    "assert",
+    {|"("& "assert" Expression &")"|},
+    (~loc, [@node "Expression"]expr) => H.Exp.assert_(~loc, expr)
+  ),
+  (
+    "lazy",
+    {|"("& "lazy" Expression &")"|},
+    (~loc, [@node "Expression"]expr) => H.Exp.lazy_(~loc, expr)
+  ),
+  (
+    "constraint",
+    {|"("& ":" Expression CoreType &")"|},
+    (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
+  ),
+  (
+    "open",
+    {|"("& "open" longCap Expression+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
+  ),
+  (
+    "if",
+    {|"("& "if" [test]Expression [yes]Expression [no]Expression? &")"|},
+    (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
+  ),
+  (
+    "module_pack",
+    {|"("& "module" ModuleExpr &")"|},
+    (~loc, [@node "ModuleExpr"]modexp) => H.Exp.pack(~loc, modexp)
+  ),
+  (
+    "module",
+    {|"("& "module" capIdent ModuleExpr Expression* &")"|},
+    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
+  ),
+    /* ; not 100% sure I want to do this :P but it could be so handy!! */
+  (
+    "loop_recur",
+    {|"("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
+    () => failwith("not impl loop")
+  ),
+  (
+    "arrow",
+    {|Arrow|},
+    ([@node "Arrow"]arrow) => arrow
+  ),
+  (
+    "threading_last",
+    {|"("& "->>" Expression ThreadItem+ &")"|},
+    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
+      Belt.List.reduce(items, target, (target, (loc, item)) => {
+        switch item {
+          | `Attribute(attr) => H.Exp.field(~loc, target, attr)
+          | `Fn(fn, args) => H.Exp.apply(fn, args @ [("", target)])
+          | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple(args @ [target])))
+        }
+      })
+    }
+  ),
+  (
+    "threading",
+    {|"("& "->" [target]Expression ThreadItem+ &")"|},
+    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
+      Belt.List.reduce(items, target, (target, (loc, item)) => {
+        switch item {
+          | `Attribute(attr) => H.Exp.field(~loc, target, attr)
+          | `Fn(fn, args) => H.Exp.apply(fn, [("", target), ...args])
+          | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple([target, ...args])))
+        }
+      })
+    }
+  ),
+  (
+    "threading_as",
+    {|"("& "as->" [target]Expression Pattern [items]Expression* &")"|},
+    (~loc, [@node.target "Expression"]target, [@node "Pattern"]pat, [@nodes.items "Expression"]items) => {
+      Belt.List.reduce(items, target, (target, item) => {
+        H.Exp.apply(H.Exp.fun_("", None, pat, item), [("", target)])
+      })
+    }
+  ),
+  (
+    "switch",
+    {|Switch|},
+    ([@node "Switch"]s) => s
+  ),
+  (
+    "try",
+    {|"("& "try" [target]Expression SwitchCase+ &")"|},
+    (~loc, [@node "Expression"]target, [@nodes "SwitchCase"]cases) => H.Exp.try_(~loc, target, cases)
+  ),
+
+
+  (
+    "array_index",
+    {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
+    (~loc, [@node.index "Expression"]index, [@node.array "Expression"]array) =>
+      H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Ldot(Lident("Array"), "get"), loc)), [("", array), ("", index)])
+  ),
+  (
+    "js_object_attribute",
+    {|"("& string Expression &")"|},
+    (~loc, [@text "string"](attr, aloc), [@node "Expression"]object_) => H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Lident("##"), loc)), [("", object_), ("", H.Exp.ident(~loc=aloc, Location.mkloc(Lident(processString(attr)), aloc)))])
+  ),
+  (
+    "setField",
+    {|"("& "<-" attribute [target]Expression [value]Expression &")"|},
+    (~loc, [@node "attribute"]attribute, [@node.target "Expression"]target, [@node.value "Expression"]value) =>
+      H.Exp.setfield(~loc, target, attribute, value)
+  ),
+  (
+    "record_attribute",
+    {|"("& attribute Expression &")"|},
+    (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => H.Exp.field(~loc, expr, attr)
+  ),
+]];
+
+[@ignoreNewlines]
+[@name "Pattern"]
+[%%rules [
+  (
+    "ident", {|lowerIdent|}, (~loc, [@text "lowerIdent"](text, tloc)) => H.Pat.var(~loc, Location.mkloc(text, tloc))
+  ),
+  (
+    "interval",
+    {|[f]constant &".."& [s]constant|},
+    (~loc, [@node.f "constant"]f, [@node.s "constant"]s) =>
+      H.Pat.interval(~loc, f, s)
+  ),
+  (
+    "constant",
+    {|constant|},
+    (~loc, [@node "constant"]const) => H.Pat.constant(~loc, const)
+  ),
+  ("unit", {|"()"|}, (~loc) => H.Pat.construct(~loc, Location.mkloc(Lident("()"), loc), None)),
+  ("ignored", {|"_"|}, (~loc) => H.Pat.any(~loc, ())),
+  (
+    "array",
+    {|"["& [items]Pattern* ("..."& [spread]Pattern)? &"]"|},
+    (~loc, [@nodes.items "Pattern"]items, [@node_opt.spread "Pattern"]spread) => listToConstruct(items, spread, H.Pat.construct, H.Pat.tuple)
+  ),
+  (
+    "tuple",
+    {|"("& "," Pattern+ &")"|},
+    (~loc, [@nodes "Pattern"]patterns) => H.Pat.tuple(~loc, patterns)
+  ),
+  (
+    "empty_constr", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Pat.construct(~loc, ident, None)
+  ),
+  (
+    "poly",
+    {|"("& polyIdent Pattern+ &")"|},
+    (~loc, [@node "polyIdent"]ident, [@nodes "Pattern"]args) => H.Pat.variant(~loc, ident.txt, Some(H.Pat.tuple(args)))
+  ),
+  (
+    "empty_poly", {|polyIdent|}, (~loc, [@node "polyIdent"]ident) => H.Pat.variant(~loc, ident.txt, None)
+  ),
+  (
+    "exception",
+    {|"("& "exception" Pattern &")"|},
+    (~loc, [@node "Pattern"]arg) => H.Pat.exception_(arg)
+  ),
+  (
+    "constructor",
+    {|"("& longCap Pattern+ &")"|},
+    (~loc, [@node "longCap"]ident, [@nodes "Pattern"]args) => H.Pat.construct(~loc, ident, Some(H.Pat.tuple(args)))
+  ),
+  (
+    "object",
+    {|"{"& PatternObjectItem+ &"}"|},
+    (~loc, [@nodes "PatternObjectItem"]items) => H.Pat.record(~loc, items, Open)
+  ),
+  (
+    "or",
+    {|"(|" Pattern+ ")"|},
+    (~loc, [@nodes "Pattern"]opts) => {
+      let rec loop = opts => switch opts {
+        | [] => assert(false)
+        | [one] => one
+        | [one, ...rest] => H.Pat.or_(~loc, one, loop(rest))
+      };
+      loop(opts)
+    }
+  ),
+]];
+
 
 [@name "TypeBody"]
 [%%passThroughRule "TypePair+"];
@@ -184,199 +455,6 @@ let rec expressionSequence = exprs => switch exprs {
   | [one, ...rest] => H.Exp.sequence(one, expressionSequence(rest))
 };
 
-[@ignoreNewlines]
-[@name "Expression"]
-[%%rules [
-  (
-    "array_index",
-    {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
-    (~loc, [@node.index "Expression"]index, [@node.array "Expression"]array) =>
-      H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Ldot(Lident("Array"), "get"), loc)), [("", array), ("", index)])
-  ),
-  (
-    "js_object_attribute",
-    {|"("& string Expression &")"|},
-    (~loc, [@text "string"](attr, aloc), [@node "Expression"]object_) => H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Lident("##"), loc)), [("", object_), ("", H.Exp.ident(~loc=aloc, Location.mkloc(Lident(processString(attr)), aloc)))])
-  ),
-  (
-    "setField",
-    {|"("& "<-" attribute [target]Expression [value]Expression &")"|},
-    (~loc, [@node "attribute"]attribute, [@node.target "Expression"]target, [@node.value "Expression"]value) =>
-      H.Exp.setfield(~loc, target, attribute, value)
-  ),
-  (
-    "record_attribute",
-    {|"("& attribute Expression &")"|},
-    (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => H.Exp.field(~loc, expr, attr)
-  ),
-  (
-    "let",
-    {|"("& "let" "["& ValueBinding+ &"]" Expression+ &")"|},
-    (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
-      H.Exp.let_(~loc, Nonrecursive, bindings, expressionSequence(contents))
-  ),
-  (
-    "do",
-    {|"("& "do" Expression* &")"|},
-    (~loc, [@nodes "Expression"]exprs) => expressionSequence(exprs)
-  ),
-  (
-    "assert",
-    {|"("& "assert" Expression &")"|},
-    (~loc, [@node "Expression"]expr) => H.Exp.assert_(~loc, expr)
-  ),
-  (
-    "lazy",
-    {|"("& "lazy" Expression &")"|},
-    (~loc, [@node "Expression"]expr) => H.Exp.lazy_(~loc, expr)
-  ),
-  (
-    "constraint",
-    {|"("& ":" Expression CoreType &")"|},
-    (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
-  ),
-  (
-    "open",
-    {|"("& "open" longCap Expression+ &")"|},
-    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
-  ),
-  (
-    "if",
-    {|"("& "if" [test]Expression [yes]Expression [no]Expression? &")"|},
-    (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
-  ),
-  (
-    "module_pack",
-    {|"("& "module" ModuleExpr &")"|},
-    (~loc, [@node "ModuleExpr"]modexp) => H.Exp.pack(~loc, modexp)
-  ),
-  (
-    "module",
-    {|"("& "module" capIdent ModuleExpr Expression* &")"|},
-    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
-  ),
-    /* ; not 100% sure I want to do this :P but it could be so handy!! */
-  (
-    "loop_recur",
-    {|"("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
-    () => failwith("not impl loop")
-  ),
-  (
-    "arrow",
-    {|Arrow|},
-    ([@node "Arrow"]arrow) => arrow
-  ),
-  (
-    "threading_last",
-    {|"("& "->>" Expression ThreadItem+ &")"|},
-    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
-      Belt.List.reduce(items, target, (target, (loc, item)) => {
-        switch item {
-          | `Attribute(attr) => H.Exp.field(~loc, target, attr)
-          | `Fn(fn, args) => H.Exp.apply(fn, args @ [("", target)])
-          | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple(args @ [target])))
-        }
-      })
-    }
-  ),
-  (
-    "threading",
-    {|"("& "->" [target]Expression ThreadItem+ &")"|},
-    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
-      Belt.List.reduce(items, target, (target, (loc, item)) => {
-        switch item {
-          | `Attribute(attr) => H.Exp.field(~loc, target, attr)
-          | `Fn(fn, args) => H.Exp.apply(fn, [("", target), ...args])
-          | `Construct(name, args) => H.Exp.construct(name, Some(H.Exp.tuple([target, ...args])))
-        }
-      })
-    }
-  ),
-  (
-    "threading_as",
-    {|"("& "as->" [target]Expression Pattern [items]Expression* &")"|},
-    (~loc, [@node.target "Expression"]target, [@node "Pattern"]pat, [@nodes.items "Expression"]items) => {
-      Belt.List.reduce(items, target, (target, item) => {
-        H.Exp.apply(H.Exp.fun_("", None, pat, item), [("", target)])
-      })
-    }
-  ),
-  (
-    "switch",
-    {|Switch|},
-    ([@node "Switch"]s) => s
-  ),
-  (
-    "try",
-    {|"("& "try" [target]Expression SwitchCase+ &")"|},
-    (~loc, [@node "Expression"]target, [@nodes "SwitchCase"]cases) => H.Exp.try_(~loc, target, cases)
-  ),
-  (
-    "constructor",
-    {|"("& longCap Expression+ &")"|},
-    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
-  ),
-  (
-    "empty_constr",
-    {|longCap|},
-    (~loc, [@node "longCap"]ident) => H.Exp.construct(ident, None)
-  ),
-  (
-    "constructor_poly",
-    {|"("& polyIdent Expression+ &")"|},
-    (~loc, [@node "polyIdent"]ident, [@nodes "Expression"]exprs) => H.Exp.variant(~loc, ident.txt, Some(H.Exp.tuple(exprs)))
-  ),
-  (
-    "empty_poly",
-    {|polyIdent|},
-    (~loc, [@node "polyIdent"]ident) => H.Exp.variant(~loc, ident.txt, None)
-  ),
-  (
-    "tuple",
-    {|"("& "," Expression+ &")"|},
-    (~loc, [@nodes "Expression"]exprs) => H.Exp.tuple(~loc, exprs)
-  ),
-  (
-    "fn_call",
-    {|"("& Expression FnCallArg+ &")"|},
-    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => H.Exp.apply(~loc, fn, args)
-  ),
-  (
-    "array_literal",
-    {|"[|"& [items]Expression* &"|]"|},
-    (~loc, [@nodes.items "Expression"]items) => H.Exp.array(~loc, items)
-  ),
-  (
-    "list_literal",
-    {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
-    (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(items, spread, H.Exp.construct, H.Exp.tuple)
-  ),
-  (
-    "object_literal",
-    {|"{"& ("..."& Expression)? ObjectItem+ &"}"|},
-    (~loc, [@node_opt "Expression"]spread, [@nodes "ObjectItem"]items) => H.Exp.record(items, spread)
-  ),
-  (
-    "ident",
-    {|longIdent|},
-    (~loc, [@node "longIdent"]ident) => H.Exp.ident(~loc, ident)
-  ),
-  (
-    "attribute",
-    {|attribute|},
-    (~loc, [@node "attribute"]attr) => H.Exp.fun_(~loc, "", None, H.Pat.var(Location.mkloc("x", loc)), H.Exp.field(H.Exp.ident(Location.mkloc(Lident("x"), loc)), attr))
-  ),
-  (
-    "op",
-    {|operator|},
-    ([@text "operator"](op, loc)) => H.Exp.ident(Location.mkloc(Lident(op), loc))
-  ),
-  (
-    "const",
-    {|constant|},
-    ([@node "constant"]c) => H.Exp.constant(c)
-  ),
-]];
 
 [@name "FnCallArg"]
 [%%rules [
@@ -556,75 +634,6 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
     )
   };
 
-[@ignoreNewlines]
-[@name "Pattern"]
-[%%rules [
-  (
-    "ident", {|lowerIdent|}, (~loc, [@text "lowerIdent"](text, tloc)) => H.Pat.var(~loc, Location.mkloc(text, tloc))
-  ),
-  (
-    "interval",
-    {|[f]constant ".." [s]constant|},
-    (~loc, [@node.f "constant"]f, [@node.s "constant"]s) =>
-      H.Pat.interval(~loc, f, s)
-  ),
-  (
-    "constant",
-    {|constant|},
-    (~loc, [@node "constant"]const) => H.Pat.constant(~loc, const)
-  ),
-  ("unit", {|"()"|}, (~loc) => H.Pat.construct(~loc, Location.mkloc(Lident("()"), loc), None)),
-  ("ignored", {|"_"|}, (~loc) => H.Pat.any(~loc, ())),
-  (
-    "array",
-    {|"["& [items]Pattern* ("..."& [spread]Pattern)? &"]"|},
-    (~loc, [@nodes.items "Pattern"]items, [@node_opt.spread "Pattern"]spread) => listToConstruct(items, spread, H.Pat.construct, H.Pat.tuple)
-  ),
-  (
-    "tuple",
-    {|"("& "," Pattern* &")"|},
-    (~loc, [@nodes "Pattern"]patterns) => H.Pat.tuple(~loc, patterns)
-  ),
-  (
-    "empty_constr", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Pat.construct(~loc, ident, None)
-  ),
-  (
-    "poly",
-    {|"("& polyIdent Pattern+ &")"|},
-    (~loc, [@node "polyIdent"]ident, [@nodes "Pattern"]args) => H.Pat.variant(~loc, ident.txt, Some(H.Pat.tuple(args)))
-  ),
-  (
-    "empty_poly", {|polyIdent|}, (~loc, [@node "polyIdent"]ident) => H.Pat.variant(~loc, ident.txt, None)
-  ),
-  (
-    "exception",
-    {|"("& "exception" Pattern &")"|},
-    (~loc, [@node "Pattern"]arg) => H.Pat.exception_(arg)
-  ),
-  (
-    "constructor",
-    {|"("& longCap Pattern+ &")"|},
-    (~loc, [@node "longCap"]ident, [@nodes "Pattern"]args) => H.Pat.construct(~loc, ident, Some(H.Pat.tuple(args)))
-  ),
-  (
-    "object",
-    {|"{"& PatternObjectItem+ &"}"|},
-    (~loc, [@nodes "PatternObjectItem"]items) => H.Pat.record(~loc, items, Open)
-  ),
-  (
-    "or",
-    {|"(|" Pattern+ ")"|},
-    (~loc, [@nodes "Pattern"]opts) => {
-      let rec loop = opts => switch opts {
-        | [] => assert(false)
-        | [one] => one
-        | [one, ...rest] => H.Pat.or_(~loc, one, loop(rest))
-      };
-      loop(opts)
-    }
-  ),
-]];
-
 [@name "PatternObjectItem"]
 [%%rules [
   (
@@ -649,9 +658,7 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
 [@name "Parened"]
 [%%rule {|"("& Expression & ")"|}];
 
-/** A potentially-namespaced record label */
 [@name "attribute"][%%rule ({|':' longIdent|}, ([@node "longIdent"]ident) => ident)];
-/** A non-namespaced record label */
 [@name "shortAttribute"][%%rule {|':' lowerIdent|}];
 
 /** A potentially-namespaced lower-case identifier */
@@ -695,7 +702,6 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   ),
 ]];
 
-/** A polymorphic variant identifier */
 [@name "polyIdent"][%%rule ("'`' capIdent", ([@text "capIdent"](name, loc)) => Location.mkloc(name, loc))];
 
 /** A simple identifier starting with a capital letter */

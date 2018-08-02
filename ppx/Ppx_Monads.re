@@ -220,6 +220,7 @@ let mapper = _argv =>
                   Location.mknoloc(Longident.Lident(passThrough ? "true" : "false")),
                   None
                 )],
+                docs: [%e switch docs { | None => [%expr None] | Some(x) => [%expr Some([%e strExp(x)])]}],
                 ignoreNewlines: [%e ignoreNewlines],
                 leaf: [%e Ast_helper.Exp.construct(
                   Location.mknoloc(Longident.Lident(leaf ? "true" : "false")),

@@ -45,6 +45,10 @@ switch (Sysop.argv) {
       let (sub, comment, items) = List.hd(rule.choices);
       if (List.length(rule.choices) > 1) {
         Printf.printf("\n\n### %s\n\n", name);
+        switch rule.docs {
+          | None => ()
+          | Some(docs) => print_endline(docs ++ "\n\n")
+        };
         print_endline("| Name | Syntax |\n| --- | --- |");
         rule.choices |> List.iter(((sub, comment, items)) => {
           print_endline("| <i>" ++ sub ++ "</i> | " ++ "<code>" ++ ExampleGenerator.showSimple(ExampleGenerator.simpleForChoice(grammar, items), name) ++ "</code> |")

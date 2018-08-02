@@ -13,6 +13,7 @@ module Parsing = {
     passThrough: bool,
     ignoreNewlines,
     leaf: bool,
+    docs: option(string),
     choices: list(choice)
   }
   /* rule name -> e1 | e2 | ... */

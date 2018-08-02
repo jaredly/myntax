@@ -196,6 +196,7 @@ let parseRule = (children) => {
     name,
     {
       P.passThrough,
+      P.docs: None,
       P.ignoreNewlines: newLines,
       P.leaf,
       P.choices:
