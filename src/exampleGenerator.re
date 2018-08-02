@@ -148,7 +148,7 @@ let rec simpleForItem = (grammar, item) =>
 and simpleForRule = (grammar, rulename) => {
   let rule = List.assoc(rulename, grammar.P.rules);
   let (sub, comment, items) = List.hd(rule.P.choices);
-  if (List.length(rule.P.choices) > 1 || comment != "") {
+  if (List.length(rule.P.choices) > 1 || comment != "" || rule.leaf) {
     [`Text("<a href=\"#" ++ String.lowercase(rulename) ++ "\">" ++ rulename ++ "</a>")]
   } else {
     let res = List.concat(List.map(simpleForItem(grammar), items));
@@ -188,4 +188,24 @@ let showSimple = (items, ruleName) => {
   } else {
     showSimple(items)
   }
+};
+
+let docsForGrammar = grammar => {
+  open PackTypes.Parsing;
+  List.map(((name, rule)) => {
+    let (sub, comment, items) = List.hd(rule.choices);
+    if (List.length(rule.choices) > 1) {
+      Printf.sprintf("### %s\n\n", name) ++
+      (switch rule.docs {
+        | None => ""
+        | Some(docs) => docs ++ "\n\n"
+      }) ++ "| Name | Syntax |\n| --- | --- |\n" ++
+      (rule.choices |> List.map(((sub, comment, items)) => {
+        "| <i>" ++ sub ++ "</i> | " ++ "<code>" ++ showSimple(simpleForChoice(grammar, items), name) ++ "</code> |"
+      }) |> String.concat("\n")) ++ "\n\n"
+    } else if (comment != "") {
+      "### " ++ name ++ "\n\n" ++ comment ++ "\n\n" ++
+      "<code>" ++ showSimple(simpleForChoice(grammar, items), name) ++ "</code>\n\n"
+    } else {""}
+  }, grammar.rules |> List.rev) |> String.concat("");
 };

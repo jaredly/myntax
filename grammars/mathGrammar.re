@@ -20,4 +20,4 @@
 )]];
 
 [@name "int"] [@leaf] [%%rule "digit+"];
-[@name "digit"] [%%rule "'0'..'9'"];
+[@name "digit"] [%%rule "'0..9'"];

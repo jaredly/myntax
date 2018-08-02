@@ -12,12 +12,9 @@ Note that this sacrifices a bit of precision in the interest of readability. For
 
 
 If you're interested, <a href="../grammars/lispGrammar.re">take a look at the grammar definition</a>
-
-
 ### Structure
 
  Forms that are valid at the top level of a file or module 
-
 
 | Name | Syntax |
 | --- | --- |
@@ -28,7 +25,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>module</i> | <code>(module <a href="#capident">capIdent</a> <a href="#moduleexpr">ModuleExpr</a>)</code> |
 | <i>external</i> | <code>(external <a href="#lowerident">lowerIdent</a> <a href="#coretype">CoreType</a> <a href="#string">string</a><sup>+</sup>)</code> |
 | <i>eval</i> | <code><a href="#expression">Expression</a></code> |
-
 
 ### Expression
 
@@ -58,7 +54,8 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>threading_last</i> | <code>(-&gt;&gt; <a href="#expression">Expression</a> <a href="#threaditem">ThreadItem</a><sup>+</sup>)</code> |
 | <i>threading</i> | <code>(-&gt; <a href="#expression">Expression</a> <a href="#threaditem">ThreadItem</a><sup>+</sup>)</code> |
 | <i>threading_as</i> | <code>(as-&gt; <a href="#expression">Expression</a> <a href="#pattern">Pattern</a> <a href="#expression">Expression</a><sup>*</sup>)</code> |
-| <i>switch</i> | <code><a href="#switch">Switch</a></code> |
+| <i>switch</i> | <code>(switch <a href="#expression">Expression</a> <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
+| <i>switch_function</i> | <code>(switch _ <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>try</i> | <code>(try <a href="#expression">Expression</a> <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>array_index</i> | <code>([<a href="#expression">Expression</a>] <a href="#expression">Expression</a>)</code> |
 | <i>js_object_attribute</i> | <code>(<a href="#string">string</a> <a href="#expression">Expression</a>)</code> |
@@ -66,7 +63,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>record_attribute</i> | <code>(:<a href="#longident">longIdent</a> <a href="#expression">Expression</a>)</code> |
 | <i>fn_call</i> | <code>(<a href="#expression">Expression</a> <a href="#fncallarg">FnCallArg</a><sup>+</sup>)</code> |
 | <i>constraint</i> | <code>(: <a href="#expression">Expression</a> <a href="#coretype">CoreType</a>)</code> |
-
 
 ### Pattern
 
@@ -87,7 +83,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>object</i> | <code>{<a href="#patternobjectitem">PatternObjectItem</a><sup>+</sup>}</code> |
 | <i>or</i> | <code>(\| <a href="#pattern">Pattern</a><sup>+</sup> )</code> |
 
-
 ### ModuleExpr
 
 | Name | Syntax |
@@ -95,14 +90,12 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>structure</i> | <code>(str <a href="#structure">Structure</a><sup>*</sup>)</code> |
 | <i>ident</i> | <code><a href="#longcap">longCap</a></code> |
 
-
 ### TypeName
 
 | Name | Syntax |
 | --- | --- |
 | <i>vbl</i> | <code>(<a href="#lowerident">lowerIdent</a> <a href="#typevariable">typeVariable</a><sup>+</sup>)</code> |
 | <i>plain</i> | <code><a href="#lowerident">lowerIdent</a></code> |
-
 
 ### TypeKind
 
@@ -112,7 +105,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>constructors</i> | <code><a href="#typeconstructor">TypeConstructor</a><sup>+</sup></code> |
 | <i>alias</i> | <code><a href="#coretype">CoreType</a></code> |
 
-
 ### TypeObjectItem
 
 | Name | Syntax |
@@ -120,14 +112,12 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>normal</i> | <code>:<a href="#lowerident">lowerIdent</a> <a href="#coretype">CoreType</a></code> |
 | <i>punned</i> | <code>:<a href="#lowerident">lowerIdent</a></code> |
 
-
 ### TypeConstructor
 
 | Name | Syntax |
 | --- | --- |
 | <i>no_args</i> | <code><a href="#capident">capIdent</a></code> |
 | <i>args</i> | <code>(<a href="#capident">capIdent</a> <a href="#coretype">CoreType</a><sup>+</sup>)</code> |
-
 
 ### CoreType
 
@@ -138,13 +128,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>constructor</i> | <code>(<a href="#longident">longIdent</a> <a href="#coretype">CoreType</a><sup>+</sup>)</code> |
 | <i>arrow</i> | <code>(=&gt; [<a href="#coretype">CoreType</a><sup>+</sup>] <a href="#coretype">CoreType</a>)</code> |
 
-
 ### typeVariable
 
  A type variable 
 
 <code>'<a href="#lowerident">lowerIdent</a></code>
-
 
 ### FnCallArg
 
@@ -153,15 +141,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>labeled</i> | <code>~<a href="#lowerident">lowerIdent</a> = <a href="#expression">Expression</a></code> |
 | <i>punned</i> | <code>~<a href="#lowerident">lowerIdent</a></code> |
 | <i>expr</i> | <code><a href="#expression">Expression</a></code> |
-
-
-### Switch
-
-| Name | Syntax |
-| --- | --- |
-| <i>switch</i> | <code>(switch <a href="#expression">Expression</a> <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
-| <i>switch_function</i> | <code>(switch _ <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
-
 
 ### ThreadItem
 
@@ -173,14 +152,12 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>constructor</i> | <code>(<a href="#longcap">longCap</a> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>fn_call</i> | <code>(<a href="#expression">Expression</a> <a href="#fncallarg">FnCallArg</a><sup>+</sup>)</code> |
 
-
 ### ObjectItem
 
 | Name | Syntax |
 | --- | --- |
 | <i>normal</i> | <code>:<a href="#longident">longIdent</a> <a href="#expression">Expression</a></code> |
 | <i>punned</i> | <code>:<a href="#longident">longIdent</a></code> |
-
 
 ### FnArgs
 
@@ -190,7 +167,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>unit</i> | <code>()</code> |
 | <i>ignored</i> | <code>_</code> |
 | <i>multiple</i> | <code>[<a href="#fnarg">FnArg</a><sup>+</sup>]</code> |
-
 
 ### FnArg
 
@@ -202,7 +178,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>labeled</i> | <code>~<a href="#lowerident">lowerIdent</a>⦅:<a href="#coretype">CoreType</a>⦆<sup>?</sup></code> |
 | <i>unlabeled</i> | <code><a href="#pattern">Pattern</a></code> |
 
-
 ### PatternObjectItem
 
 | Name | Syntax |
@@ -210,13 +185,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>normal</i> | <code>:<a href="#longident">longIdent</a> <a href="#pattern">Pattern</a></code> |
 | <i>punned</i> | <code>:<a href="#longident">longIdent</a></code> |
 
-
 ### longIdent
 
  A potentially-namespaced lower-case identifier 
 
 <code>⦅<a href="#longcap_">longCap_</a>.⦆<sup>?</sup><a href="#lowerident">lowerIdent</a></code>
-
 
 ### longCap
 
@@ -224,14 +197,12 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 
 <code><a href="#longcap_">longCap_</a></code>
 
-
 ### longCap_
 
 | Name | Syntax |
 | --- | --- |
 | <i>dot</i> | <code><a href="#longcap_">longCap_</a>.<a href="#capident">capIdent</a></code> |
 | <i>lident</i> | <code><a href="#capident">capIdent</a></code> |
-
 
 ### constant
 
@@ -242,20 +213,17 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>string</i> | <code><a href="#string">string</a></code> |
 | <i>char</i> | <code><a href="#char">char</a></code> |
 
-
 ### capIdent
 
  A simple identifier starting with a capital letter 
 
 <code>A…Z<a href="#identchar">identchar</a><sup>*</sup></code>
 
-
 ### lowerIdent
 
  A simple identifier starting with a lower-case letter 
 
 <code>a…z<a href="#identchar">identchar</a><sup>*</sup></code>
-
 
 ### identchar
 
@@ -265,13 +233,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i></i> | <code>0…9</code> |
 | <i></i> | <code>_</code> |
 
-
 ### int64
 
  An int constant 
 
 <code>0…9<sup>+</sup></code>
-
 
 ### float
 
@@ -279,13 +245,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 
 <code>0…9<sup>+</sup>.0…9<sup>+</sup></code>
 
-
 ### string
 
  A string constant 
 
 <code>"<a href="#strchar">strchar</a><sup>*</sup>"</code>
-
 
 ### strchar
 
@@ -294,13 +258,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i></i> | <code>\\<i>any</i></code> |
 | <i></i> | <code><i>any</i></code> |
 
-
 ### char
 
  A char constant 
 
 <code>'<a href="#charchar">charchar</a>'</code>
-
 
 ### charchar
 
@@ -308,7 +270,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | --- | --- |
 | <i></i> | <code>\\<i>any</i></code> |
 | <i></i> | <code><i>any</i></code> |
-
 
 ### reserved
 
@@ -331,7 +292,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i></i> | <code>catch</code> |
 | <i></i> | <code>from</code> |
 
-
 ### alpha
 
 | Name | Syntax |
@@ -339,13 +299,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i></i> | <code>a…z</code> |
 | <i></i> | <code>A…Z</code> |
 
-
 ### operator
 
  An operator 
 
 <code><a href="#opchar">opChar</a><sup>+</sup></code>
-
 
 ### reservedOps
 
@@ -353,7 +311,6 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | --- | --- |
 | <i></i> | <code>=&gt;</code> |
 | <i></i> | <code>...</code> |
-
 
 ### opChar
 
@@ -376,3 +333,5 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i></i> | <code>^</code> |
 | <i></i> | <code>\|</code> |
 | <i></i> | <code>~</code> |
+
+

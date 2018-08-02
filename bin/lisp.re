@@ -22,28 +22,16 @@ type printType =
 
 switch (Sysop.argv) {
   | [|_, "docs"|] =>
-    let grammar = LispGrammar.grammar;
     open PackTypes.Parsing;
     print_endline("# Syntax for Lisp.re\n");
     print_endline(ExampleGenerator.help ++ "\n\nIf you're interested, <a href=\"../grammars/lispGrammar.re\">take a look at the grammar definition</a>");
-
-    List.iter(((name, rule)) => {
-      let (sub, comment, items) = List.hd(rule.choices);
-      if (List.length(rule.choices) > 1) {
-        Printf.printf("\n\n### %s\n\n", name);
-        switch rule.docs {
-          | None => ()
-          | Some(docs) => print_endline(docs ++ "\n\n")
-        };
-        print_endline("| Name | Syntax |\n| --- | --- |");
-        rule.choices |> List.iter(((sub, comment, items)) => {
-          print_endline("| <i>" ++ sub ++ "</i> | " ++ "<code>" ++ ExampleGenerator.showSimple(ExampleGenerator.simpleForChoice(grammar, items), name) ++ "</code> |")
-        });
-      } else if (comment != "") {
-        print_endline("\n\n### " ++ name ++ "\n\n" ++ comment ++ "\n");
-        print_endline("<code>" ++ ExampleGenerator.showSimple(ExampleGenerator.simpleForChoice(grammar, items), name) ++ "</code>");
-      }
-    }, grammar.rules |> List.rev);
+    print_endline(ExampleGenerator.docsForGrammar(LispGrammar.grammar));
+    exit(0)
+  | [|_, "docs-docs"|] =>
+    open PackTypes.Parsing;
+    print_endline("# Syntax for the Parser Generator\n");
+    print_endline(ExampleGenerator.help ++ "\n\nIf you're interested, <a href=\"../parsable/grammar\">take a look at the grammar definition</a>");
+    print_endline(ExampleGenerator.docsForGrammar(GrammarGrammar.grammar));
     exit(0)
   | _ => ()
 };

@@ -15,10 +15,10 @@ let grammar = { lineComment = Some (";");
         ]
       });
     ("Decorator",
-     { docs = None; passThrough = false;
+     { docs = Some "decorates a rule"; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
-       [("", "",
+       [("", "decorates a rule",
          [(Terminal ("@", None));
            (NonTerminal ("ident", Some ("name")));
            (Optional
