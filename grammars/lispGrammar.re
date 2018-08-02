@@ -1,30 +1,29 @@
 
 open Asttypes;
 open Parsetree;
-
 open Longident;
 
 module H = Ast_helper;
 
-module DSL = PackTypes.DSL;
-
 [@lineComment ";"];
 [@blockComment ("(**", "*)")];
 
+[@ignoreNewlines]
 [@name "Start"]
 [%%rule (
   "ModuleBody",
   ([@node "ModuleBody"]body) => body
 )];
 
+[@ignoreNewlines]
 [@name "ModuleBody"]
 [%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
-[@ignoreNewlines]
 [@name "Structure"]
 [%%rules [
-  ("det", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
-  ("det_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
+  /** Define a toplevel value. */
+  ("def", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
+  ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
   ("type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
   ("module", {|"("& "module" capIdent ModuleExpr &")"|},
     (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
@@ -43,6 +42,7 @@ module DSL = PackTypes.DSL;
 [@name "TypeBody"]
 [%%passThroughRule "TypePair+"];
 
+[@ignoreNewlines]
 [@name "ModuleExpr"]
 [%%rules [
   /* (

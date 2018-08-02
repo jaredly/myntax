@@ -186,6 +186,8 @@ let maybeConvertChoice = choice => switch (choice.pexp_desc) {
   | _ => choice
 };
 
+let (|?) = IInfix.(|?);
+
 let mapper = _argv =>
   Parsetree.{
     ...Ast_mapper.default_mapper,
@@ -197,10 +199,8 @@ let mapper = _argv =>
               | None => fail(item.pstr_loc, "No name for rule")
               | Some(name) => name
             };
-            let passThrough = txt == "passThroughRule"; /*switch (attrBool(attributes, "passThrough")) {
-              | None => false
-              | Some(n) => n
-            };*/
+            let docs = attrString(attributes, "ocaml.doc");
+            let passThrough = txt == "passThroughRule";
             let leaf = switch (attrBool(attributes, "leaf")) {
               | None => false
               | Some(n) => n
@@ -233,22 +233,25 @@ let mapper = _argv =>
                 | [one] => strExpr(one)
                 | _ => fail(item.pstr_loc, "Must contain a single rule")
               };
-              (top, newRules([%expr [("", "", [%e maybeConvertChoice(choice)])]]), converters, true)
+              let docs = docs |? "";
+              (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
             } else if (txt == "rule") {
               let choice = switch contents {
                 | [one] => tupleOrSingle(one)
                 | _ => fail(item.pstr_loc, "Must contain a single tuple")
               };
+              let docs = docs |? "";
               switch choice {
                 | `Single(choice) =>
-                  (top, newRules([%expr [("", "", [%e maybeConvertChoice(choice)])]]), converters, true)
+                  (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
                 | `Tuple([choice, fn]) =>
                   let fnCall = converterExpr(fn);
                   let converter: (string, Parsetree.expression) = (
                     name,
                     [%expr ((sub, children, _loc)) => [%e fnCall]]
                   );
-                  (top, newRules([%expr [("", "", [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
+                  let ruleDocs = attrString(choice.pexp_attributes, "ocaml.doc") |? docs;
+                  (top, newRules([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
                 | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
               }
             } else if (txt == "rules") {
@@ -265,13 +268,15 @@ let mapper = _argv =>
                     fn
                   ]) => {
                     let fnCall = converterExpr(fn);
-                    ([%expr [([%e strExp(name)], "", [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
+                    let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
+                    ([%expr [([%e strExp(name)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
                       Ast_helper.Pat.constant(Const_string(name, None)),
                       fnCall
                     ), ...cases])
                   }
                   | Pexp_constant(Const_string(contents, _)) => {
-                    ([%expr [("", "", [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
+                    let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
+                    ([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
                   }
                   | _ => fail(expr.pexp_loc, "Invalid rule item")
                 }
@@ -290,17 +295,6 @@ let mapper = _argv =>
                 [%expr ((sub, children, _loc)) => [%e sw]]
               );
               (top, newRules(rules), [converter, ...converters], true)
-
-              /* switch body {
-                | [choice, fn] =>
-                  let fnCall = converterExpr(fn);
-                  let converter: (string, Parsetree.expression) = (
-                    name,
-                    [%expr ((sub, children, _loc)) => [%e fnCall]]
-                  );
-                  (top, newRules([%expr [("", "", [%e choice])]]), [converter, ...converters], true)
-                | _ => fail(item.pstr_loc, "Expected a tuple of two items")
-              }; */
 
             } else {
               (top, rules, converters, found)
@@ -330,38 +324,7 @@ let mapper = _argv =>
       } else {
         top
       }
-      /* Now make a let rec for all the converters... and a Grammar™ for the rules */
     },
-    /* x: switch expr.pexp_desc {
-      | Pexp_extension(({txt: (
-        "opt" | "opt_wrap" | "opt_consume" | "opt_force"
-        | "try" | "try_wrap" | "try_consume" | "try_force"
-        | "await" | "await_wrap" | "await_consume"
-        ) as txt, loc}, PStr([{pstr_desc: Pstr_eval({pexp_desc: Pexp_let(Nonrecursive, bindings, continuation)}, attributes)}]))) => {
-        let (front, explanation) = switch (txt) {
-          | "opt" => ([%expr Monads.Option.bind], opt_explanation)
-          | "opt_wrap" => ([%expr Monads.Option.map], opt_wrap_explanation)
-          | "opt_consume" => ([%expr Monads.Option.consume], opt_consume_explanation)
-          | "opt_force" => ([%expr Monads.Option.force], "Force an optional. Throws an error if None")
-          | "try" => ([%expr Monads.Result.bind], "Sugar for the Result type")
-          | "try_wrap" => ([%expr Monads.Result.map], "Sugar for the Result type - auto-wraps in `Ok()`")
-          | "try_consume" => ([%expr Monads.Result.consume], "Sugar for the Result type - side-effectful version")
-          | "try_force" => ([%expr Monads.Result.force], "Sugar for the Result type - force a result")
-          | "await" => ([%expr Monads.Promise.bind], "Sugar for Promises")
-          | "await_wrap" => ([%expr Monads.Promise.map], "Sugar for Promises - auto-wraps in `Promise.resolve`")
-          | "await_consume" => ([%expr Monads.Promise.consume], "Sugar for Promises - just for side effects. Throws on error")
-          | _ => assert(false)
-        };
-        let (pat, expr) = process_bindings(bindings);
-        Ast_helper.Exp.attr(
-          [%expr [%e front]([%e mapper.expr(mapper, expr)], ~f=([%p pat]) => [%e mapper.expr(mapper, continuation)])],
-          ({txt: "ocaml.explanation", loc}, PStr([
-            Ast_helper.Str.eval(Ast_helper.Exp.constant(Const_string(explanation, None)))
-          ]))
-        )
-      }
-      | _ => Ast_mapper.default_mapper.expr(mapper, expr)
-      } */
   };
 
 let () = Ast_mapper.run_main(mapper);

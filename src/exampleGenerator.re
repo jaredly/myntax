@@ -4,7 +4,7 @@ module R = PackTypes.Result;
 
 let memo: Hashtbl.t(string, string) = Hashtbl.create(100);
 
-let mLoc = (0, 0);
+let mLoc = Location.none;
 
 let optOr = (orr, opt) =>
   switch opt {
