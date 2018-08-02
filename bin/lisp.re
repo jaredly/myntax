@@ -39,7 +39,7 @@ switch (Sysop.argv) {
     let grammar = LispGrammar.grammar;
     open PackTypes.Parsing;
     print_endline("# Syntax for Lisp.re\n");
-    print_endline(ExampleGenerator.help ++ "\n\n");
+    print_endline(ExampleGenerator.help ++ "\n\nIf you're interested, <a href=\"../grammars/lispGrammar.re\">take a look at the grammar definition</a>");
 
     List.iter(((name, rule)) => {
       let (sub, comment, items) = List.hd(rule.choices);

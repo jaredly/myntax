@@ -11,7 +11,7 @@ This grammar is displayed using a syntax similar to regular expression.
 Note that this sacrifices a bit of precision in the interest of readability. For the source of truth, read the source code :D
 
 
-
+If you're interested, <a href="../grammars/lispGrammar.re">take a look at the grammar definition</a>
 
 
 ### Structure
