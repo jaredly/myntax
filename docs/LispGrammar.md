@@ -1,7 +1,7 @@
 # Syntax for Lisp.re
 
 
-This grammar is displayed using a syntax similar to regular expression.
+This grammar is displayed using a syntax similar to regular expressions.
 
 - `⦅` and `⦆` "thick parenthesis" indicate grouping, to distinguish from parenthesis that are actually part of the grammar
 - <code><sup>+</sup></code> allows one or more of the preceeding term or group
