@@ -9,11 +9,10 @@
   "sources": [
     {"dir": "src", "subdirs": true},
     {"dir": "bin"},
-    {"dir": "grammars",
-      "ppx": ["Ppx_grammar"],
-    },
+    {"dir": "grammars"},
     {"dir": "ppx", "type": "ppx"}
   ],
+  "ppx-flags": ["Ppx_grammar"],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
   "entries": [{
     "backend": "native",

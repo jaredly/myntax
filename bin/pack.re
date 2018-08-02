@@ -24,10 +24,10 @@ let main = (~dump=false, ~file=?, ~dest=?, ()) => {
     | None => Sysop.readStdin()
     };
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", contents)) {
-  | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
+  | Belt.Result.Error((maybeResult, (charsParsed, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(1)
-  | PackTypes.Result.Success(result) =>
+  | Ok(result) =>
     /* print_endline (PackTypes.show_result result); */
     let name =
       switch file {
@@ -64,10 +64,10 @@ let parseOptions = (options) => {
 let getGrammar = (filename) => {
   let contents = Sysop.readFile(filename);
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", contents)) {
-  | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
+  | Error((maybeResult, (charsParsed, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(1)
-  | PackTypes.Result.Success(result) => GrammarOfGrammar.convert(result)
+  | Ok(result) => GrammarOfGrammar.convert(result)
   }
 };
 
@@ -109,9 +109,9 @@ let tests = (cases) => {
   List.iter(
     ((rule, text)) =>
       switch (Runtime.parse(GrammarGrammar.grammar, rule, text)) {
-      | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
+      | Error((maybeResult, (charsParsed, failure))) =>
         print_string(PackTypes.Error.genErrorText(text, failure))
-      | PackTypes.Result.Success(result) => ()
+      | Ok(result) => ()
       },
     cases
   );

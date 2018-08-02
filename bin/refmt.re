@@ -10,15 +10,13 @@ let getContents = (input) =>
 let printImpl = (implementation) => Printast.implementation(Format.std_formatter, implementation);
 let pprintImpl = (implementation) => Pprintast.structure(Format.std_formatter, implementation);
 
-MathGrammar.convert_Start;
-
 let getGrammar = (raw) => {
   let start = Unix.gettimeofday();
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", raw)) {
-  | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
+  | Error((maybeResult, (charsParsed, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
     failwith("Unable to parse grammar")
-  | PackTypes.Result.Success(result) =>
+  | Ok(result) =>
     let mid = Unix.gettimeofday();
     let res = GrammarOfGrammar.convert(result);
     (res, mid -. start, Unix.gettimeofday() -. mid)
@@ -36,18 +34,14 @@ let out_binary = (ast: Parsetree.structure, input_name) => {
 let getResult = (grammar, contents) => {
   let start = Unix.gettimeofday();
   switch (Runtime.parse(grammar, "Start", contents)) {
-  | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
+  | Error((maybeResult, (charsParsed, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(10)
-  | PackTypes.Result.Success(result) => (result, Unix.gettimeofday() -. start)
+  | Ok(result) => (result, Unix.gettimeofday() -. start)
   }
 };
 
-let (res, _) = getResult(MathGrammar.grammar, "3 + 4 - 5");
-let num = switch res {
-  | Node(("Start", sub), children, loc) => MathGrammar.convert_Start((sub, children, loc))
-  | _ => assert(false)
-};
+let num = MathGrammar.calc("3 + 4 - 5");
 /* print_endline(string_of_int(num)); */
 
 let getResult = (grammarFile, input) => {
@@ -105,6 +99,7 @@ let getResult = (grammarFile, input) => {
 
    main grammarFile input printType;
    */
+
 type printType =
   | Bin
   | Pretty(string)

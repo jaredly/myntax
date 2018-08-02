@@ -1,3 +1,4 @@
+
 /* from https://rwmj.wordpress.com/2010/12/29/packrat-parser-with-left-recursion/ with modifications */
 module P = PackTypes.Parsing;
 
@@ -693,10 +694,10 @@ let parse = (grammar: PackTypes.Parsing.grammar, start, input) => {
   /* TODO ignoringNewlines should be configurable? */
   let (i, (result, _), errs) = apply_rule(grammar, state, start, 0, false, false, []);
   if (i == (-1)) {
-    R.Failure(None, (0, errs))
+    Belt.Result.Error((None, (0, errs)))
   } else if (i < state.len) {
-    R.Failure(Some(result), (i, errs))
+    Belt.Result.Error((Some(result), (i, errs)))
   } else {
-    R.Success(result)
+    Belt.Result.Ok(result)
   }
 };

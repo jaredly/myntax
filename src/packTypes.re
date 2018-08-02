@@ -1,3 +1,4 @@
+
 module Parsing = {
   [@deriving show]
   type ignoreNewlines =
@@ -198,29 +199,5 @@ module Result = {
         List.map(((label, node)) => white(indent) ++ showNode(label, node, indent + 2), children)
       )
   };
-  /* let resultTypeDescription rt => switch rt {
-       | Terminal s => "Terminal(" ^ s ^ ")"
-       | Lexical (name, sub, index) text passThrough => "Lexical(" ^ name ^ "," ^ text ^ "," ^ (string_of_int index) ^ ")"
-       | Nonlexical (name, sub, index) passThrough => "Nonlexical(" ^ name ^ "," ^ (string_of_int index) ^ ")"
-     }; */
-  /* type result = {
-        start: int,
-        cend: int,
-        typ: resultType,
-        label: option string,
-        children: list result,
-      } [@@deriving (yojson, show)];
-     */
-  /* type partial = {
-       path: list string,
-       expected: string,
-       position: int,
-       lno: int,
-       cno: int,
-     } [@@deriving yojson]; */
-  type parserMatch =
-    | Success(result)
-    | Failure(option(result), Error.partial);
+  type parserMatch = Belt.Result.t(result, (option(result), Error.partial));
 };
-/* include Parsing; */
-/* include Result; */

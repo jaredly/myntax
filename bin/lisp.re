@@ -11,20 +11,6 @@ let out_binary = (ast: Parsetree.structure, input_name) => {
   output_value(stdout, ast)
 };
 
-let getResult = (grammar, entry, contents) => {
-  let start = Unix.gettimeofday();
-  switch (Runtime.parse(grammar, entry, contents)) {
-  | PackTypes.Result.Failure(maybeResult, (charsParsed, failure)) =>
-    Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
-    exit(10)
-  | PackTypes.Result.Success(Node((_, sub), children, loc)) => {
-    /* print_endline(PackTypes.Result.showLoc(loc)); */
-    ((sub, children, loc), Unix.gettimeofday() -. start)
-  }
-  | PackTypes.Result.Success(Leaf(_)) => failwith("parse should not be a leaf")
-  }
-};
-
 Printexc.record_backtrace(true);
 
 type printType =
@@ -79,7 +65,7 @@ let (command, input) =
   | _ => failwith("Usage: [command=debug] grammarfile inputfile")
   };
 
-let (result, raw) = getResult(LispGrammar.grammar, "Start", getContents(input));
+let result = Grammar.getResult(LispGrammar.grammar, "Start", getContents(input));
 let converted = LispGrammar.convert_Start(result);
 
 switch command {
