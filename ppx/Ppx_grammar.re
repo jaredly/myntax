@@ -192,13 +192,13 @@ let mapper = _argv =>
     structure: (mapper, items) => {
       let (top, rules, converters, found) = List.fold_left(((top, rules, converters, found), item) => {
         switch item.pstr_desc {
-          | Parsetree.Pstr_extension(({txt: ("rule" | "passThroughRule") as txt}, contents), attributes) => {
+          | Parsetree.Pstr_extension(({txt: "rule"}, contents), attributes) => {
             let name = switch (attrString(attributes, "name")) {
               | None => fail(item.pstr_loc, "No name for rule")
               | Some(name) => name
             };
             let docs = attrString(attributes, "ocaml.doc");
-            let passThrough = txt == "passThroughRule";
+            let passThrough = attrBool(attributes, "passThrough") |? false;
             let leaf = switch (attrBool(attributes, "leaf")) {
               | None => false
               | Some(n) => n
@@ -214,83 +214,72 @@ let mapper = _argv =>
             };
 
             let newRules = choices => [%expr [([%e strExp(name)], {
-                passThrough: [%e Ast_helper.Exp.construct(
-                  Location.mknoloc(Longident.Lident(passThrough ? "true" : "false")),
-                  None
-                )],
-                docs: [%e switch docs { | None => [%expr None] | Some(x) => [%expr Some([%e strExp(x)])]}],
-                ignoreNewlines: [%e ignoreNewlines],
-                leaf: [%e Ast_helper.Exp.construct(
-                  Location.mknoloc(Longident.Lident(leaf ? "true" : "false")),
-                  None
-                )],
-                choices: [%e choices]
-              }), ...[%e rules]]];
+              passThrough: [%e Ast_helper.Exp.construct(
+                Location.mknoloc(Longident.Lident(passThrough ? "true" : "false")),
+                None
+              )],
+              docs: [%e switch docs { | None => [%expr None] | Some(x) => [%expr Some([%e strExp(x)])]}],
+              ignoreNewlines: [%e ignoreNewlines],
+              leaf: [%e Ast_helper.Exp.construct(
+                Location.mknoloc(Longident.Lident(leaf ? "true" : "false")),
+                None
+              )],
+              choices: [%e choices]
+            }), ...[%e rules]]];
 
-            if (txt == "passThroughRule") {
-              let choice = switch contents {
-                | [one] => strExpr(one)
-                | _ => fail(item.pstr_loc, "Must contain a single rule")
-              };
-              let docs = docs |? "";
+            let choice = switch contents {
+              | [one] => ruleBody(one)
+              | _ => fail(item.pstr_loc, "Must contain a single item")
+            };
+            let docs = docs |? "";
+            switch choice {
+            | `Single(choice) =>
               (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
-            } else if (txt == "rule") {
-              let choice = switch contents {
-                | [one] => ruleBody(one)
-                | _ => fail(item.pstr_loc, "Must contain a single item")
-              };
-              let docs = docs |? "";
-              switch choice {
-              | `Single(choice) =>
-                (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
-              | `Tuple([choice, fn]) =>
-                let fnCall = converterExpr(fn);
-                let converter: (string, Parsetree.expression) = (
-                  name,
-                  [%expr ((sub, children, _loc)) => [%e fnCall]]
-                );
-                let ruleDocs = attrString(choice.pexp_attributes, "ocaml.doc") |? docs;
-                (top, newRules([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
-              | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
-              | `List(body) =>
-                let (rules, cases) = body |. Belt.List.reduceReverse(([%expr []], []), ((rules, cases), expr) => {
-                  switch (expr.pexp_desc) {
-                    | Pexp_tuple([
-                      {pexp_desc: Pexp_constant(Const_string(name, _))},
-                      rule,
-                      fn
-                    ]) => {
-                      let fnCall = converterExpr(fn);
-                      let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
-                      ([%expr [([%e strExp(name)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
-                        Ast_helper.Pat.constant(Const_string(name, None)),
-                        fnCall
-                      ), ...cases])
-                    }
-                    | Pexp_constant(Const_string(contents, _)) => {
-                      let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
-                      ([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
-                    }
-                    | _ => fail(expr.pexp_loc, "Invalid rule item")
+            | `Tuple([choice, fn]) =>
+              let fnCall = converterExpr(fn);
+              let converter: (string, Parsetree.expression) = (
+                name,
+                [%expr ((sub, children, _loc)) => [%e fnCall]]
+              );
+              let ruleDocs = attrString(choice.pexp_attributes, "ocaml.doc") |? docs;
+              (top, newRules([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
+            | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
+            | `List(body) =>
+              let (rules, cases) = body |. Belt.List.reduceReverse(([%expr []], []), ((rules, cases), expr) => {
+                switch (expr.pexp_desc) {
+                  | Pexp_tuple([
+                    {pexp_desc: Pexp_constant(Const_string(name, _))},
+                    rule,
+                    fn
+                  ]) => {
+                    let fnCall = converterExpr(fn);
+                    let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
+                    ([%expr [([%e strExp(name)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
+                      Ast_helper.Pat.constant(Const_string(name, None)),
+                      fnCall
+                    ), ...cases])
                   }
-                });
-                let cases = cases @ [
-                  Ast_helper.Exp.case(
-                    Ast_helper.Pat.any(),
-                    Ast_helper.Exp.assert_(Ast_helper.Exp.construct(Location.mknoloc(Longident.Lident("false")), None))
-                    
-                  )
-                ];
+                  | Pexp_constant(Const_string(contents, _)) => {
+                    let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
+                    ([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
+                  }
+                  | _ => fail(expr.pexp_loc, "Invalid rule item")
+                }
+              });
+              let cases = cases @ [
+                Ast_helper.Exp.case(
+                  Ast_helper.Pat.any(),
+                  Ast_helper.Exp.assert_(Ast_helper.Exp.construct(Location.mknoloc(Longident.Lident("false")), None))
+                  
+                )
+              ];
 
-                let sw = Ast_helper.Exp.match([%expr sub], cases);
-                let converter  = (
-                  name,
-                  [%expr ((sub, children, _loc)) => [%e sw]]
-                );
-                (top, newRules(rules), [converter, ...converters], true)
-              }
-            } else {
-              (top, rules, converters, found)
+              let sw = Ast_helper.Exp.match([%expr sub], cases);
+              let converter  = (
+                name,
+                [%expr ((sub, children, _loc)) => [%e sw]]
+              );
+              (top, newRules(rules), [converter, ...converters], true)
             }
           }
           | _ => ([mapper.structure_item(mapper, item), ...top], rules, converters, found)

@@ -321,7 +321,8 @@ module H = Ast_helper;
 
 
 [@name "TypeBody"]
-[%%passThroughRule "TypePair+"];
+[@passThrough]
+[%%rule "TypePair+"];
 
 [@ignoreNewlines]
 [@name "ModuleExpr"]
@@ -486,7 +487,8 @@ let rec expressionSequence = exprs => switch exprs {
 ]];
 
 [@ignoreNewlines]
-[@name "SwitchBody"][%%passThroughRule "SwitchCase+"];
+[@passThrough]
+[@name "SwitchBody"][%%rule "SwitchCase+"];
 
 [@name "SwitchCase"]
 [%%rule ("SwitchCond Expression", (~loc, [@node "SwitchCond"](pat, guard), [@node "Expression"]expr) => {
@@ -567,8 +569,9 @@ let rec expressionSequence = exprs => switch exprs {
 ]];
 
 [@ignoreNewlines]
+[@passThrough]
 [@name "FnArgItems"]
-[%%passThroughRule "FnArg+"];
+[%%rule "FnArg+"];
 
 let argPat = (label, mtyp) => switch (mtyp) {
   | None => H.Pat.var(label)
