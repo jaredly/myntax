@@ -81,7 +81,7 @@ let startsWith = (s, prefix) => {
   }
 };
 
-let converterExpr = (fn) => {
+let converterExpr = (~name as ruleName, fn) => {
   let rec loop = (expr, args) => {
     switch expr.pexp_desc {
       | Pexp_fun(label, default, pattern, res) => {
@@ -93,7 +93,7 @@ let converterExpr = (fn) => {
               let name = strString(str);
               [%expr
               switch (ResultUtils.getLeafByType(children, [%e strExp(name)])) {
-                | None => failwith("Expected a " ++ [%e strExp(name)])
+                | None => raise(PackTypes.ConversionError(_loc, [%e strExp(ruleName)], [%e strExp(name)]))
                 | Some((contents, loc)) => (contents, loc)
               }
               ]
@@ -119,7 +119,7 @@ let converterExpr = (fn) => {
             | [({txt: "node"}, PStr([str]))] => {
               let name = strString(str);
               [%expr switch (ResultUtils.getNodeByType(children, [%e strExp(name)])) {
-                | None => failwith("Expected a " ++ [%e strExp(name)] ++ " " ++ PackTypes.Result.showLoc(_loc))
+                | None => raise(PackTypes.ConversionError(_loc, [%e strExp(ruleName)], [%e strExp(name)]))
                 | Some(node) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))](node)
               }]
             }
@@ -128,7 +128,7 @@ let converterExpr = (fn) => {
               let label = String.sub(txt, 5, String.length(txt) - 5);
                 [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
-                  | None => failwith("Expected a " ++ [%e strExp(name)] ++ " " ++ PackTypes.Result.showLoc(_loc))
+                  | None => raise(PackTypes.ConversionError(_loc, [%e strExp(ruleName)], [%e strExp(name)]))
                   | Some(((_, sub), children, loc)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc))
                 }
               ]
@@ -236,7 +236,7 @@ let mapper = _argv =>
             | `Single(choice) =>
               (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
             | `Tuple([choice, fn]) =>
-              let fnCall = converterExpr(fn);
+              let fnCall = converterExpr(~name, fn);
               let converter: (string, Parsetree.expression) = (
                 name,
                 [%expr ((sub, children, _loc)) => [%e fnCall]]
@@ -248,14 +248,14 @@ let mapper = _argv =>
               let (rules, cases) = body |. Belt.List.reduceReverse(([%expr []], []), ((rules, cases), expr) => {
                 switch (expr.pexp_desc) {
                   | Pexp_tuple([
-                    {pexp_desc: Pexp_constant(Const_string(name, _))},
+                    {pexp_desc: Pexp_constant(Const_string(subName, _))},
                     rule,
                     fn
                   ]) => {
-                    let fnCall = converterExpr(fn);
+                    let fnCall = converterExpr(~name=name ++ ":" ++ subName, fn);
                     let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
-                    ([%expr [([%e strExp(name)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
-                      Ast_helper.Pat.constant(Const_string(name, None)),
+                    ([%expr [([%e strExp(subName)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
+                      Ast_helper.Pat.constant(Const_string(subName, None)),
                       fnCall
                     ), ...cases])
                   }

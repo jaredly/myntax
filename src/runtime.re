@@ -112,7 +112,7 @@ let rec skipWhite = (i, text, len, ignoreNewlines) =>
   if (i >= len) {
     i
   } else {
-    switch text.[i] {
+    switch (text.[i]) {
     | ' ' => skipWhite(i + 1, text, len, ignoreNewlines)
     | '\t' => skipWhite(i + 1, text, len, ignoreNewlines)
     | '\n' when ignoreNewlines => {
@@ -261,14 +261,14 @@ let rec greedy = (loop, min, max, subr, i, path, greedyCount, isNegated) =>
     }
   };
 
-let skipAllWhite = (i, grammar, state) => {
-  let i = skipWhite(i, state.input, state.len, true);
+let skipAllWhite = (i, grammar, input, len) => {
+  let i = skipWhite(i, input, len, true);
   let i' =
     switch (grammar.P.blockComment, grammar.P.lineComment) {
-    | (Some(x), None) => skipBlockComments(i, x, state.input, state.len, true)
+    | (Some(x), None) => skipBlockComments(i, x, input, len, true)
     | (Some(x), Some(y)) =>
-      skipBlockAndLineComments(i, x, y, state.input, state.len)
-    | (None, Some(x)) => skipLineComments(i, x, state.input, state.len)
+      skipBlockAndLineComments(i, x, y, input, len)
+    | (None, Some(x)) => skipLineComments(i, x, input, len)
     | (None, None) => i
     };
   i'
@@ -706,9 +706,9 @@ let parse = (grammar: PackTypes.Parsing.grammar, start, input) => {
   let state = initialState(input);
   /* TODO ignoringNewlines should be configurable? */
   let (i, (result, _), errs) = apply_rule(grammar, state, start, 0, false, false, []);
-  let i = skipAllWhite(i, grammar, state);
+  let i = i >=0 ? skipAllWhite(i, grammar, input, String.length(input)) : i;
   if (i == (-1)) {
-    Belt.Result.Error((None, (0, Lexing.dummy_pos, errs)))
+    Belt.Result.Error((None, (0, posForLoc(fst(errs)), errs)))
   } else if (i < state.len) {
     Belt.Result.Error((Some(result), (i, posForLoc(fst(errs)), errs)))
   } else {

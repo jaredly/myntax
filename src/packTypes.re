@@ -163,6 +163,8 @@ module Error = {
   };
 };
 
+exception ConversionError(Location.t, string, string)
+
 module Result = {
   /* type resultType =
      | Terminal string

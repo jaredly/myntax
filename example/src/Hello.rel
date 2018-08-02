@@ -1,21 +1,16 @@
 
-; (def x 2)
-
-
-(print_endline "folkx wat")
-2
-
-(print_endline "Hello folzx")
-
-(switch 1
- 2 3
- 3 4
- _ 1)
+0
+; jow
 
 
 
-; more
+(-> 2 Js.log)
 
-(let [x 2] 2)
+
+(let [m 2 n 4] (Js.log (+ n m)))
+
+(def awesome 20)
+; w
+
 
 ; more

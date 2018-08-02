@@ -181,7 +181,7 @@ module H = Ast_helper;
   (
     "threading",
     {|"("& "->" [target]Expression ThreadItem* &")"|},
-    (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
+    (~loc, [@node.target "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
           | `Attribute(attr) => H.Exp.field(~loc, target, attr)
@@ -765,6 +765,8 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 [@name "reservedOps"]
 [%%rule [
   {|"=>"|},
+  {|"->"|},
+  {|"->>"|},
   {|"..."|},
 ]];
 

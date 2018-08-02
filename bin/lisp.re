@@ -35,7 +35,11 @@ switch (Sysop.argv) {
     exit(0)
   | [|_, "--print", "binary", "--parse", "re"|] =>
     let raw = Sysop.readStdin();
-    let result = LispGrammar.start("Start", raw);
+    let result = switch (LispGrammar.start("Start", raw)) {
+      | x => x
+      | exception PackTypes.ConversionError(loc, ruleName, searchedFor) =>
+      failwith("Grammar error! Please report this to the lisp.re maintainers. Unable to find " ++ searchedFor ++ " in " ++ ruleName ++ " at " ++ PackTypes.Result.showLoc(loc))
+    };
     switch result {
       | Ok(converted) => out_binary(converted, "inputfile.rel");
       | Error((_, (_, loc, failure))) =>
@@ -48,7 +52,11 @@ switch (Sysop.argv) {
     exit(0)
   | [|_, "--print", "binary", "--recoverable", "--parse", "re"|] =>
     let raw = Sysop.readStdin();
-    let result = LispGrammar.start("Start", raw);
+    let result = switch (LispGrammar.start("Start", raw)) {
+      | x => x
+      | exception PackTypes.ConversionError(loc, ruleName, searchedFor) =>
+        failwith("Grammar error! Please report this to the lisp.re maintainers. Unable to find " ++ searchedFor ++ " in " ++ ruleName ++ " at " ++ PackTypes.Result.showLoc(loc))
+    };
     switch result {
       | Ok(converted) => out_binary(converted, "inputfile.rel");
       | Error((Some(converted), (_, loc, failure))) =>
@@ -58,9 +66,14 @@ switch (Sysop.argv) {
           PackTypes.Error.errorsText(snd(failure))
           /* PackTypes.Error.genErrorText(raw, failure) */
           )
-      | Error((None, (loc, _, failure))) =>
-          Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
-          exit(1)
+      | Error((None, (_, loc, failure))) =>
+          /* Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
+          exit(1) */
+          out_binary([], "inputfile.rel");
+          Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
+          loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
+          PackTypes.Error.errorsText(snd(failure))
+          )
     };
     exit(0)
   | _ => ()
