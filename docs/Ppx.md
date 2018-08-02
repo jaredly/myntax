@@ -1,7 +1,9 @@
-# The grammar ppx transform
+# Defining a grammar
 
 To streamline the creation of grammars and converters, I've included a ppx, called "Ppx_grammar", which implements a DSL that dramatically cuts down on the required boilerplate.
 Any file in the `grammars` directory will be transformed.
+
+If a module contains `%%rule`s a `start` function is exported, which takes a `~filename` (for error reporting) and a string to parse & convert. It will return whatever the `Start` rule's conversion function returns.
 
 ## Rules
 
@@ -12,7 +14,6 @@ The body of a rule must be one of three things:
 - a tuple of a grammar string and a conversion function
 - a list of tuples, which are `(sub_name, grammar_string, conversion_function)`. The sub_names must be unique within a rule.
 
-
 **Capitalization** indicates whether a node is "lexical" or not (whether whitespace should be skipped). Capital-named rules will skip whitespace between terms, whereas lower-cased-named rules will not.
 
 So
@@ -22,7 +23,7 @@ So
 ```
 would *only* match `onetwo`, not `one two`. If the name were `SomeRule`, then `one two` would match.
 
-## Grammar string
+## the Grammar format
 
 The grammar string is made up of literals (surrounded in quotes) and references (which are not). References can have labels (surrounded by `[]`), and items can be grouped with parenthesis `()`. An item or a group can have the suffix `?`, `*`, or `+`, which allow 0 or 1, 0 or more, and 1 or more, respectively.
 
@@ -67,6 +68,8 @@ A rule can have decorators that modify behavior.
 #### `[@leaf]`
 
 Leaf nodes in the parse tree are represented as a strings -- the node's children are not individually tracked. In parsers that have separate lexing and parsing passes, you can think of this as tokens that are interesting (like identifiers, operators, etc.) as opposed to keywords, etc.
+
+Leaf rules do not have conversion functions.
 
 #### `[@ignoreNewlines]` and `[@ignoreNewlines false]`
 
