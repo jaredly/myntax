@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "bs-platform": "bsansouci/bsb-native#3.2.0"
+    "bs-platform": "bsansouci/bsb-native#3.2.0",
+    "watch": "^1.0.2"
   },
   "scripts": {
     "start": "bsb -make-world -backend native -w",
