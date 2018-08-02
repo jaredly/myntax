@@ -51,11 +51,43 @@ For more info, check out [the full grammar](../parsable/grammar). The starting r
 
 The conversion function is where lots of the magic happens. Annotations on the arguments indicate what conversion needs to be done.
 
-- `[@node "SomeName"]` - get and convert the first `SomeName` node in the list. If there's no `SomeName`, this will throw.
-- `[@node_opt "SomeName"]` - same as `node` but is an optional
-- `[@text "someName"]` - get the raw text and location associated with the **leaf** node "someName"
+- `[@node "SomeName"]thing` - get and convert the first `SomeName` node in the list. If there's no `SomeName`, this will throw.
+- `[@node_opt "SomeName"]boop` - same as `node` but is an optional
+- `[@text "someName"](text, loc)` - get the raw text and location associated with the **leaf** node "someName". Text is a string, and loc is a `Location.t` (from compiler-libs).
 
-The return type of a conversion function is entirely up to you.
+The return type of a conversion function is entirely up to you. Of course, the return types of various "branches" of a single rule must all return the same type.
+
+An argument `[@node "SomeName"]thing` would have whatever type the `SomeName` conversion function returned.
+
+If you have an argument `~loc`, it will be populated with the `Location.t` encompassing the current node.
+
+## Decorators
+A rule can have decorators that modify behavior.
+
+#### `[@leaf]`
+
+Leaf nodes in the parse tree are represented as a strings -- the node's children are not individually tracked. In parsers that have separate lexing and parsing passes, you can think of this as tokens that are interesting (like identifiers, operators, etc.) as opposed to keywords, etc.
+
+#### `[@ignoreNewlines]` and `[@ignoreNewlines false]`
+
+This property is inherited -- if a rule ignores newlines, all of its chidlren will ignore newlines, unless a rule explicitly turns ignorenewlines off, which will then apply to that rules children etc.
+
+#### `[@passThrough]`
+
+This indicates that this rule should **not** be retained in the parse tree. Its children will be included in the parents term list.
+
+So
+```
+[@name "One"]
+[%%rule "Two Three"];
+
+[@passThrough]
+[@name "Two"]
+[%%rule "Four Five"];
+```
+
+If `One` was successfully parsed, its child list would contain the nodes `[Four, Five, Three]`.
+
 
 ## Example grammar
 [source](../grammars/mathGrammar.re)
