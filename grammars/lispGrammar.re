@@ -171,6 +171,7 @@ module H = Ast_helper;
   )
 ]];
 
+/** A type variable */
 [@leaf]
 [@name "typeVariable"]
 [%%rule {|'\'' lowerIdent|}];
@@ -612,7 +613,7 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   ),
   (
     "or",
-    {|"(|"& Pattern+ &")"|},
+    {|"(|" Pattern+ ")"|},
     (~loc, [@nodes "Pattern"]opts) => {
       let rec loop = opts => switch opts {
         | [] => assert(false)

@@ -103,6 +103,8 @@ let generateExamples = (grammar, ruleName, table) => {
      ) |> List.concat |> String.concat "\n"
    }; */
 
+let isLexical = ruleName => {let l = String.sub(ruleName, 0, 1); l != String.capitalize(l)};
+
 let rec simpleForItem = (grammar, item) =>
   switch item {
   | P.NonTerminal(name, label) => simpleForRule(grammar, name)
@@ -129,11 +131,11 @@ let rec simpleForItem = (grammar, item) =>
 
   | P.Lexify(p)
 
-  | P.Star(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("*")]
-  | P.Plus(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("+")]
-  | P.Optional(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("?")]
+  | P.Star(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("<sup>*</sup>")]
+  | P.Plus(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("<sup>+</sup>")]
+  | P.Optional(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("<sup>?</sup>")]
 
-  | P.Group(p) => [`Text("("), `Collapse, ...List.concat(List.map(simpleForItem(grammar), p))] @ [`Collapse, `Text(")")]
+  | P.Group(p) => [`Text("⦅"), `Collapse, ...List.concat(List.map(simpleForItem(grammar), p))] @ [`Collapse, `Text("⦆")]
 
   | P.Any(_) => [`Text("<i>any</i>")]
   | P.Not(_)
@@ -141,7 +143,7 @@ let rec simpleForItem = (grammar, item) =>
   | P.EOF
   | P.Empty
   | P.CommentEOL => []
-  | P.Chars(start, cend, label) => [`Text(Char.escaped(start) ++ ".." ++ Char.escaped(cend))]
+  | P.Chars(start, cend, label) => [`Text(Char.escaped(start) ++ "…" ++ Char.escaped(cend))]
   }
 and simpleForRule = (grammar, rulename) => {
   let rule = List.assoc(rulename, grammar.P.rules);
@@ -149,7 +151,12 @@ and simpleForRule = (grammar, rulename) => {
   if (List.length(rule.P.choices) > 1 || comment != "") {
     [`Text("<a href=\"#" ++ String.lowercase(rulename) ++ "\">" ++ rulename ++ "</a>")]
   } else {
-    List.concat(List.map(simpleForItem(grammar), items))
+    let res = List.concat(List.map(simpleForItem(grammar), items));
+    if (isLexical(rulename)) {
+      [`Text(String.concat("", List.map(m => switch m { | `Text(a) => a | `Collapse => ""}, res)))]
+    } else {
+      res
+    }
   }
 };
 
