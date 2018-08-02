@@ -160,6 +160,17 @@ and simpleForRule = (grammar, rulename) => {
   }
 };
 
+let help = {|
+This grammar is displayed using a syntax similar to regular expression.
+
+- `⦅` and `⦆` "thick parenthesis" indicate grouping, to distinguish from parenthesis that are actually part of the grammar
+- <code><sup>+</sup></code> allows one or more of the preceeding term or group
+- <code><sup>*</sup></code> allows zero or more of the preceeding term or group
+- <code><sup>?</sup></code> allows zero or one of the preceeding term or group
+
+Note that this sacrifices a bit of precision in the interest of readability. For the source of truth, read the source code :D
+|};
+
 let simpleForChoice = (grammar, items) => List.concat(List.map(simpleForItem(grammar), items));
 
 let rec showSimple = (items) => switch items {
