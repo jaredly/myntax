@@ -648,9 +648,12 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
 [@name "Parened"]
 [%%rule {|"("& Expression & ")"|}];
 
+/** A potentially-namespaced record label */
 [@name "attribute"][%%rule ({|':' longIdent|}, ([@node "longIdent"]ident) => ident)];
+/** A non-namespaced record label */
 [@name "shortAttribute"][%%rule {|':' lowerIdent|}];
 
+/** A potentially-namespaced lower-case identifier */
 [@name "longIdent"][%%rule (
   {|(longCap_ ".")? lowerIdent|},
   (~loc, [@node_opt "longCap_"]base, [@text "lowerIdent"](text, _)) => switch base {
@@ -658,6 +661,8 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
     | Some((base, loc)) => Location.mkloc(Ldot(base, text), loc)
   }
 )];
+
+/** A potentially-namespaced capital identifier */
 [@name "longCap"][%%rule (
   {|longCap_ ~"."|},
   ([@node "longCap_"](l, loc)) => Location.mkloc(l, loc)
@@ -689,9 +694,12 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   ),
 ]];
 
+/** A polymorphic variant identifier */
 [@name "polyIdent"][%%rule ("'`' capIdent", ([@text "capIdent"](name, loc)) => Location.mkloc(name, loc))];
 
+/** A simple identifier starting with a capital letter */
 [@leaf] [@name "capIdent"][%%rule {|~(reserved ~identchar) 'A..Z' identchar*|}];
+/** A simple identifier starting with a lower-case letter */
 [@leaf] [@name "lowerIdent"][%%rule {|~(reserved ~identchar) 'a..z' identchar*|}];
 
 [@name "identchar"]
@@ -703,8 +711,11 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 
 [@name "ConstString"][%%rule ("string", ([@text "string"](t, loc)) => Const_string(processString(t), None))];
 
+/** An int constant */
 [@leaf] [@name "int64"][%%rule {|digit+ ~identchar|}];
+/** A float constant */
 [@leaf] [@name "float"][%%rule {|digit+ '.' digit+|}];
+/** A string constant */
 [@leaf] [@name "string"][%%rule {|"\"" strchar* "\""|}];
 
 [@name "strchar"]
@@ -713,6 +724,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   {|~"\"" ~"\n" ~"\\" any|}
 ]];
 
+/** A char constant */
 [@leaf] [@name "char"][%%rule {|"'" charchar "'"|}];
 
 [@name "charchar"]
@@ -749,6 +761,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 
 [@name "digit"][%%rule {|'0..9'|}];
 
+/** An operator */
 [@leaf] [@name "operator"][%%rule {|~reservedOps opChar+ ~identchar|}];
 
 [@name "reservedOps"]

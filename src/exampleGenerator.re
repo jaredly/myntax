@@ -17,6 +17,8 @@ let maybePrint = (grammar, result) =>
   | Failure(message) => Some(message)
   };
 
+
+
 let rec generateForItem = (grammar, table, depth, item) =>
   switch item {
   | P.NonTerminal(name, label) => [
@@ -68,7 +70,7 @@ and generateForRule = (grammar, table, rulename, depth) =>
   };
 
 let generateForChoice = (grammar, table, rule, items) =>
-  R.Node(rule, List.concat(List.map(generateForItem(grammar, table, 0), items)), mLoc);
+  R.Node(rule, List.concat(List.map(generateForItem(grammar, table, 5), items)), mLoc);
 
 let generateExamples = (grammar, ruleName, table) => {
   let {P.choices, _} = List.assoc(ruleName, grammar.P.rules);
@@ -100,3 +102,72 @@ let generateExamples = (grammar, ruleName, table) => {
        grammar.P.rules
      ) |> List.concat |> String.concat "\n"
    }; */
+
+let rec simpleForItem = (grammar, item) =>
+  switch item {
+  | P.NonTerminal(name, label) => simpleForRule(grammar, name)
+  | P.Terminal(contents, label) => [`Text(
+    {
+      let c = contents
+    |> Str.global_replace(
+      Str.regexp_string("|"),
+      "\\|"
+    )
+    |> Str.global_replace(
+      Str.regexp_string("<"),
+      "&lt;"
+    )
+    |> Str.global_replace(
+      Str.regexp_string(">"),
+      "&gt;"
+    );
+    if (c == "\\") { "\\\\" } else { c }
+    }
+  )]
+  | P.NoSpaceAfter(p) => simpleForItem(grammar, p) @ [`Collapse]
+  | P.NoSpaceBefore(p) => [`Collapse, ...simpleForItem(grammar, p)]
+
+  | P.Lexify(p)
+
+  | P.Star(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("*")]
+  | P.Plus(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("+")]
+  | P.Optional(p) => simpleForItem(grammar, p) @ [`Collapse, `Text("?")]
+
+  | P.Group(p) => [`Text("("), `Collapse, ...List.concat(List.map(simpleForItem(grammar), p))] @ [`Collapse, `Text(")")]
+
+  | P.Any(_) => [`Text("<i>any</i>")]
+  | P.Not(_)
+  | P.Lookahead(_)
+  | P.EOF
+  | P.Empty
+  | P.CommentEOL => []
+  | P.Chars(start, cend, label) => [`Text(Char.escaped(start) ++ ".." ++ Char.escaped(cend))]
+  }
+and simpleForRule = (grammar, rulename) => {
+  let rule = List.assoc(rulename, grammar.P.rules);
+  let (sub, comment, items) = List.hd(rule.P.choices);
+  if (List.length(rule.P.choices) > 1 || comment != "") {
+    [`Text("<a href=\"#" ++ String.lowercase(rulename) ++ "\">" ++ rulename ++ "</a>")]
+  } else {
+    List.concat(List.map(simpleForItem(grammar), items))
+  }
+};
+
+let simpleForChoice = (grammar, items) => List.concat(List.map(simpleForItem(grammar), items));
+
+let rec showSimple = (items) => switch items {
+  | [`Text(a), `Text(b), ...rest] => a ++ " " ++ showSimple([`Text(b), ...rest])
+  | [`Text(a), `Collapse, ...rest] => a ++ showSimple(rest)
+  | [`Text(a)] => a
+  | [`Collapse, ...rest] => showSimple(rest)
+  | [] => ""
+};
+
+let showSimple = (items, ruleName) => {
+  let isLexical = {let l = String.sub(ruleName, 0, 1); l != String.capitalize(l)};
+  if (isLexical) {
+    String.concat("", List.map(m => switch m { | `Text(a) => a | `Collapse => ""}, items))
+  } else {
+    showSimple(items)
+  }
+};
