@@ -202,8 +202,12 @@ module H = Ast_helper;
   ),
   (
     "switch",
-    {|Switch|},
-    ([@node "Switch"]s) => s
+    {|"("& "switch" Expression SwitchBody &")"|},
+    (~loc, [@node "Expression"]expr, [@nodes "SwitchCase"]cases) => H.Exp.match(~loc, expr, cases)
+  ), (
+    "switch_function",
+    {|"("& "switch" "_" SwitchBody &")"|},
+    (~loc, [@nodes "SwitchCase"]cases) => H.Exp.function_(~loc, cases)
   ),
   (
     "try",
@@ -480,17 +484,6 @@ let rec expressionSequence = exprs => switch exprs {
     ([@node "Expression"]exp) => ("", exp)
   ),
 ]];
-
-[@name "Switch"]
-[%%rules [(
-  "switch",
-  {|"("& "switch" Expression SwitchBody &")"|},
-  (~loc, [@node "Expression"]expr, [@nodes "SwitchCase"]cases) => H.Exp.match(~loc, expr, cases)
-), (
-  "switch_function",
-  {|"("& "switch" "_" SwitchBody &")"|},
-  (~loc, [@nodes "SwitchCase"]cases) => H.Exp.function_(~loc, cases)
-)]];
 
 [@ignoreNewlines]
 [@name "SwitchBody"][%%passThroughRule "SwitchCase+"];
