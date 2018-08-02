@@ -92,11 +92,6 @@ module H = Ast_helper;
     (~loc, [@nodes "Expression"]exprs) => H.Exp.tuple(~loc, exprs)
   ),
   (
-    "fn_call",
-    {|"("& Expression FnCallArg+ &")"|},
-    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => H.Exp.apply(~loc, fn, args)
-  ),
-  (
     "array_literal",
     {|"[|"& [items]Expression* &"|]"|},
     (~loc, [@nodes.items "Expression"]items) => H.Exp.array(~loc, items)
@@ -134,11 +129,6 @@ module H = Ast_helper;
     (~loc, [@node "Expression"]expr) => H.Exp.lazy_(~loc, expr)
   ),
   (
-    "constraint",
-    {|"("& ":" Expression CoreType &")"|},
-    (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
-  ),
-  (
     "open",
     {|"("& "open" longCap Expression+ &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
@@ -159,15 +149,21 @@ module H = Ast_helper;
     (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
-  (
+  /* (
     "loop_recur",
     {|"("& "loop" "["& (Pattern Expression)+ &"]" Expression+ &")"|},
     () => failwith("not impl loop")
-  ),
+  ), */
   (
     "arrow",
-    {|Arrow|},
-    ([@node "Arrow"]arrow) => arrow
+    {|"("& "=>" FnArgs Expression* &")"|},
+    (~loc, [@node "FnArgs"]args, [@nodes "Expression"]exprs) => {
+      let rec loop = args => switch args {
+        | [] => expressionSequence(exprs)
+        | [(label, expr, pat), ...rest] => H.Exp.fun_(~loc=pat.ppat_loc, label, expr, pat, loop(rest))
+      };
+      loop(args)
+    }
   ),
   (
     "threading_last",
@@ -237,6 +233,16 @@ module H = Ast_helper;
     "record_attribute",
     {|"("& attribute Expression &")"|},
     (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => H.Exp.field(~loc, expr, attr)
+  ),
+  (
+    "fn_call",
+    {|"("& Expression FnCallArg+ &")"|},
+    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => H.Exp.apply(~loc, fn, args)
+  ),
+  (
+    "constraint",
+    {|"("& ":" Expression CoreType &")"|},
+    (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
   ),
 ]];
 
@@ -323,11 +329,11 @@ module H = Ast_helper;
   ), */
   ("structure", {|"("& "str" Structure* &")"|}, (~loc, [@nodes "Structure"]items) => H.Mod.mk(~loc, Pmod_structure(items))),
   ("ident", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Mod.mk(~loc, Pmod_ident(ident))),
-  (
+  /* (
     "functor_call",
     {|"("& longCap ModuleExpr+ &")"|},
     () => failwith("not impl")
-  )
+  ) */
 ]];
 
 [@name "LetPair"]
@@ -542,17 +548,6 @@ let rec expressionSequence = exprs => switch exprs {
     (~loc, [@node "attribute"]attr) => (attr, H.Exp.ident(Location.mkloc(Lident(Longident.last(attr.txt)), attr.loc)))
   ),
 ]];
-
-[@name "Arrow"][%%rule (
-  {|"("& "=>" FnArgs Expression* &")"|},
-  (~loc, [@node "FnArgs"]args, [@nodes "Expression"]exprs) => {
-    let rec loop = args => switch args {
-      | [] => expressionSequence(exprs)
-      | [(label, expr, pat), ...rest] => H.Exp.fun_(~loc=pat.ppat_loc, label, expr, pat, loop(rest))
-    };
-    loop(args)
-  }
-)];
 
 [@name "FnArgs"]
 [%%rules [
