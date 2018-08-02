@@ -24,7 +24,7 @@ let main = (~dump=false, ~file=?, ~dest=?, ()) => {
     | None => Sysop.readStdin()
     };
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", contents)) {
-  | Belt.Result.Error((maybeResult, (charsParsed, failure))) =>
+  | Belt.Result.Error((maybeResult, (charsParsed, _, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(1)
   | Ok(result) =>
@@ -64,7 +64,7 @@ let parseOptions = (options) => {
 let getGrammar = (filename) => {
   let contents = Sysop.readFile(filename);
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", contents)) {
-  | Error((maybeResult, (charsParsed, failure))) =>
+  | Error((maybeResult, (charsParsed, _, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(1)
   | Ok(result) => GrammarOfGrammar.convert(result)
@@ -109,7 +109,7 @@ let tests = (cases) => {
   List.iter(
     ((rule, text)) =>
       switch (Runtime.parse(GrammarGrammar.grammar, rule, text)) {
-      | Error((maybeResult, (charsParsed, failure))) =>
+      | Error((maybeResult, (charsParsed, _, failure))) =>
         print_string(PackTypes.Error.genErrorText(text, failure))
       | Ok(result) => ()
       },

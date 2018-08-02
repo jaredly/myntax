@@ -296,7 +296,9 @@ let mapper = _argv =>
         let start = (~filename, text) => {
           Runtime.fname := filename;
           switch (Runtime.parse(grammar, "Start", text)) {
-          | Belt.Result.Error(e) => Belt.Result.Error(e)
+          | Belt.Result.Error((Some(Node(("Start", sub), children, loc)), e)) =>
+            Belt.Result.Error((Some(convert_Start((sub, children, loc))), e))
+          | Belt.Result.Error((_, e)) => Belt.Result.Error((None, e))
           | Ok(Node(("Start", sub), children, loc)) => {
             Ok(convert_Start((sub, children, loc)));
           }

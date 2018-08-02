@@ -33,6 +33,36 @@ switch (Sysop.argv) {
     print_endline(ExampleGenerator.help ++ "\n\nIf you're interested, <a href=\"../parsable/grammar\">take a look at the grammar definition</a>");
     print_endline(ExampleGenerator.docsForGrammar(GrammarGrammar.grammar));
     exit(0)
+  | [|_, "--print", "binary", "--parse", "re"|] =>
+    let raw = Sysop.readStdin();
+    let result = LispGrammar.start("Start", raw);
+    switch result {
+      | Ok(converted) => out_binary(converted, "inputfile.rel");
+      | Error((_, (_, loc, failure))) =>
+        Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
+          loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
+          PackTypes.Error.errorsText(snd(failure))
+        );
+        exit(1)
+    };
+    exit(0)
+  | [|_, "--print", "binary", "--recoverable", "--parse", "re"|] =>
+    let raw = Sysop.readStdin();
+    let result = LispGrammar.start("Start", raw);
+    switch result {
+      | Ok(converted) => out_binary(converted, "inputfile.rel");
+      | Error((Some(converted), (_, loc, failure))) =>
+          out_binary(converted, "inputfile.rel");
+          Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
+          loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
+          PackTypes.Error.errorsText(snd(failure))
+          /* PackTypes.Error.genErrorText(raw, failure) */
+          )
+      | Error((None, (loc, _, failure))) =>
+          Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
+          exit(1)
+    };
+    exit(0)
   | _ => ()
 };
 
@@ -70,6 +100,3 @@ switch command {
   | None => failwith("Failed to pretty print :(")
   }
 };
-
-
-print_newline();

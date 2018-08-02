@@ -13,7 +13,7 @@ let pprintImpl = (implementation) => Pprintast.structure(Format.std_formatter, i
 let getGrammar = (raw) => {
   let start = Unix.gettimeofday();
   switch (Runtime.parse(GrammarGrammar.grammar, "Start", raw)) {
-  | Error((maybeResult, (charsParsed, failure))) =>
+  | Error((maybeResult, (charsParsed, _, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
     failwith("Unable to parse grammar")
   | Ok(result) =>
@@ -34,7 +34,7 @@ let out_binary = (ast: Parsetree.structure, input_name) => {
 let getResult = (grammar, contents) => {
   let start = Unix.gettimeofday();
   switch (Runtime.parse(grammar, "Start", contents)) {
-  | Error((maybeResult, (charsParsed, failure))) =>
+  | Error((maybeResult, (charsParsed, _, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(10)
   | Ok(result) => (result, Unix.gettimeofday() -. start)

@@ -4,3 +4,18 @@
 
 (print_endline "folkx wat")
 2
+
+(print_endline "Hello folzx")
+
+(switch 1
+ 2 3
+ 3 4
+ _ 1)
+
+
+
+; more
+
+(let [x 2] 2)
+
+; more

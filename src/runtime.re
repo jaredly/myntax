@@ -261,6 +261,19 @@ let rec greedy = (loop, min, max, subr, i, path, greedyCount, isNegated) =>
     }
   };
 
+let skipAllWhite = (i, grammar, state) => {
+  let i = skipWhite(i, state.input, state.len, true);
+  let i' =
+    switch (grammar.P.blockComment, grammar.P.lineComment) {
+    | (Some(x), None) => skipBlockComments(i, x, state.input, state.len, true)
+    | (Some(x), Some(y)) =>
+      skipBlockAndLineComments(i, x, y, state.input, state.len)
+    | (None, Some(x)) => skipLineComments(i, x, state.input, state.len)
+    | (None, None) => i
+    };
+  i'
+};
+
 /* Apply rule 'rulename' at position 'i' in the input.  Returns the new
  * position if the rule can be applied, else -1 if fails.
  */
@@ -693,10 +706,11 @@ let parse = (grammar: PackTypes.Parsing.grammar, start, input) => {
   let state = initialState(input);
   /* TODO ignoringNewlines should be configurable? */
   let (i, (result, _), errs) = apply_rule(grammar, state, start, 0, false, false, []);
+  let i = skipAllWhite(i, grammar, state);
   if (i == (-1)) {
-    Belt.Result.Error((None, (0, errs)))
+    Belt.Result.Error((None, (0, Lexing.dummy_pos, errs)))
   } else if (i < state.len) {
-    Belt.Result.Error((Some(result), (i, errs)))
+    Belt.Result.Error((Some(result), (i, posForLoc(fst(errs)), errs)))
   } else {
     Belt.Result.Ok(result)
   }

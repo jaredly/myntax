@@ -1,7 +1,7 @@
 
 let choice = raw => {
   switch (Runtime.parse(GrammarGrammar.grammar, "Choice", raw)) {
-  | Error((maybeResult, (charsParsed, failure))) =>
+  | Error((maybeResult, (charsParsed, _, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
     failwith("Unable to parse grammar")
   | Belt.Result.Ok(Node(_, children, _)) =>
@@ -14,7 +14,7 @@ let choice = raw => {
 
 let getResult = (grammar, entry, contents) => {
   switch (Runtime.parse(grammar, entry, contents)) {
-  | Belt.Result.Error((maybeResult, (charsParsed, failure))) =>
+  | Belt.Result.Error((maybeResult, (charsParsed, _, failure))) =>
     Printf.eprintf("%s\n", PackTypes.Error.genErrorText(contents, failure));
     exit(10)
   | Belt.Result.Ok(Node((_, sub), children, loc)) => {

@@ -103,13 +103,13 @@ module H = Ast_helper;
   ),
   (
     "object_literal",
-    {|"{"& ("..."& Expression)? ObjectItem+ &"}"|},
+    {|"{"& ("..."& Expression)? ObjectItem* &"}"|},
     (~loc, [@node_opt "Expression"]spread, [@nodes "ObjectItem"]items) => H.Exp.record(items, spread)
   ),
 
   (
     "let",
-    {|"("& "let" "["& ValueBinding+ &"]" Expression+ &")"|},
+    {|"("& "let" "["& ValueBinding+ &"]" Expression* &")"|},
     (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
       H.Exp.let_(~loc, Nonrecursive, bindings, expressionSequence(contents))
   ),
@@ -130,7 +130,7 @@ module H = Ast_helper;
   ),
   (
     "open",
-    {|"("& "open" longCap Expression+ &")"|},
+    {|"("& "open" longCap Expression* &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
   ),
   (
@@ -167,7 +167,7 @@ module H = Ast_helper;
   ),
   (
     "threading_last",
-    {|"("& "->>" Expression ThreadItem+ &")"|},
+    {|"("& "->>" Expression ThreadItem* &")"|},
     (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
@@ -180,7 +180,7 @@ module H = Ast_helper;
   ),
   (
     "threading",
-    {|"("& "->" [target]Expression ThreadItem+ &")"|},
+    {|"("& "->" [target]Expression ThreadItem* &")"|},
     (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
@@ -240,8 +240,8 @@ module H = Ast_helper;
   ),
   (
     "fn_call",
-    {|"("& Expression FnCallArg+ &")"|},
-    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => H.Exp.apply(~loc, fn, args)
+    {|"("& Expression FnCallArg* &")"|},
+    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => args == [] ? fn : H.Exp.apply(~loc, fn, args)
   ),
   (
     "constraint",
