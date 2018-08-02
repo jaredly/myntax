@@ -21,15 +21,22 @@ Building & using the lisp-to-ocaml parser
 ## Using Lisp.re in a real project
 
 The ocaml compiler actually makes this super easy :D.
-You can set a up a watcher that, whenever a .rel file changes, will run `lisp.native bin that-file.rel > that-file.ml`. Then, bsb or jbuilder will see the `.ml` file and process it, smoothly handling the fact that it's already been parsed. This way token location information is preserved!
+
+`watch.js` is a script that, when run with a directory, will watch the `.rel` files in that directory, and recompile them when they change, piping the binary output into the equivalent `.ml` file. You can then have bucklescript watching the directory, or jbuilder running, and they will treat the binary `.ml` file as a perfectly normal source file.
+
+`npm run example` will start the watcher for `example/src`. You can then start bsb in the example directory with `cd example && npm start`, and edit `example/src/Hello.rel` and see bsb recompile.
 
 # TODO
 
-- [ ] preserving newlines would be nice
-- [ ] preserve comments pls
-- [ ] make sure I'm hanging on to locations of things
+## Parsing
+
 - [ ] better error messages! I think I can add nice messages to a given rule item, detailing what the correct syntax should be. Like "in a record declaration, you can only do :keyword and :keyword int". Although maybe I can do that automatically? That would be super cool. Also I could generate "examples" automatically via the pretty printer. Would want to generate "minimally interesting" examples, that followed the longest branch that we were on.
-- [ ] pretty printing could use a lot of love too. I want to be able to represent the "fill box" from Format. Also specify indentation groups, etc.
+
+## Pretty-printing
+
+- [ ] preserving newlines between forms would be nice
+- [ ] preserve comments pls
+- [ ] I want to be able to represent the "fill box" from Format. Also specify indentation groups, etc.
 
 
 

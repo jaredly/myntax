@@ -28,5 +28,13 @@ watch.watchTree(target, {
         // console.log(er)
       })
     }
+  } else if (!prev) {
+    Object.keys(f).forEach(f => {
+      if (f.slice(-4) === '.rel') {
+        let name = f.slice(0, -3) + 'ml';
+        console.log('initial compile ' + f)
+        c.exec(bin + ' bin ' + f + ' > ' + name);
+      }
+    })
   }
 })

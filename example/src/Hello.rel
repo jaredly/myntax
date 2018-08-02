@@ -2,5 +2,5 @@
 ; (def x 2)
 
 
-(print_endline "Hello folkx wat")
+(print_endline "folkx wat")
 2
