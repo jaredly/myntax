@@ -3,7 +3,6 @@ B _build/src
 PKG yojson ppx_deriving_yojson ppx_deriving ppx_deriving.std compiler-libs.common
 
 ####{BSB GENERATED: NO EDIT
-FLG -ppx Ppx_Monads
 FLG -ppx /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/bsppx.exe
 S /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/ocaml/native
 B /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/ocaml/native

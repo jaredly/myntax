@@ -1,9 +1,4 @@
 
-
-/***
- * https://ocsigen.org/lwt/dev/api/Ppx_lwt
- * https://github.com/zepalmer/ocaml-monadic
- */
 let fail = (loc, txt) => raise(Location.Error(Location.error(~loc, txt)));
 
 open Parsetree;

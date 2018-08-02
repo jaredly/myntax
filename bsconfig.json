@@ -10,20 +10,15 @@
     {"dir": "src", "subdirs": true},
     {"dir": "bin"},
     {"dir": "grammars",
-      // "ppx": ["Ppx_Monads"],
+      "ppx": ["Ppx_grammar"],
     },
     {"dir": "ppx", "type": "ppx"}
   ],
-  "ppx-flags": ["Ppx_Monads"],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
-  // "public": ["Main"],
   "entries": [{
-  //   "backend": "native",
-  //   "main-module": "Run"
-  // }, {
     "backend": "native",
     "type": "ppx",
-    "main-module": "Ppx_Monads"
+    "main-module": "Ppx_grammar"
   }, {
     "backend": "native",
     "main-module": "Refmt"
