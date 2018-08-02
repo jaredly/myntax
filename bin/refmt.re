@@ -41,7 +41,7 @@ let getResult = (grammar, contents) => {
   }
 };
 
-let num = MathGrammar.calc("3 + 4 - 5");
+let num = MathGrammar.start("3 + 4 - 5");
 /* print_endline(string_of_int(num)); */
 
 let getResult = (grammarFile, input) => {

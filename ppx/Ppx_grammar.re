@@ -10,12 +10,6 @@ let strExpr = str => switch str.pstr_desc {
   | _ => fail(str.pstr_loc, "Expected an expression")
 };
 
-let tupleOrSingle = str => switch str.pstr_desc {
-  | Pstr_eval({pexp_desc: Pexp_tuple(items)}, _) => `Tuple(items)
-  | Pstr_eval(expr, _) => `Single(expr)
-  | _ => fail(str.pstr_loc, "Expected a tuple or an expression")
-};
-
 
 let tupleItems = str => switch str.pstr_desc {
   | Pstr_eval({pexp_desc: Pexp_tuple(items)}, _) => items
@@ -38,6 +32,15 @@ let listItems = str => switch str.pstr_desc {
     [head, ...unrollList(tail)]
   }
   | _ => fail(str.pstr_loc, "Expected a list")
+};
+
+let ruleBody = str => switch str.pstr_desc {
+  | Pstr_eval({pexp_desc: Pexp_tuple(items)}, _) => `Tuple(items)
+  | Pstr_eval({pexp_desc: Pexp_construct({txt: Lident("::")}, Some({pexp_desc: Pexp_tuple([head, tail])}))}, _) => {
+    `List([head, ...unrollList(tail)])
+  }
+  | Pstr_eval(expr, _) => `Single(expr)
+  | _ => fail(str.pstr_loc, "Expected a tuple or a list of tuples or an expression")
 };
 
 let attrString = (attrs, name) => {
@@ -189,7 +192,7 @@ let mapper = _argv =>
     structure: (mapper, items) => {
       let (top, rules, converters, found) = List.fold_left(((top, rules, converters, found), item) => {
         switch item.pstr_desc {
-          | Parsetree.Pstr_extension(({txt: ("rule" | "rules" | "passThroughRule") as txt}, contents), attributes) => {
+          | Parsetree.Pstr_extension(({txt: ("rule" | "passThroughRule") as txt}, contents), attributes) => {
             let name = switch (attrString(attributes, "name")) {
               | None => fail(item.pstr_loc, "No name for rule")
               | Some(name) => name
@@ -233,65 +236,59 @@ let mapper = _argv =>
               (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
             } else if (txt == "rule") {
               let choice = switch contents {
-                | [one] => tupleOrSingle(one)
-                | _ => fail(item.pstr_loc, "Must contain a single tuple")
+                | [one] => ruleBody(one)
+                | _ => fail(item.pstr_loc, "Must contain a single item")
               };
               let docs = docs |? "";
               switch choice {
-                | `Single(choice) =>
-                  (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
-                | `Tuple([choice, fn]) =>
-                  let fnCall = converterExpr(fn);
-                  let converter: (string, Parsetree.expression) = (
-                    name,
-                    [%expr ((sub, children, _loc)) => [%e fnCall]]
-                  );
-                  let ruleDocs = attrString(choice.pexp_attributes, "ocaml.doc") |? docs;
-                  (top, newRules([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
-                | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
+              | `Single(choice) =>
+                (top, newRules([%expr [("", [%e strExp(docs)], [%e maybeConvertChoice(choice)])]]), converters, true)
+              | `Tuple([choice, fn]) =>
+                let fnCall = converterExpr(fn);
+                let converter: (string, Parsetree.expression) = (
+                  name,
+                  [%expr ((sub, children, _loc)) => [%e fnCall]]
+                );
+                let ruleDocs = attrString(choice.pexp_attributes, "ocaml.doc") |? docs;
+                (top, newRules([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
+              | `Tuple(_) => fail(item.pstr_loc, "Expected a tuple of two items")
+              | `List(body) =>
+                let (rules, cases) = body |. Belt.List.reduceReverse(([%expr []], []), ((rules, cases), expr) => {
+                  switch (expr.pexp_desc) {
+                    | Pexp_tuple([
+                      {pexp_desc: Pexp_constant(Const_string(name, _))},
+                      rule,
+                      fn
+                    ]) => {
+                      let fnCall = converterExpr(fn);
+                      let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
+                      ([%expr [([%e strExp(name)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
+                        Ast_helper.Pat.constant(Const_string(name, None)),
+                        fnCall
+                      ), ...cases])
+                    }
+                    | Pexp_constant(Const_string(contents, _)) => {
+                      let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
+                      ([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
+                    }
+                    | _ => fail(expr.pexp_loc, "Invalid rule item")
+                  }
+                });
+                let cases = cases @ [
+                  Ast_helper.Exp.case(
+                    Ast_helper.Pat.any(),
+                    Ast_helper.Exp.assert_(Ast_helper.Exp.construct(Location.mknoloc(Longident.Lident("false")), None))
+                    
+                  )
+                ];
+
+                let sw = Ast_helper.Exp.match([%expr sub], cases);
+                let converter  = (
+                  name,
+                  [%expr ((sub, children, _loc)) => [%e sw]]
+                );
+                (top, newRules(rules), [converter, ...converters], true)
               }
-            } else if (txt == "rules") {
-
-              let body = switch contents {
-                | [one] => listItems(one)
-                | _ => fail(item.pstr_loc, "Must contain a single list")
-              };
-              let (rules, cases) = body |. Belt.List.reduceReverse(([%expr []], []), ((rules, cases), expr) => {
-                switch (expr.pexp_desc) {
-                  | Pexp_tuple([
-                    {pexp_desc: Pexp_constant(Const_string(name, _))},
-                    rule,
-                    fn
-                  ]) => {
-                    let fnCall = converterExpr(fn);
-                    let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
-                    ([%expr [([%e strExp(name)], [%e strExp(ruleDocs)], [%e maybeConvertChoice(rule)]), ...[%e rules]]], [Ast_helper.Exp.case(
-                      Ast_helper.Pat.constant(Const_string(name, None)),
-                      fnCall
-                    ), ...cases])
-                  }
-                  | Pexp_constant(Const_string(contents, _)) => {
-                    let ruleDocs = attrString(expr.pexp_attributes, "ocaml.doc") |? "";
-                    ([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(expr)]), ...[%e rules]]], cases)
-                  }
-                  | _ => fail(expr.pexp_loc, "Invalid rule item")
-                }
-              });
-              let cases = cases @ [
-                Ast_helper.Exp.case(
-                  Ast_helper.Pat.any(),
-                  Ast_helper.Exp.assert_(Ast_helper.Exp.construct(Location.mknoloc(Longident.Lident("false")), None))
-                  
-                )
-              ];
-
-              let sw = Ast_helper.Exp.match([%expr sub], cases);
-              let converter  = (
-                name,
-                [%expr ((sub, children, _loc)) => [%e sw]]
-              );
-              (top, newRules(rules), [converter, ...converters], true)
-
             } else {
               (top, rules, converters, found)
             }
@@ -306,7 +303,18 @@ let mapper = _argv =>
           lineComment: Some(";"),
           blockComment: Some(("(**", "*)")),
           rules: [%e rules]
-        }];
+        };
+        let start = (~filename, text) => {
+          Runtime.fname := filename;
+          switch (Runtime.parse(grammar, "Start", text)) {
+          | Belt.Result.Error(e) => Belt.Result.Error(e)
+          | Ok(Node(("Start", sub), children, loc)) => {
+            Ok(convert_Start((sub, children, loc)));
+          }
+          | Ok(_) => failwith("Invalid response")
+          }
+        }
+        ];
         let converters = Ast_helper.Str.value(
           Recursive,
           converters |. Belt.List.map(((name, contents)) => {
@@ -316,7 +324,7 @@ let mapper = _argv =>
             )
           })
         );
-        top @ grammar @ [converters]
+        top @ [converters] @ grammar
       } else {
         top
       }

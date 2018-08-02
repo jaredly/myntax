@@ -21,7 +21,7 @@ module H = Ast_helper;
 
 /** Forms that are valid at the top level of a file or module */
 [@name "Structure"]
-[%%rules [
+[%%rule [
   ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   /** Define a toplevel value. */
   ("def", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
@@ -42,7 +42,7 @@ module H = Ast_helper;
 
 [@ignoreNewlines]
 [@name "Expression"]
-[%%rules [
+[%%rule [
   (
     "ident",
     {|longIdent|},
@@ -252,7 +252,7 @@ module H = Ast_helper;
 
 [@ignoreNewlines]
 [@name "Pattern"]
-[%%rules [
+[%%rule [
   (
     "ident", {|lowerIdent|}, (~loc, [@text "lowerIdent"](text, tloc)) => H.Pat.var(~loc, Location.mkloc(text, tloc))
   ),
@@ -325,7 +325,7 @@ module H = Ast_helper;
 
 [@ignoreNewlines]
 [@name "ModuleExpr"]
-[%%rules [
+[%%rule [
   /* (
     "arrow",
     {|"("& "=>" "[" "]" Structure* &")"|},
@@ -358,7 +358,7 @@ module H = Ast_helper;
 )];
 
 [@name "TypeName"]
-[%%rules [
+[%%rule [
   (
     "vbl", {|"("& lowerIdent typeVariable+ &")"|},
     (~loc, [@text "lowerIdent"](name, loc), [@texts "typeVariable"]vbls) => (
@@ -373,7 +373,7 @@ module H = Ast_helper;
 
 [@ignoreNewLines]
 [@name "TypeKind"]
-[%%rules [
+[%%rule [
   (
     "record",
     {|"{"& TypeObjectItem+ &"}"|},
@@ -390,7 +390,7 @@ module H = Ast_helper;
 ]]
 
 [@name "TypeObjectItem"]
-[%%rules [
+[%%rule [
   (
     "normal",
     "shortAttribute CoreType",
@@ -416,7 +416,7 @@ module H = Ast_helper;
 )];
 
 [@name "TypeConstructor"]
-[%%rules [
+[%%rule [
   (
     "no_args",
     {|capIdent|},
@@ -429,7 +429,7 @@ module H = Ast_helper;
 ]];
 
 [@name "CoreType"]
-[%%rules [
+[%%rule [
   (
     "constr_no_args",
     {|longIdent|},
@@ -467,7 +467,7 @@ let rec expressionSequence = exprs => switch exprs {
 
 
 [@name "FnCallArg"]
-[%%rules [
+[%%rule [
   (
     "labeled",
     {|argLabel "=" Expression|},
@@ -500,7 +500,7 @@ let rec expressionSequence = exprs => switch exprs {
 )];
 
 [@name "ThreadItem"]
-[%%rules [
+[%%rule [
   (
     "attribute",
     {|attribute|},
@@ -529,7 +529,7 @@ let rec expressionSequence = exprs => switch exprs {
 ]];
 
 [@name "ObjectItem"]
-[%%rules [
+[%%rule [
   (
     "normal",
     {|attribute Expression|},
@@ -543,7 +543,7 @@ let rec expressionSequence = exprs => switch exprs {
 ]];
 
 [@name "FnArgs"]
-[%%rules [
+[%%rule [
   (
     "single",
     {|lowerIdent|},
@@ -577,7 +577,7 @@ let argPat = (label, mtyp) => switch (mtyp) {
 
 [@ignoreNewlines]
 [@name "FnArg"]
-[%%rules [
+[%%rule [
   (
     "destructured",
     {|argLabelWithConstraint "as" Pattern|},
@@ -623,7 +623,7 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
   };
 
 [@name "PatternObjectItem"]
-[%%rules [
+[%%rule [
   (
     "normal",
     {|attribute Pattern|},
@@ -665,7 +665,7 @@ let rec listToConstruct = (list, maybeRest, construct, tuple) =>
 )];
 
 [@name "longCap_"]
-[%%rules [
+[%%rule [
   (
     "dot",
     {|longCap_ "." capIdent|},
@@ -682,7 +682,7 @@ let stripQuotes = (str) => String.sub(str, 1, String.length(str) - 2);
 let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 
 [@name "constant"]
-[%%rules [
+[%%rule [
   ("float", {|[val]float|}, ([@text "float"](t, _)) => Const_float(t)),
   ("int", {|[val]int64|}, ([@text "int64"](t, _)) => Const_int(int_of_string(t))),
   ("string", {|ConstString|}, ([@node "ConstString"]t) => t),
@@ -698,7 +698,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 [@leaf] [@name "lowerIdent"][%%rule {|~(reserved ~identchar) 'a..z' identchar*|}];
 
 [@name "identchar"]
-[%%rules [
+[%%rule [
   "alpha",
   "digit",
   {|"_"|},
@@ -714,7 +714,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 [@leaf] [@name "string"][%%rule {|"\"" strchar* "\""|}];
 
 [@name "strchar"]
-[%%rules [
+[%%rule [
   {|"\\" any|},
   {|~"\"" ~"\n" ~"\\" any|}
 ]];
@@ -723,13 +723,13 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 [@leaf] [@name "char"][%%rule {|"'" charchar "'"|}];
 
 [@name "charchar"]
-[%%rules [
+[%%rule [
   {|"\\" any|},
   {|~"'" ~"\n" ~"\\" any|}
 ]];
 
 [@name "reserved"]
-[%%rules [
+[%%rule [
   {|"fun"|},
   {|"let"|},
   {|"and"|},
@@ -749,7 +749,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 ]];
 
 [@name "alpha"]
-[%%rules [
+[%%rule [
   {|'a..z'|},
   {|'A..Z'|},
 ]];
@@ -760,13 +760,13 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
 [@leaf] [@name "operator"][%%rule {|~reservedOps opChar+ ~identchar|}];
 
 [@name "reservedOps"]
-[%%rules [
+[%%rule [
   {|"=>"|},
   {|"..."|},
 ]];
 
 [@name "opChar"]
-[%%rules [
+[%%rule [
   {|"!"|},
   {|"$"|},
   {|"%"|},
