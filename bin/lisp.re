@@ -62,13 +62,10 @@ switch (Sysop.argv) {
       | Error((Some(converted), (_, loc, failure))) =>
           out_binary(converted, "inputfile.rel");
           Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
-          loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
-          PackTypes.Error.errorsText(snd(failure))
-          /* PackTypes.Error.genErrorText(raw, failure) */
+            loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
+            PackTypes.Error.errorsText(snd(failure))
           )
       | Error((None, (_, loc, failure))) =>
-          /* Printf.eprintf("%s\n", PackTypes.Error.genErrorText(raw, failure));
-          exit(1) */
           out_binary([], "inputfile.rel");
           Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
             loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,

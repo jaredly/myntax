@@ -77,7 +77,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "const",
     {|constant|},
-    ([@node "constant"]c) => H.Exp.constant(c)
+    (~loc, [@node "constant"]c) => H.Exp.constant(~loc, c)
   ),
 
   (
@@ -88,7 +88,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "empty_constr",
     {|longCap|},
-    (~loc, [@node "longCap"]ident) => H.Exp.construct(ident, None)
+    (~loc, [@node "longCap"]ident) => H.Exp.construct(~loc, ident, None)
   ),
   (
     "constructor_poly",
@@ -109,7 +109,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "op",
     {|operator|},
-    ([@text "operator"](op, loc)) => H.Exp.ident(Location.mkloc(Lident(op), loc))
+    (~loc, [@text "operator"](op, oloc)) => H.Exp.ident(~loc, Location.mkloc(Lident(op), oloc))
   ),
 
   (
@@ -125,7 +125,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "list_literal",
     {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
-    (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(items, spread, H.Exp.construct, H.Exp.tuple)
+    (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(~loc, items, spread, (~loc, a, b) => H.Exp.construct(~loc, a, b), H.Exp.tuple, item => item.pexp_loc)
   ),
   (
     "object_literal",
@@ -294,7 +294,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "array",
     {|"["& [items]Pattern* ("..."& [spread]Pattern)? &"]"|},
-    (~loc, [@nodes.items "Pattern"]items, [@node_opt.spread "Pattern"]spread) => listToConstruct(items, spread, H.Pat.construct, H.Pat.tuple)
+    (~loc, [@nodes.items "Pattern"]items, [@node_opt.spread "Pattern"]spread) => listToConstruct(~loc, items, spread, (~loc, a, b) => H.Pat.construct(~loc, a, b), H.Pat.tuple, item => item.ppat_loc)
   ),
   (
     "tuple",
@@ -627,17 +627,22 @@ let argPat = (label, mtyp) => switch (mtyp) {
   ),
 ]];
 
-let rec listToConstruct = (list, maybeRest, construct, tuple) =>
+let rec listToConstruct = (~loc, list, maybeRest, construct, tuple, itemLoc) =>
   switch list {
   | [] =>
     switch maybeRest {
-    | None => construct(Location.mkloc(Lident("[]"), Location.none), None)
+    | None => construct(
+      ~loc,
+      Location.mkloc(Lident("[]"), loc), None)
     | Some(x) => x
     }
   | [one, ...rest] =>
     construct(
+      ~loc=itemLoc(one),
       Location.mkloc(Lident("::"), Location.none),
-      Some(tuple([one, listToConstruct(rest, maybeRest, construct, tuple)]))
+      Some(tuple(
+        /* ~loc=itemLoc(one), */
+        [one, listToConstruct(~loc=itemLoc(one), rest, maybeRest, construct, tuple, itemLoc)]))
     )
   };
 

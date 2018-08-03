@@ -160,7 +160,7 @@ let findByType = (children, needle) =>
   );
 
 let rec greedy = (loop, p, children, min, max) =>
-  /* Printf.printf "Greedy %d %d\n" min max; */
+  /* Printf.eprintf "Greedy %d %d\n" min max; */
   if (max == 0) {
     (true, [], children)
   } else {
@@ -290,7 +290,7 @@ and processNonTerminal = (grammar, name, label, children, ignoringNewlines, rest
     }
   }
 and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
-  /* Printf.printf "Output: %s %s\n" name sub; */
+  /* Printf.eprintf "Output: %s %s\n" name sub; */
   let rule = List.assoc(name, grammar.rules);
   let (_, _, items) =
     try (List.find(((name, _, _)) => name == sub, rule.choices)) {
