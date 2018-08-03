@@ -71,8 +71,8 @@ switch (Sysop.argv) {
           exit(1) */
           out_binary([], "inputfile.rel");
           Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
-          loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
-          PackTypes.Error.errorsText(snd(failure))
+            loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
+            PackTypes.Error.errorsText(snd(failure))
           )
     };
     exit(0)

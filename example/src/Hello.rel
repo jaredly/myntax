@@ -1,13 +1,14 @@
 
-0
-; jow
-
-
-
 (-> 2 Js.log)
 
+(type greeting (Hello string) Goodbye)
 
-(let [m 2 n 4] (Js.log (+ n m)))
+(defn party [one two]
+  (let [m 2 n 4]
+    (Js.log (+ n m))
+    (Hello "folks")
+    ))
+
 
 (def awesome 20)
 ; w

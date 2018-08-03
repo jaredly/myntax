@@ -5,6 +5,25 @@ open Longident;
 
 module H = Ast_helper;
 
+let rec expressionSequence = exprs => switch exprs {
+  | [] => H.Exp.construct(Location.mknoloc(Lident("()")), None)
+  | [one] => one
+  | [one, ...rest] => H.Exp.sequence(one, expressionSequence(rest))
+};
+
+let makeArrow = (~args, ~exprs) => {
+  let rec loop = args => switch args {
+    | [] => expressionSequence(exprs)
+    | [(label, expr, pat), ...rest] => H.Exp.fun_(~loc=pat.ppat_loc, label, expr, pat, loop(rest))
+  };
+  loop(args)
+};
+
+let constructorArgs = (exprs, fn) => switch exprs {
+  | [one] => one
+  | _ => fn(exprs)
+};
+
 [@lineComment ";"];
 [@blockComment ("(**", "*)")];
 
@@ -25,6 +44,13 @@ module H = Ast_helper;
   ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   /** Define a toplevel value. */
   ("def", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
+  ("defn", {|"("& "defn" lowerIdent FnArgs Expression* &")"|}, (~loc, [@text "lowerIdent"](text, tloc), [@node "FnArgs"]args, [@nodes "Expression"]exprs) => H.Str.value(~loc, Nonrecursive, [
+    H.Vb.mk(
+      ~loc,
+      H.Pat.var(Location.mkloc(text, tloc)),
+      makeArrow(~args, ~exprs)
+    )
+  ])),
   ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
   ("type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
   ("module", {|"("& "module" capIdent ModuleExpr &")"|},
@@ -57,7 +83,7 @@ module H = Ast_helper;
   (
     "constructor",
     {|"("& longCap Expression+ &")"|},
-    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(H.Exp.tuple(exprs)))
+    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(constructorArgs(exprs, H.Exp.tuple(~loc))))
   ),
   (
     "empty_constr",
@@ -67,7 +93,7 @@ module H = Ast_helper;
   (
     "constructor_poly",
     {|"("& polyIdent Expression+ &")"|},
-    (~loc, [@node "polyIdent"]ident, [@nodes "Expression"]exprs) => H.Exp.variant(~loc, ident.txt, Some(H.Exp.tuple(exprs)))
+    (~loc, [@node "polyIdent"]ident, [@nodes "Expression"]exprs) => H.Exp.variant(~loc, ident.txt, Some(constructorArgs(exprs, H.Exp.tuple)))
   ),
   (
     "empty_poly",
@@ -88,7 +114,7 @@ module H = Ast_helper;
 
   (
     "tuple",
-    {|"("& "," Expression+ &")"|},
+    {|"("& "," Expression Expression+ &")"|},
     (~loc, [@nodes "Expression"]exprs) => H.Exp.tuple(~loc, exprs)
   ),
   (
@@ -158,11 +184,7 @@ module H = Ast_helper;
     "arrow",
     {|"("& "=>" FnArgs Expression* &")"|},
     (~loc, [@node "FnArgs"]args, [@nodes "Expression"]exprs) => {
-      let rec loop = args => switch args {
-        | [] => expressionSequence(exprs)
-        | [(label, expr, pat), ...rest] => H.Exp.fun_(~loc=pat.ppat_loc, label, expr, pat, loop(rest))
-      };
-      loop(args)
+      makeArrow(~args, ~exprs)
     }
   ),
   (
@@ -276,7 +298,7 @@ module H = Ast_helper;
   ),
   (
     "tuple",
-    {|"("& "," Pattern+ &")"|},
+    {|"("& "," Pattern Pattern+ &")"|},
     (~loc, [@nodes "Pattern"]patterns) => H.Pat.tuple(~loc, patterns)
   ),
   (
@@ -285,7 +307,7 @@ module H = Ast_helper;
   (
     "poly",
     {|"("& polyIdent Pattern+ &")"|},
-    (~loc, [@node "polyIdent"]ident, [@nodes "Pattern"]args) => H.Pat.variant(~loc, ident.txt, Some(H.Pat.tuple(args)))
+    (~loc, [@node "polyIdent"]ident, [@nodes "Pattern"]args) => H.Pat.variant(~loc, ident.txt, Some(constructorArgs(args, H.Pat.tuple)))
   ),
   (
     "empty_poly", {|polyIdent|}, (~loc, [@node "polyIdent"]ident) => H.Pat.variant(~loc, ident.txt, None)
@@ -298,7 +320,7 @@ module H = Ast_helper;
   (
     "constructor",
     {|"("& longCap Pattern+ &")"|},
-    (~loc, [@node "longCap"]ident, [@nodes "Pattern"]args) => H.Pat.construct(~loc, ident, Some(H.Pat.tuple(args)))
+    (~loc, [@node "longCap"]ident, [@nodes "Pattern"]args) => H.Pat.construct(~loc, ident, Some(constructorArgs(args, H.Pat.tuple)))
   ),
   (
     "object",
@@ -459,12 +481,6 @@ module H = Ast_helper;
 [%%rule {|'\'' lowerIdent|}];
 
 [@name "ValueBinding"][%%rule ("Pattern Expression", (~loc, [@node "Pattern"]pat, [@node "Expression"]expr) => H.Vb.mk(~loc, pat, expr))]
-
-let rec expressionSequence = exprs => switch exprs {
-  | [] => H.Exp.construct(Location.mknoloc(Lident("()")), None)
-  | [one] => one
-  | [one, ...rest] => H.Exp.sequence(one, expressionSequence(rest))
-};
 
 
 [@name "FnCallArg"]
