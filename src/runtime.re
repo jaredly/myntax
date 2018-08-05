@@ -6,32 +6,6 @@ module R = PackTypes.Result;
 
 module RP = PackTypes.Path;
 
-/* Parser.
- * Packrat parser with left recursion, see:
- * "Packrat Parsers Can Support Left Recursion"
- * Alessandro Warth, James R. Douglass, Todd Millstein
- */
-module StringSet = Set.Make(String);
-
-type lr = {
-  mutable seed: ans,
-  mutable rulename: string,
-  mutable head: option(head)
-}
-and memoentry = {
-  mutable ans: ans_or_lr,
-  mutable pos: int
-}
-and ans_or_lr =
-  | Answer(ans)
-  | LR(lr)
-and ans = (int, (PackTypes.Result.result, bool), PackTypes.Error.errors)
-and head = {
-  mutable hrule: string,
-  mutable involved_set: StringSet.t,
-  mutable eval_set: StringSet.t
-};
-
 /** STATEFUL STUFF
  * It would probably nice to thread this through,
  * but this is way easier at the moment :shrug: */;
@@ -86,24 +60,7 @@ let locForOffs = (a, b) => {
 
 let emptyResult = (pos, name, isLexical) => (R.Leaf((name, ""), "", locForOffs(pos, pos)), false);
 
-let unwrap = (opt) =>
-  switch opt {
-  | Some(x) => x
-  | None => failwith("Expected Some(x)")
-  };
-
-let tfst = ((a, _, _)) => a;
-
-let show_ans = (message, (pos, _, (epos, errors))) =>
-  Printf.eprintf("%s :: (%d)\n%s\n", message, epos, PackTypes.Error.errorsText(errors));
-
-let show_ansorlr = (message, ansor) =>
-  switch ansor {
-  | Answer(ans) => show_ans(message, ans)
-  | LR(lr) => show_ans(message ++ "[lr seed]", lr.seed)
-  };
-
-let mergeErrs = ((i1, errs1), (i2, errs2)) =>
+let mergeErrors = ((i1, errs1), (i2, errs2)) =>
   if (i1 == i2) {
     (i1, List.concat([errs1, errs2]))
   } else if (i1 < i2) {
@@ -120,193 +77,7 @@ let mergeErrs = ((i1, errs1), (i2, errs2)) =>
     )
   };
 
-exception Found(ans);
-
-type state = {
-  mutable lrstack: list(lr),
-  memo: Hashtbl.t((StringSet.elt, int), memoentry),
-  heads: Hashtbl.t(int, head),
-  mutable cpos: int,
-  len: int,
-  input: string
-};
-
-type env('a) = {
-  state,
-  emptyResult: (int, string, bool) => ('a, bool),
-};
-
-/* Apply rule 'rulename' at position 'i' in the input.  Returns the new
- * position if the rule can be applied, else -1 if fails.
- */
-let rec apply_rule = (parse, state, rulename, i, ignoringNewlines, isNegated, path) => {
-  /* print_endline ("Apply rule" ^ rulename); */
-  let isLexical = Char.uppercase(rulename.[0]) != rulename.[0];
-  switch (recall(parse, state, rulename, i, isLexical, ignoringNewlines, isNegated, path)) {
-  | None =>
-    /* Printf.eprintf "New rule/pos %s %d\n" rulename i; */
-    let lr = {seed: ((-1), emptyResult(i, rulename, isLexical), ((-1), [])), rulename, head: None};
-    state.lrstack = [lr, ...state.lrstack];
-    let memoentry = {ans: LR(lr), pos: i};
-    Hashtbl.add(state.memo, (rulename, i), memoentry);
-    let answer = parse(state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
-    state.lrstack = List.tl(state.lrstack);
-    memoentry.pos = state.cpos;
-    if (lr.head != None) {
-      /* show_ans ("Replacing seed <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") lr.seed; */
-      /* show_ans (">> with ") answer; */
-      lr.seed = answer;
-      lr_answer(
-        parse,
-        state,
-        rulename,
-        i,
-        memoentry,
-        isLexical,
-        ignoringNewlines,
-        isNegated,
-        path
-      )
-    } else {
-      /* show_ansorlr ("Replacing memo <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") memoentry.ans; */
-      memoentry.ans = Answer(answer);
-      answer
-    }
-  | Some(memoentry) =>
-    /* Printf.eprintf "Old rule/pos %s %d\n" rulename i; */
-    state.cpos = memoentry.pos;
-    switch memoentry.ans {
-    | LR(lr) =>
-      setup_lr(state, rulename, lr);
-      lr.seed
-    | Answer(answer) => answer
-    }
-  }
-}
-and setup_lr = (state, rulename, lr) => {
-  if (lr.head == None) {
-    lr.head = Some({hrule: rulename, involved_set: StringSet.empty, eval_set: StringSet.empty})
-  };
-  let lr_head = unwrap(lr.head);
-  let rec loop =
-    fun
-    | [] =>
-      /* Printf.eprintf "If this ever happens it's probably OK to just remove this assert... see the old binop brach"; */
-      /* assert false */
-      ()
-    | [l, ..._] when l.head == Some(lr_head) => ()
-    | [l, ...ls] => {
-        l.head = Some(lr_head);
-        lr_head.involved_set = StringSet.add(l.rulename, lr_head.involved_set);
-        loop(ls)
-      };
-  loop(state.lrstack)
-}
-and lr_answer =
-    (parse, state, rulename, i, memoentry, isLexical, ignoringNewlines, isNegated, path) => {
-  let lr =
-    switch memoentry.ans {
-    | Answer(_) => assert false
-    | LR(lr) => lr
-    };
-  let head =
-    switch lr.head {
-    | None => assert false
-    | Some(head) => head
-    };
-  if (head.hrule != rulename) {
-    lr.seed
-  } else {
-    memoentry.ans = Answer(lr.seed);
-    if (tfst(lr.seed) == (-1)) {
-      lr.
-        seed
-        /* (-1, emptyResult i rulename isLexical, (-1, [])) */
-    } else {
-      grow_lr(
-        parse,
-        state,
-        rulename,
-        i,
-        memoentry,
-        head,
-        isLexical,
-        ignoringNewlines,
-        isNegated,
-        path
-      )
-    }
-  }
-}
-and recall = (parse, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
-  let maybeEntry =
-    try (Some(Hashtbl.find(state.memo, (rulename, i)))) {
-    | Not_found => None
-    };
-  let maybeHead =
-    try (Some(Hashtbl.find(state.heads, i))) {
-    | Not_found => None
-    };
-  switch maybeHead {
-  | None => maybeEntry
-  | Some(head) =>
-    if (maybeEntry == None
-        && ! StringSet.mem(rulename, StringSet.add(head.hrule, head.involved_set))) {
-      Some({ans: Answer(((-1), emptyResult(i, rulename, isLexical), ((-1), []))), pos: i})
-    } else {
-      if (StringSet.mem(rulename, head.eval_set)) {
-        head.eval_set = StringSet.remove(rulename, head.eval_set);
-        let answer =
-          parse(state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
-        /* Original paper RECALL function seems to have a bug ... */
-        let memoentry = unwrap(maybeEntry);
-        memoentry.ans = Answer(answer);
-        memoentry.pos = state.cpos
-      };
-      maybeEntry
-    }
-  }
-}
-and grow_lr =
-    (parse, state, rulename, i, memoentry, head, isLexical, ignoringNewlines, isNegated, path) => {
-  Hashtbl.replace(state.heads, i, head); /* A */
-  let rec loop = () => {
-    state.cpos = i;
-    head.eval_set = head.involved_set; /* B */
-    let ans = parse(state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
-
-    /*** NOTE(jared): I added oans & the check b/c without it some left recursion still wasn't working */
-    let oans =
-      switch memoentry.ans {
-      | Answer((i, _, _)) => i
-      | LR(_) => (-1)
-      };
-    if (tfst(ans) == (-1) || state.cpos <= memoentry.pos && tfst(ans) <= oans) {
-      /*** Merge errors with those of previous answer **/
-      switch memoentry.ans {
-      | LR(_) => ()
-      | Answer((a, b, oerrs)) =>
-        let (_, _, aerrs) = ans;
-        memoentry.ans = Answer((a, b, mergeErrs(oerrs, aerrs)))
-      };
-      ()
-    } else {
-      memoentry.ans = Answer(ans);
-      memoentry.pos = state.cpos;
-      loop()
-    }
-  };
-  loop();
-  Hashtbl.remove(state.heads, i); /* C */
-  state.cpos = memoentry.pos;
-  switch memoentry.ans {
-  | Answer(answer) =>
-    let (_, _, (epos, _)) = answer;
-    /* Printf.eprintf "grow_lr < %s(%d) : %d\n" rulename i epos; */
-    answer
-  | LR(_) => assert false
-  }
-};
+/* exception Found(ans); */
 
 
 
@@ -419,42 +190,6 @@ let rec skipBlockAndLineComments = (i, ends, line, text, len) => {
   }
 };
 
-let rec greedy = (loop, min, max, subr, i, path, greedyCount, isNegated) =>
-  /* implements e* e+ e? */
-  switch max {
-  | Some(0) => (i, [], ((-1), []))
-  | _ =>
-    if (min > 0) {
-      /* we must match at least min or fail */
-      let (i', found, err) = loop(i, [subr], [RP.Iter(greedyCount), ...path], 0, isNegated);
-      if (i' >= i) {
-        let (i'', children, merr) =
-          greedy(loop, min - 1, max, subr, i', path, greedyCount + 1, isNegated);
-        (i'', List.concat([found, children]), mergeErrs(err, merr))
-      } else {
-        ((-1), [], err)
-      }
-    } else {
-      /* try matching, doesn't matter if we fail */
-      let (i', children, err) = loop(i, [subr], [RP.Iter(greedyCount), ...path], 0, isNegated);
-      if (i' > i) {
-        let max =
-          switch max {
-          | None => None
-          | Some(n) => Some(n - 1)
-          };
-        let (i'', more, merr) = greedy(loop, 0, max, subr, i', path, greedyCount + 1, isNegated);
-        (i'', List.concat([children, more]), mergeErrs(err, merr))
-      } else {
-        (
-          i,
-          [],
-          err /* don't fail, return longest match */
-        )
-      }
-    }
-  };
-
 let skipAllWhite = (i, grammar, input, len) => {
   let i = skipWhite(i, input, len, true);
   let i' =
@@ -467,6 +202,8 @@ let skipAllWhite = (i, grammar, input, len) => {
     };
   i'
 };
+
+open PackCore.T;
 
 let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
   /* Printf.eprintf ">> %s %d\n" rulename i; */
@@ -573,9 +310,9 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
         | [P.NonTerminal(n, label) as item, ...rest] =>
           /* Printf.eprintf "[%s]> %s : %d\n" rulename n i; */
           let (i', (result, passThrough), errs) =
-            apply_rule(
-              parse(grammar),
-              state,
+            PackCore.apply_rule(
+              ~env={state, emptyResult, mergeErrors},
+              ~parse=parse(grammar),
               n,
               i,
               ignoringNewlines,
@@ -594,7 +331,7 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
                 | R.Leaf(_) => failwith("Passthrough can't have a leaf node")
                 } :
                 [(label |> optOr(""), result), ...children];
-            (i'', children, mergeErrs(errs, rest_errs))
+            (i'', children, mergeErrors(errs, rest_errs))
           } else {
             ((-1), [], errs)
           }
@@ -660,28 +397,28 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
           }
         | [P.Star(subr) as item, ...rest] =>
           let (i', subchildren, errs) =
-            greedy(loop, 0, None, subr, i, [RP.Item(item, loopIndex), ...path], 0, isNegated);
+            RuntimeUtils.greedy(~mergeErrors, loop, 0, None, subr, i, [RP.Item(item, loopIndex), ...path], 0, isNegated);
           if (i' >= i) {
             let (i'', children, more_errs) = loop(i', rest, path, loopIndex + 1, isNegated);
-            (i'', List.concat([subchildren, children]), mergeErrs(errs, more_errs))
+            (i'', List.concat([subchildren, children]), mergeErrors(errs, more_errs))
           } else {
             ((-1), [], errs)
           }
         | [P.Plus(subr) as item, ...rest] =>
           let (i', subchildren, errs) =
-            greedy(loop, 1, None, subr, i, [RP.Item(item, loopIndex), ...path], 0, isNegated);
+            RuntimeUtils.greedy(~mergeErrors, loop, 1, None, subr, i, [RP.Item(item, loopIndex), ...path], 0, isNegated);
           if (i' >= i) {
             let (i'', children, more_errs) = loop(i', rest, path, loopIndex + 1, isNegated);
-            (i'', List.concat([subchildren, children]), mergeErrs(errs, more_errs))
+            (i'', List.concat([subchildren, children]), mergeErrors(errs, more_errs))
           } else {
             ((-1), [], errs)
           }
         | [P.Optional(subr) as item, ...rest] =>
           let (i', subchildren, errs) =
-            greedy(loop, 0, Some(1), subr, i, [RP.Item(item, loopIndex), ...path], 0, isNegated);
+            RuntimeUtils.greedy(~mergeErrors, loop, 0, Some(1), subr, i, [RP.Item(item, loopIndex), ...path], 0, isNegated);
           if (i' >= i) {
             let (i'', children, more_errs) = loop(i', rest, path, loopIndex + 1, isNegated);
-            (i'', List.concat([subchildren, children]), mergeErrs(errs, more_errs))
+            (i'', List.concat([subchildren, children]), mergeErrors(errs, more_errs))
           } else {
             ((-1), [], errs)
           }
@@ -698,7 +435,7 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
       } else {[]};
 
       let (i', children, err) = loop(i, rs, subPath, 0, isNegated);
-      let errs = mergeErrs(prevErrors, err);
+      let errs = mergeErrors(prevErrors, err);
       /* Printf.eprintf "$$ %d [%d, %d] (%s - %d)\n" (fst errs) (fst prevErrors) (fst err) rulename choiceIndex; */
       /* Printf.eprintf "PARSE[%s:%d] %d) %s\n" rulename i (fst errs) (PackTypes.Error.errorsText (snd errs)); */
       if (i' >= i) {
@@ -736,20 +473,20 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
   /*** TODO if wasIgnoringNewlines == false && ignoringNewlines = true, then ignore any trailing newlines */
 };
 
-let initialState = (input) => {
-  lrstack: [],
-  cpos: 0,
-  memo: Hashtbl.create(100),
-  heads: Hashtbl.create(100),
-  len: String.length(input),
-  input
-};
-
 let parse = (grammar: PackTypes.Parsing.grammar, start, input) => {
   startFile("File name");
-  let state = initialState(input);
+  let state = PackCore.initialState(input);
   /* TODO ignoringNewlines should be configurable? */
-  let (i, (result, _), errs) = apply_rule(parse(grammar), state, start, 0, false, false, []);
+  let (i, (result, _), errs) =
+    PackCore.apply_rule(
+      ~env={state, emptyResult, mergeErrors},
+      ~parse=parse(grammar),
+      start,
+      0,
+      false,
+      false,
+      [],
+    );
   let i = i >=0 ? skipAllWhite(i, grammar, input, String.length(input)) : i;
   if (i == (-1)) {
     Belt.Result.Error((None, (0, posForLoc(fst(errs)), errs)))
