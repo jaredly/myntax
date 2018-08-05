@@ -207,18 +207,18 @@ module Error = {
     );
   let genErrorText = (text, (pos, errors)) => {
     let (showText, pad) =
-      if (pos <= 0) {
+      if (pos.Lexing.pos_cnum <= 0) {
         (text, 0)
       } else {
         (
           String.sub(
             text,
             0,
-            try (String.index_from(text, pos, '\n')) {
+            try (String.index_from(text, pos.pos_cnum, '\n')) {
             | Not_found => String.length(text)
             }
           ),
-          lastLineLength(text, pos) - 1
+          lastLineLength(text, pos.pos_cnum) - 1
         )
       };
     Printf.sprintf("%s\n%s^\n", showText, leftPad("-", pad, "")) ++ errorsText(errors)

@@ -14,12 +14,12 @@ type lr('result, 'errors) = {
 }
 and memoentry('result, 'errors) = {
   mutable ans: ans_or_lr('result, 'errors),
-  mutable pos: int
+  mutable pos: Lexing.position
 }
 and ans_or_lr('result, 'errors) =
   | Answer(ans('result, 'errors))
   | LR(lr('result, 'errors))
-and ans('result, 'errors) = (int, 'result, 'errors)
+and ans('result, 'errors) = (Lexing.position, 'result, 'errors)
 and head = {
   mutable hrule: string,
   mutable involved_set: StringSet.t,
@@ -29,18 +29,18 @@ and head = {
 module T = {
   type state('result, 'errors) = {
     mutable lrstack: list(lr('result, 'errors)),
-    memo: Hashtbl.t((StringSet.elt, int), memoentry('result, 'errors)),
-    heads: Hashtbl.t(int, head),
-    mutable cpos: int,
+    memo: Hashtbl.t((StringSet.elt, Lexing.position), memoentry('result, 'errors)),
+    heads: Hashtbl.t(Lexing.position, head),
+    mutable cpos: Lexing.position,
     len: int,
     input: string
   };
 };
 open T;
 
-let initialState = (input) => {
+let initialState = (input, cpos) => {
   lrstack: [],
-  cpos: 0,
+  cpos,
   memo: Hashtbl.create(100),
   heads: Hashtbl.create(100),
   len: String.length(input),
@@ -56,7 +56,7 @@ let unwrap = (opt) =>
   };
 
 let show_ans = (message, (pos, _, (epos, errors))) =>
-  Printf.eprintf("%s :: (%d)\n%s\n", message, epos, PackTypes.Error.errorsText(errors));
+  Printf.eprintf("%s :: (%d)\n%s\n", message, epos.Lexing.pos_cnum, PackTypes.Error.errorsText(errors));
 
 let show_ansorlr = (message, ansor) =>
   switch ansor {
@@ -67,7 +67,8 @@ let show_ansorlr = (message, ansor) =>
 
 type env('result, 'errors) = {
   state: state('result, 'errors),
-  emptyResult: (int, string, bool) => 'result,
+  emptyResult: (Lexing.position, string, bool) => 'result,
+  emptyErrors: 'errors,
   mergeErrors: ('errors, 'errors) => 'errors,
 };
 
@@ -80,7 +81,7 @@ let rec apply_rule = (~env, ~parse, rulename, i, ignoringNewlines, isNegated, pa
   switch (recall(~env, parse, rulename, i, isLexical, ignoringNewlines, isNegated, path)) {
   | None =>
     /* Printf.eprintf "New rule/pos %s %d\n" rulename i; */
-    let lr = {seed: ((-1), env.emptyResult(i, rulename, isLexical), ((-1), [])), rulename, head: None};
+    let lr = {seed: (Lexing.dummy_pos, env.emptyResult(i, rulename, isLexical), env.emptyErrors), rulename, head: None};
     env.state.lrstack = [lr, ...env.state.lrstack];
     let memoentry = {ans: LR(lr), pos: i};
     Hashtbl.add(env.state.memo, (rulename, i), memoentry);
@@ -153,7 +154,7 @@ and lr_answer =
     lr.seed
   } else {
     memoentry.ans = Answer(lr.seed);
-    if (tfst(lr.seed) == (-1)) {
+    if (tfst(lr.seed) == Lexing.dummy_pos) {
       lr.
         seed
         /* (-1, emptyResult i rulename isLexical, (-1, [])) */
@@ -187,7 +188,7 @@ and recall = (~env, parse, rulename, i, isLexical, ignoringNewlines, isNegated, 
   | Some(head) =>
     if (maybeEntry == None
         && ! StringSet.mem(rulename, StringSet.add(head.hrule, head.involved_set))) {
-      Some({ans: Answer(((-1), env.emptyResult(i, rulename, isLexical), ((-1), []))), pos: i})
+      Some({ans: Answer((Lexing.dummy_pos, env.emptyResult(i, rulename, isLexical), env.emptyErrors)), pos: i})
     } else {
       if (StringSet.mem(rulename, head.eval_set)) {
         head.eval_set = StringSet.remove(rulename, head.eval_set);
@@ -214,9 +215,10 @@ and grow_lr =
     let oans =
       switch memoentry.ans {
       | Answer((i, _, _)) => i
-      | LR(_) => (-1)
+      | LR(_) => Lexing.dummy_pos
       };
-    if (tfst(ans) == (-1) || env.state.cpos <= memoentry.pos && tfst(ans) <= oans) {
+      /** TODO === all the places were comparing dummy pos */
+    if (tfst(ans) == Lexing.dummy_pos || env.state.cpos.pos_cnum <= memoentry.pos.pos_cnum && tfst(ans).pos_cnum <= oans.pos_cnum) {
       /*** Merge errors with those of previous answer **/
       switch memoentry.ans {
       | LR(_) => ()
@@ -236,7 +238,7 @@ and grow_lr =
   env.state.cpos = memoentry.pos;
   switch memoentry.ans {
   | Answer(answer) =>
-    let (_, _, (epos, _)) = answer;
+    /* let (_, _, (epos, _)) = answer; */
     /* Printf.eprintf "grow_lr < %s(%d) : %d\n" rulename i epos; */
     answer
   | LR(_) => assert false
