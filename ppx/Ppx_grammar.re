@@ -199,6 +199,7 @@ let mapper = _argv =>
             };
             let docs = attrString(attributes, "ocaml.doc");
             let passThrough = attrBool(attributes, "passThrough") |? false;
+            let capturesComments = attrBool(attributes, "capturesComments") |? false;
             let leaf = switch (attrBool(attributes, "leaf")) {
               | None => false
               | Some(n) => n
@@ -214,6 +215,10 @@ let mapper = _argv =>
             };
 
             let newRules = choices => [%expr [([%e strExp(name)], {
+              capturesComments: [%e Ast_helper.Exp.construct(
+                Location.mknoloc(Longident.Lident(capturesComments ? "true" : "false")),
+                None
+              )],
               passThrough: [%e Ast_helper.Exp.construct(
                 Location.mknoloc(Longident.Lident(passThrough ? "true" : "false")),
                 None

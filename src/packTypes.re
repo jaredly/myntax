@@ -13,6 +13,7 @@ module Parsing = {
   and rule = {
     passThrough: bool,
     ignoreNewlines,
+    capturesComments: bool,
     leaf: bool,
     docs: option(string),
     choices: list(choice)
@@ -25,19 +26,80 @@ module Parsing = {
     | Star(parsing) /* e* */
     | Plus(parsing) /* e+ */
     | Optional(parsing) /* e? */
-    | Any(option(string)) /* any */
     | NoSpaceAfter(parsing) /* a printing rule, suppresses space */
     | NoSpaceBefore(parsing) /* a printing rule, suppresses space */
-    | EOF /* EOF */
-    | CommentEOL
-    | Group(list(parsing)) /* ( e ... ) */
     | Lookahead(parsing) /* &e */
     | Not(parsing) /* !e */
     | Lexify(parsing) /* # somelexrule */
+
+    | Any(option(string)) /* any */
+
+    | EOF /* EOF */
+    | CommentEOL
+    | Group(list(parsing)) /* ( e ... ) */
     | NonTerminal(string, option(string)) /* nonterminal 'name' */
     | Terminal(string, option(string)) /* terminal */
     | Chars(char, char, option(string)) /* [a-z] */
     | Empty /* epsilon */;
+
+  let showIgnore = i => switch i {
+    | Yes => "Yes"
+    | No => "No"
+    | Inherit => "Inherit"
+  };
+
+  let showOption = (o, v) => switch o {
+    | None => "None"
+    | Some(x) => "Some(" ++ v(x) ++ ")"
+  };
+
+  let showString = s => Printf.sprintf("%S", s);
+
+  let showChar = c => {
+    "'" ++ Char.escaped(c) ++ "'"
+  };
+
+  let showBool = t => t ? "true" : "false";
+
+  let showList = (~oneline=true, items, show) => oneline
+  ? "[" ++ String.concat(", ", List.map(show, items)) ++ "]"
+  : "[\n" ++ String.concat(",\n", List.map(show, items)) ++ "\n]";
+
+  let rec showParsing = parsing => switch parsing {
+    | Any(inner) => "Any(" ++ showOption(inner, showString) ++ ")"
+    | Star(p) => "Star(" ++ showParsing(p) ++ ")"
+    | Plus(p) => "Plus(" ++ showParsing(p) ++ ")"
+    | Optional(p) => "Optional(" ++ showParsing(p) ++ ")"
+    | NoSpaceAfter(p) => "NoSpaceAfter(" ++ showParsing(p) ++ ")"
+    | NoSpaceBefore(p) => "NoSpaceBefore(" ++ showParsing(p) ++ ")"
+    | Lookahead(p) => "Lookahead(" ++ showParsing(p) ++ ")"
+    | Not(p) => "Not(" ++ showParsing(p) ++ ")"
+    | Lexify(p) => "Lexify(" ++ showParsing(p) ++ ")"
+    | EOF => "EOF"
+    | CommentEOL => "CommentEOL"
+    | Group(inner) => "Group(" ++ showList(inner, showParsing) ++ ")"
+    | NonTerminal(name, label) => "NonTerminal(" ++ showString(name) ++ ", " ++ showOption(label, showString) ++ ")"
+    | Terminal(name, label) => "Terminal(" ++ showString(name) ++ ", " ++ showOption(label, showString) ++ ")"
+    | Empty => "Empty"
+    | Chars(startC, endC, label) => "Chars(" ++ showChar(startC) ++ ", " ++ showChar(endC) ++ ", " ++ showOption(label, showString) ++ ")"
+  };
+
+  let showChoice = ((name, comment, parsings)) => "(" ++ showString(name) ++ ", " ++ showString(comment) ++ ", " ++ showList(parsings, showParsing) ++ ")";
+
+  let showRule = ({passThrough, ignoreNewlines, leaf, docs, choices}) => Printf.sprintf({|{
+    passThrough: %s,
+    ignoreNewlines: %s,
+    leaf: %s,
+    docs: %s,
+    choices: %s,
+  }|}, showBool(passThrough), showIgnore(ignoreNewlines), showBool(leaf), showOption(docs, showString), showList(~oneline=List.length(choices) == 1, choices, showChoice));
+
+  let showGrammar = ({lineComment, blockComment, rules}) => Printf.sprintf(
+    "{lineComment: %s, blockComment: %s, rules: %s}",
+    showOption(lineComment, showString),
+    showOption(blockComment, ((a, b)) => "(" ++ showString(a) ++ ", " ++ showString(b) ++ ")"),
+    showList(rules, ((name, rule)) => "(" ++ showString(name) ++ ", " ++ showRule(rule) ++ ")")
+  );
 };
 
 module DSL = {

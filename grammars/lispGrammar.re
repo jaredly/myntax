@@ -39,6 +39,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
 /** Forms that are valid at the top level of a file or module */
+[@capturesComments]
 [@name "Structure"]
 [%%rule [
   ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
@@ -66,6 +67,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
+[@capturesComments]
 [@ignoreNewlines]
 [@name "Expression"]
 [%%rule [

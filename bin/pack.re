@@ -6,15 +6,14 @@ module P = PackTypes.Parsing;
 
 let printGrammar = (grammar, name) =>
   Printf.sprintf(
-    {|(** This grammar definition was generated from %s **)
-open PackTypes.Parsing
+    {|/** This grammar definition was generated from %s **/
+open PackTypes.Parsing;
 
 let grammar = %s;
 
 |},
     name,
-    "",
-    /* replaceModule(P.show_grammar(grammar)) */
+    replaceModule(P.showGrammar(grammar))
   );
 
 let main = (~dump=false, ~file=?, ~dest=?, ()) => {

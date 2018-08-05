@@ -5,7 +5,7 @@ let grammar = { lineComment = Some (";");
   blockComment = Some (("/*", "*/"));
   rules =
   [("Start",
-    { docs = None; passThrough = false;
+    { docs = None; capturesComments = false; passThrough = false;
       ignoreNewlines = Inherit; leaf = false;
       choices =
       [("", "",
@@ -15,7 +15,7 @@ let grammar = { lineComment = Some (";");
         ]
       });
     ("Decorator",
-     { docs = Some "decorates a rule"; passThrough = false;
+     { docs = Some "decorates a rule"; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "decorates a rule",
@@ -37,7 +37,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("decarg",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("bool", "", [(NonTerminal ("bool", None))]);
@@ -45,14 +45,14 @@ let grammar = { lineComment = Some (";");
          ("number", "", [(NonTerminal ("number", None))])]
        });
     ("bool",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "", [(Terminal ("true", None))]);
          ("", "", [(Terminal ("false", None))])]
        });
     ("Rule",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -80,7 +80,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("Choice",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -100,7 +100,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("Item",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -139,11 +139,11 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("noSpace",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices = [("", "", [(Terminal ("&", None))])] });
     ("ItemInner",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "", [(NonTerminal ("string", None))]);
@@ -156,7 +156,7 @@ let grammar = { lineComment = Some (";");
          ("", "", [(NonTerminal ("char", None))])]
        });
     ("NestedItems",
-     { docs = None; passThrough = true;
+     { docs = None; capturesComments = false; passThrough = true;
        ignoreNewlines = Yes; leaf = false;
        choices =
        [("", "",
@@ -166,7 +166,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("char_range",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -178,7 +178,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("char",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -188,7 +188,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("single",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
@@ -201,7 +201,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("string",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
@@ -212,7 +212,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("strchar",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -225,7 +225,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("flag",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("bool", "exists", [(Terminal ("?", None))]);
@@ -233,7 +233,7 @@ let grammar = { lineComment = Some (";");
          ("string", "contents", [(Terminal ("@", None))])]
        });
     ("suffix",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("plus", "", [(Terminal ("+", None))]);
@@ -241,7 +241,7 @@ let grammar = { lineComment = Some (";");
          ("opt", "", [(Terminal ("?", None))])]
        });
     ("ident",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
@@ -253,7 +253,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("identchar",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "", [(Chars ('a', 'z', None))]);
@@ -262,7 +262,7 @@ let grammar = { lineComment = Some (";");
          ("", "", [(Terminal ("_", None))])]
        });
     ("number",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
@@ -280,11 +280,11 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("digit",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices = [("", "", [(Chars ('0', '9', None))])] });
     ("rest_of_line",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = true;
        choices =
        [("", "",
@@ -297,7 +297,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("eol",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -307,7 +307,7 @@ let grammar = { lineComment = Some (";");
          ]
        });
     ("eee",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "",
@@ -317,14 +317,14 @@ let grammar = { lineComment = Some (";");
          ("", "", [EOF])]
        });
     ("eolchar",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "", [(Terminal ("\n", None))]);
          ("", "", [(Terminal ("\r", None))])]
        });
     ("white",
-     { docs = None; passThrough = false;
+     { docs = None; capturesComments = false; passThrough = false;
        ignoreNewlines = Inherit; leaf = false;
        choices =
        [("", "", [(Terminal (" ", None))]);

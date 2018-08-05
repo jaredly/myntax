@@ -27,6 +27,7 @@ Choice = Item+ (
 Item = [?neg]"~"&? [?lexify]"#"&? ("["& [flag]flag&? [name]ident &"]")&? [noSpaceBefore]noSpace&? [inner]ItemInner [noSpaceAfter]&noSpace? [suffix]&suffix?
 
 ; This rule is only for printing - it doesn't effect parsing at all.
+
 ; During printing, it suppresses space if space would be there.
 @leaf
 noSpace = "&"
