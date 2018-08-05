@@ -32,26 +32,6 @@ and head = {
   mutable eval_set: StringSet.t
 };
 
-let show_ans = (message, (pos, _, (epos, errors))) =>
-  Printf.eprintf("%s :: (%d)\n%s\n", message, epos, PackTypes.Error.errorsText(errors));
-
-let show_ansorlr = (message, ansor) =>
-  switch ansor {
-  | Answer(ans) => show_ans(message, ans)
-  | LR(lr) => show_ans(message ++ "[lr seed]", lr.seed)
-  };
-
-exception Found(ans);
-
-type state = {
-  mutable lrstack: list(lr),
-  memo: Hashtbl.t((StringSet.elt, int), memoentry),
-  heads: Hashtbl.t(int, head),
-  mutable cpos: int,
-  len: int,
-  input: string
-};
-
 /** STATEFUL STUFF
  * It would probably nice to thread this through,
  * but this is way easier at the moment :shrug: */;
@@ -113,6 +93,231 @@ let unwrap = (opt) =>
   };
 
 let tfst = ((a, _, _)) => a;
+
+let show_ans = (message, (pos, _, (epos, errors))) =>
+  Printf.eprintf("%s :: (%d)\n%s\n", message, epos, PackTypes.Error.errorsText(errors));
+
+let show_ansorlr = (message, ansor) =>
+  switch ansor {
+  | Answer(ans) => show_ans(message, ans)
+  | LR(lr) => show_ans(message ++ "[lr seed]", lr.seed)
+  };
+
+let mergeErrs = ((i1, errs1), (i2, errs2)) =>
+  if (i1 == i2) {
+    (i1, List.concat([errs1, errs2]))
+  } else if (i1 < i2) {
+    (
+      i2,
+      errs2
+      /* (i2, List.concat [errs1, errs2]) */
+    )
+  } else {
+    (
+      i1,
+      errs1
+      /* (i1, List.concat [errs1, errs2]) */
+    )
+  };
+
+exception Found(ans);
+
+type state = {
+  mutable lrstack: list(lr),
+  memo: Hashtbl.t((StringSet.elt, int), memoentry),
+  heads: Hashtbl.t(int, head),
+  mutable cpos: int,
+  len: int,
+  input: string
+};
+
+type env('a) = {
+  state,
+  emptyResult: (int, string, bool) => ('a, bool),
+};
+
+/* Apply rule 'rulename' at position 'i' in the input.  Returns the new
+ * position if the rule can be applied, else -1 if fails.
+ */
+let rec apply_rule = (parse, state, rulename, i, ignoringNewlines, isNegated, path) => {
+  /* print_endline ("Apply rule" ^ rulename); */
+  let isLexical = Char.uppercase(rulename.[0]) != rulename.[0];
+  switch (recall(parse, state, rulename, i, isLexical, ignoringNewlines, isNegated, path)) {
+  | None =>
+    /* Printf.eprintf "New rule/pos %s %d\n" rulename i; */
+    let lr = {seed: ((-1), emptyResult(i, rulename, isLexical), ((-1), [])), rulename, head: None};
+    state.lrstack = [lr, ...state.lrstack];
+    let memoentry = {ans: LR(lr), pos: i};
+    Hashtbl.add(state.memo, (rulename, i), memoentry);
+    let answer = parse(state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
+    state.lrstack = List.tl(state.lrstack);
+    memoentry.pos = state.cpos;
+    if (lr.head != None) {
+      /* show_ans ("Replacing seed <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") lr.seed; */
+      /* show_ans (">> with ") answer; */
+      lr.seed = answer;
+      lr_answer(
+        parse,
+        state,
+        rulename,
+        i,
+        memoentry,
+        isLexical,
+        ignoringNewlines,
+        isNegated,
+        path
+      )
+    } else {
+      /* show_ansorlr ("Replacing memo <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") memoentry.ans; */
+      memoentry.ans = Answer(answer);
+      answer
+    }
+  | Some(memoentry) =>
+    /* Printf.eprintf "Old rule/pos %s %d\n" rulename i; */
+    state.cpos = memoentry.pos;
+    switch memoentry.ans {
+    | LR(lr) =>
+      setup_lr(state, rulename, lr);
+      lr.seed
+    | Answer(answer) => answer
+    }
+  }
+}
+and setup_lr = (state, rulename, lr) => {
+  if (lr.head == None) {
+    lr.head = Some({hrule: rulename, involved_set: StringSet.empty, eval_set: StringSet.empty})
+  };
+  let lr_head = unwrap(lr.head);
+  let rec loop =
+    fun
+    | [] =>
+      /* Printf.eprintf "If this ever happens it's probably OK to just remove this assert... see the old binop brach"; */
+      /* assert false */
+      ()
+    | [l, ..._] when l.head == Some(lr_head) => ()
+    | [l, ...ls] => {
+        l.head = Some(lr_head);
+        lr_head.involved_set = StringSet.add(l.rulename, lr_head.involved_set);
+        loop(ls)
+      };
+  loop(state.lrstack)
+}
+and lr_answer =
+    (parse, state, rulename, i, memoentry, isLexical, ignoringNewlines, isNegated, path) => {
+  let lr =
+    switch memoentry.ans {
+    | Answer(_) => assert false
+    | LR(lr) => lr
+    };
+  let head =
+    switch lr.head {
+    | None => assert false
+    | Some(head) => head
+    };
+  if (head.hrule != rulename) {
+    lr.seed
+  } else {
+    memoentry.ans = Answer(lr.seed);
+    if (tfst(lr.seed) == (-1)) {
+      lr.
+        seed
+        /* (-1, emptyResult i rulename isLexical, (-1, [])) */
+    } else {
+      grow_lr(
+        parse,
+        state,
+        rulename,
+        i,
+        memoentry,
+        head,
+        isLexical,
+        ignoringNewlines,
+        isNegated,
+        path
+      )
+    }
+  }
+}
+and recall = (parse, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
+  let maybeEntry =
+    try (Some(Hashtbl.find(state.memo, (rulename, i)))) {
+    | Not_found => None
+    };
+  let maybeHead =
+    try (Some(Hashtbl.find(state.heads, i))) {
+    | Not_found => None
+    };
+  switch maybeHead {
+  | None => maybeEntry
+  | Some(head) =>
+    if (maybeEntry == None
+        && ! StringSet.mem(rulename, StringSet.add(head.hrule, head.involved_set))) {
+      Some({ans: Answer(((-1), emptyResult(i, rulename, isLexical), ((-1), []))), pos: i})
+    } else {
+      if (StringSet.mem(rulename, head.eval_set)) {
+        head.eval_set = StringSet.remove(rulename, head.eval_set);
+        let answer =
+          parse(state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
+        /* Original paper RECALL function seems to have a bug ... */
+        let memoentry = unwrap(maybeEntry);
+        memoentry.ans = Answer(answer);
+        memoentry.pos = state.cpos
+      };
+      maybeEntry
+    }
+  }
+}
+and grow_lr =
+    (parse, state, rulename, i, memoentry, head, isLexical, ignoringNewlines, isNegated, path) => {
+  Hashtbl.replace(state.heads, i, head); /* A */
+  let rec loop = () => {
+    state.cpos = i;
+    head.eval_set = head.involved_set; /* B */
+    let ans = parse(state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
+
+    /*** NOTE(jared): I added oans & the check b/c without it some left recursion still wasn't working */
+    let oans =
+      switch memoentry.ans {
+      | Answer((i, _, _)) => i
+      | LR(_) => (-1)
+      };
+    if (tfst(ans) == (-1) || state.cpos <= memoentry.pos && tfst(ans) <= oans) {
+      /*** Merge errors with those of previous answer **/
+      switch memoentry.ans {
+      | LR(_) => ()
+      | Answer((a, b, oerrs)) =>
+        let (_, _, aerrs) = ans;
+        memoentry.ans = Answer((a, b, mergeErrs(oerrs, aerrs)))
+      };
+      ()
+    } else {
+      memoentry.ans = Answer(ans);
+      memoentry.pos = state.cpos;
+      loop()
+    }
+  };
+  loop();
+  Hashtbl.remove(state.heads, i); /* C */
+  state.cpos = memoentry.pos;
+  switch memoentry.ans {
+  | Answer(answer) =>
+    let (_, _, (epos, _)) = answer;
+    /* Printf.eprintf "grow_lr < %s(%d) : %d\n" rulename i epos; */
+    answer
+  | LR(_) => assert false
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
 
 let rec skipWhite = (i, text, len, ignoreNewlines) =>
   if (i >= len) {
@@ -214,23 +419,6 @@ let rec skipBlockAndLineComments = (i, ends, line, text, len) => {
   }
 };
 
-let mergeErrs = ((i1, errs1), (i2, errs2)) =>
-  if (i1 == i2) {
-    (i1, List.concat([errs1, errs2]))
-  } else if (i1 < i2) {
-    (
-      i2,
-      errs2
-      /* (i2, List.concat [errs1, errs2]) */
-    )
-  } else {
-    (
-      i1,
-      errs1
-      /* (i1, List.concat [errs1, errs2]) */
-    )
-  };
-
 let rec greedy = (loop, min, max, subr, i, path, greedyCount, isNegated) =>
   /* implements e* e+ e? */
   switch max {
@@ -280,178 +468,7 @@ let skipAllWhite = (i, grammar, input, len) => {
   i'
 };
 
-/* Apply rule 'rulename' at position 'i' in the input.  Returns the new
- * position if the rule can be applied, else -1 if fails.
- */
-let rec apply_rule = (grammar, state, rulename, i, ignoringNewlines, isNegated, path) => {
-  /* print_endline ("Apply rule" ^ rulename); */
-  let isLexical = Char.uppercase(rulename.[0]) != rulename.[0];
-  switch (recall(grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path)) {
-  | None =>
-    /* Printf.eprintf "New rule/pos %s %d\n" rulename i; */
-    let lr = {seed: ((-1), emptyResult(i, rulename, isLexical), ((-1), [])), rulename, head: None};
-    state.lrstack = [lr, ...state.lrstack];
-    let memoentry = {ans: LR(lr), pos: i};
-    Hashtbl.add(state.memo, (rulename, i), memoentry);
-    let answer = parse(grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
-    state.lrstack = List.tl(state.lrstack);
-    memoentry.pos = state.cpos;
-    if (lr.head != None) {
-      /* show_ans ("Replacing seed <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") lr.seed; */
-      /* show_ans (">> with ") answer; */
-      lr.seed = answer;
-      lr_answer(
-        grammar,
-        state,
-        rulename,
-        i,
-        memoentry,
-        isLexical,
-        ignoringNewlines,
-        isNegated,
-        path
-      )
-    } else {
-      /* show_ansorlr ("Replacing memo <" ^ rulename ^ "> " ^ (string_of_int i) ^ ": ") memoentry.ans; */
-      memoentry.ans = Answer(answer);
-      answer
-    }
-  | Some(memoentry) =>
-    /* Printf.eprintf "Old rule/pos %s %d\n" rulename i; */
-    state.cpos = memoentry.pos;
-    switch memoentry.ans {
-    | LR(lr) =>
-      setup_lr(state, rulename, lr);
-      lr.seed
-    | Answer(answer) => answer
-    }
-  }
-}
-and setup_lr = (state, rulename, lr) => {
-  if (lr.head == None) {
-    lr.head = Some({hrule: rulename, involved_set: StringSet.empty, eval_set: StringSet.empty})
-  };
-  let lr_head = unwrap(lr.head);
-  let rec loop =
-    fun
-    | [] =>
-      /* Printf.eprintf "If this ever happens it's probably OK to just remove this assert... see the old binop brach"; */
-      /* assert false */
-      ()
-    | [l, ..._] when l.head == Some(lr_head) => ()
-    | [l, ...ls] => {
-        l.head = Some(lr_head);
-        lr_head.involved_set = StringSet.add(l.rulename, lr_head.involved_set);
-        loop(ls)
-      };
-  loop(state.lrstack)
-}
-and lr_answer =
-    (grammar, state, rulename, i, memoentry, isLexical, ignoringNewlines, isNegated, path) => {
-  let lr =
-    switch memoentry.ans {
-    | Answer(_) => assert false
-    | LR(lr) => lr
-    };
-  let head =
-    switch lr.head {
-    | None => assert false
-    | Some(head) => head
-    };
-  if (head.hrule != rulename) {
-    lr.seed
-  } else {
-    memoentry.ans = Answer(lr.seed);
-    if (tfst(lr.seed) == (-1)) {
-      lr.
-        seed
-        /* (-1, emptyResult i rulename isLexical, (-1, [])) */
-    } else {
-      grow_lr(
-        grammar,
-        state,
-        rulename,
-        i,
-        memoentry,
-        head,
-        isLexical,
-        ignoringNewlines,
-        isNegated,
-        path
-      )
-    }
-  }
-}
-and recall = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
-  let maybeEntry =
-    try (Some(Hashtbl.find(state.memo, (rulename, i)))) {
-    | Not_found => None
-    };
-  let maybeHead =
-    try (Some(Hashtbl.find(state.heads, i))) {
-    | Not_found => None
-    };
-  switch maybeHead {
-  | None => maybeEntry
-  | Some(head) =>
-    if (maybeEntry == None
-        && ! StringSet.mem(rulename, StringSet.add(head.hrule, head.involved_set))) {
-      Some({ans: Answer(((-1), emptyResult(i, rulename, isLexical), ((-1), []))), pos: i})
-    } else {
-      if (StringSet.mem(rulename, head.eval_set)) {
-        head.eval_set = StringSet.remove(rulename, head.eval_set);
-        let answer =
-          parse(grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
-        /* Original paper RECALL function seems to have a bug ... */
-        let memoentry = unwrap(maybeEntry);
-        memoentry.ans = Answer(answer);
-        memoentry.pos = state.cpos
-      };
-      maybeEntry
-    }
-  }
-}
-and grow_lr =
-    (grammar, state, rulename, i, memoentry, head, isLexical, ignoringNewlines, isNegated, path) => {
-  Hashtbl.replace(state.heads, i, head); /* A */
-  let rec loop = () => {
-    state.cpos = i;
-    head.eval_set = head.involved_set; /* B */
-    let ans = parse(grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path);
-
-    /*** NOTE(jared): I added oans & the check b/c without it some left recursion still wasn't working */
-    let oans =
-      switch memoentry.ans {
-      | Answer((i, _, _)) => i
-      | LR(_) => (-1)
-      };
-    if (tfst(ans) == (-1) || state.cpos <= memoentry.pos && tfst(ans) <= oans) {
-      /*** Merge errors with those of previous answer **/
-      switch memoentry.ans {
-      | LR(_) => ()
-      | Answer((a, b, oerrs)) =>
-        let (_, _, aerrs) = ans;
-        memoentry.ans = Answer((a, b, mergeErrs(oerrs, aerrs)))
-      };
-      ()
-    } else {
-      memoentry.ans = Answer(ans);
-      memoentry.pos = state.cpos;
-      loop()
-    }
-  };
-  loop();
-  Hashtbl.remove(state.heads, i); /* C */
-  state.cpos = memoentry.pos;
-  switch memoentry.ans {
-  | Answer(answer) =>
-    let (_, _, (epos, _)) = answer;
-    /* Printf.eprintf "grow_lr < %s(%d) : %d\n" rulename i epos; */
-    answer
-  | LR(_) => assert false
-  }
-}
-and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
+let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
   /* Printf.eprintf ">> %s %d\n" rulename i; */
   let {P.ignoreNewlines, capturesComments, choices, passThrough, leaf} =
     try (List.assoc(rulename, grammar.P.rules)) {
@@ -557,7 +574,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
           /* Printf.eprintf "[%s]> %s : %d\n" rulename n i; */
           let (i', (result, passThrough), errs) =
             apply_rule(
-              grammar,
+              parse(grammar),
               state,
               n,
               i,
@@ -732,7 +749,7 @@ let parse = (grammar: PackTypes.Parsing.grammar, start, input) => {
   startFile("File name");
   let state = initialState(input);
   /* TODO ignoringNewlines should be configurable? */
-  let (i, (result, _), errs) = apply_rule(grammar, state, start, 0, false, false, []);
+  let (i, (result, _), errs) = apply_rule(parse(grammar), state, start, 0, false, false, []);
   let i = i >=0 ? skipAllWhite(i, grammar, input, String.length(input)) : i;
   if (i == (-1)) {
     Belt.Result.Error((None, (0, posForLoc(fst(errs)), errs)))
