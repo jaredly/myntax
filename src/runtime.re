@@ -52,6 +52,12 @@ type state = {
   input: string
 };
 
+/** STATEFUL STUFF
+ * It would probably nice to thread this through,
+ * but this is way easier at the moment :shrug: */;
+let currentDocComment = ref(None);
+let pendingComments = ref([]);
+
 /* let pos = ref((0, 0)); */
 let lno = ref(1);
 let bols = ref([0]);
@@ -447,7 +453,7 @@ and grow_lr =
 }
 and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
   /* Printf.eprintf ">> %s %d\n" rulename i; */
-  let {P.ignoreNewlines, choices, passThrough, leaf} =
+  let {P.ignoreNewlines, capturesComments, choices, passThrough, leaf} =
     try (List.assoc(rulename, grammar.P.rules)) {
     | Not_found =>
       Printf.eprintf("error in grammar: unknown rulename '%s'\n", rulename);
@@ -567,7 +573,7 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
             let children =
               passThrough ?
                 switch result {
-                | R.Node(_, subchildren, _) => List.concat([subchildren, children])
+                | R.Node(_, subchildren, _, _comments) => List.concat([subchildren, children])
                 | R.Leaf(_) => failwith("Passthrough can't have a leaf node")
                 } :
                 [(label |> optOr(""), result), ...children];
@@ -666,6 +672,14 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
         }
       };
       let subPath = numChoices === 1 ? path : [RP.Choice(choiceIndex, sub_name), ...path];
+
+      /* TODO maybe I don't have to do this if I'm not capturing comments... */
+      let precomments = if (capturesComments) {
+        let p = pendingComments^;
+        pendingComments := [];
+        p
+      } else {[]};
+
       let (i', children, err) = loop(i, rs, subPath, 0, isNegated);
       let errs = mergeErrs(prevErrors, err);
       /* Printf.eprintf "$$ %d [%d, %d] (%s - %d)\n" (fst errs) (fst prevErrors) (fst err) rulename choiceIndex; */
@@ -675,8 +689,18 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
         let name = (rulename, sub_name);
         let loc = locForOffs(i, i');
         let result = (
-          leaf ?
-            R.Leaf(name, String.sub(state.input, i, i' - i), loc) : R.Node(name, children, loc),
+          leaf ? R.Leaf(name, String.sub(state.input, i, i' - i), loc) : {
+            R.Node(name, children, loc, capturesComments
+            ? {
+              let d = currentDocComment^;
+              currentDocComment := None;
+              let innerComments = pendingComments^;
+              pendingComments := [];
+              /* TODO EOLComments */
+              Some((d, precomments, innerComments, None))
+            }
+            : None)
+          },
           passThrough
         );
         /* let children = leaf ? [] : children; */
@@ -684,6 +708,9 @@ and parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated
         /* let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex)  passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough; */
         (i', result, errs)
       } else {
+        if (capturesComments) {
+          pendingComments := precomments;
+        };
         /* Printf.eprintf "<nother choice>\n"; */
         process(otherChoices, errs, choiceIndex + 1)
       }

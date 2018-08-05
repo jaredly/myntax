@@ -64,13 +64,14 @@ and generateForRule = (grammar, table, rulename, depth) =>
       R.Node(
         (rulename, sub),
         List.concat(List.map(generateForItem(grammar, table, depth), items)),
-        mLoc
+        mLoc,
+        None
       )
     }
   };
 
 let generateForChoice = (grammar, table, rule, items) =>
-  R.Node(rule, List.concat(List.map(generateForItem(grammar, table, 5), items)), mLoc);
+  R.Node(rule, List.concat(List.map(generateForItem(grammar, table, 5), items)), mLoc, None);
 
 let generateExamples = (grammar, ruleName, table) => {
   let {P.choices, _} = List.assoc(ruleName, grammar.P.rules);

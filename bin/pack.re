@@ -99,8 +99,8 @@ let optOr = (orr, opt) =>
 let prettyBin = (filename, binName) => {
   let ast = ocamlBinaryParser(false, binName);
   let grammar = getGrammar(filename);
-  let result = OcamlOfReason.convertFrom(ast);
-  print_endline(PrettyPrint.toString(grammar, result) |> optOr("Unable to pretty print this"))
+  /* let result = OcamlOfReason.convertFrom(ast);
+  print_endline(PrettyPrint.toString(grammar, result) |> optOr("Unable to pretty print this")) */
 };
 
 let tests = (cases) => {

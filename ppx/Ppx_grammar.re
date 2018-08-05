@@ -112,7 +112,7 @@ let converterExpr = (~name as ruleName, fn) => {
                 [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
                   | None => None
-                  | Some(((_, sub), children, loc)) => Some([%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc)))
+                  | Some(((_, sub), children, loc, comments)) => Some([%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc, comments)))
                 }
               ]
             }
@@ -129,7 +129,7 @@ let converterExpr = (~name as ruleName, fn) => {
                 [%expr
                 switch (ResultUtils.getNodeByLabel(children, [%e strExp(label)])) {
                   | None => raise(PackTypes.ConversionError(_loc, [%e strExp(ruleName)], [%e strExp(name)]))
-                  | Some(((_, sub), children, loc)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc))
+                  | Some(((_, sub), children, loc, comments)) => [%e identExp(~loc=str.pstr_loc, Lident("convert_" ++ name))]((sub, children, loc, comments))
                 }
               ]
             }
@@ -244,7 +244,7 @@ let mapper = _argv =>
               let fnCall = converterExpr(~name, fn);
               let converter: (string, Parsetree.expression) = (
                 name,
-                [%expr ((sub, children, _loc)) => [%e fnCall]]
+                [%expr ((sub, children, _loc, _comments)) => [%e fnCall]]
               );
               let ruleDocs = attrString(choice.pexp_attributes, "ocaml.doc") |? docs;
               (top, newRules([%expr [("", [%e strExp(ruleDocs)], [%e maybeConvertChoice(choice)])]]), [converter, ...converters], true)
@@ -282,7 +282,7 @@ let mapper = _argv =>
               let sw = Ast_helper.Exp.match([%expr sub], cases);
               let converter  = (
                 name,
-                [%expr ((sub, children, _loc)) => [%e sw]]
+                [%expr ((sub, children, _loc, _comments)) => [%e sw]]
               );
               (top, newRules(rules), [converter, ...converters], true)
             }
@@ -301,11 +301,11 @@ let mapper = _argv =>
         let start = (~filename, text) => {
           Runtime.fname := filename;
           switch (Runtime.parse(grammar, "Start", text)) {
-          | Belt.Result.Error((Some(Node(("Start", sub), children, loc)), e)) =>
-            Belt.Result.Error((Some(convert_Start((sub, children, loc))), e))
+          | Belt.Result.Error((Some(Node(("Start", sub), children, loc, comments)), e)) =>
+            Belt.Result.Error((Some(convert_Start((sub, children, loc, comments))), e))
           | Belt.Result.Error((_, e)) => Belt.Result.Error((None, e))
-          | Ok(Node(("Start", sub), children, loc)) => {
-            Ok(convert_Start((sub, children, loc)));
+          | Ok(Node(("Start", sub), children, loc, comments)) => {
+            Ok(convert_Start((sub, children, loc, comments)));
           }
           | Ok(_) => failwith("Invalid response")
           }

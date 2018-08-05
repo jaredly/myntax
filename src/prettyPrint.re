@@ -8,8 +8,6 @@ module Output = {
 
   /*** TODO how do I whitespace? newlined things can be indented, yes, but how about whitespace between things? **/
 
-  /*** I'm imagining maybe a rule annotation that says "everything has a splace between them" or sth. And then maybe
-       a pseudo-item that says "suppress space here" or "add space here" **/
   type outputT =
     | Text(string)
     | EOL
@@ -18,8 +16,6 @@ module Output = {
     | Newlined(list(outputT))
     | Lexical(list(outputT))
     | Straight(list(outputT));
-    /* | Newlined (list outputT) TODO I do think I want this... */
-    /* [@@deriving show] */
 };
 
 type config = {
@@ -151,7 +147,7 @@ let findByType = (children, needle) =>
       if (label == "") {
         switch child {
         | Leaf((name, sub), _, _) as child
-        | Node((name, sub), _, _) as child when name == needle => Some(child)
+        | Node((name, sub), _, _, _) as child when name == needle => Some(child)
         | _ => None
         }
       } else {
@@ -232,7 +228,7 @@ let rec resultToOutput: (bool, grammar, result) => option(Output.outputT) =
   (ignoringNewlines, grammar, result) =>
     switch result {
     | Leaf(_, contents, _) => Some(Output.Text(contents))
-    | Node((name, sub), children, _) =>
+    | Node((name, sub), children, _, _comments) =>
       nodeToOutput(ignoringNewlines, grammar, (name, sub), children)
     }
 and processNonTerminal = (grammar, name, label, children, ignoringNewlines, rest, loop) =>
@@ -422,7 +418,7 @@ let toString = (~maxWidth=50, grammar: grammar, result) =>
   | None => None
   };
 
-let startToString = (~maxWidth=50, grammar, (sub, children, loc)) => {
-  let node = Node(("Start", sub), children, loc);
+let startToString = (~maxWidth=50, grammar, (sub, children, loc, comments)) => {
+  let node = Node(("Start", sub), children, loc, comments);
   toString(~maxWidth, grammar, node)
 };

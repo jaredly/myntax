@@ -232,14 +232,15 @@ module Result = {
      | Terminal string
      | Lexical (string, string, int) string bool
      | Nonlexical (string, string, int) bool [@@deriving (yojson, show)]; */
-  [@deriving (yojson, show)]
-  type rule = (string, string);
-  [@deriving (yojson, show)]
+
   type loc = Location.t;
-  [@deriving (yojson, show)]
+  type comment = (string, loc);
+  type comments = (option(comment), list(comment), list(comment), option(comment));
+
+  type rule = (string, string);
   type result =
     | Leaf(rule, string, loc)
-    | Node(rule, list((string, result)), loc) /* label, child */;
+    | Node(rule, list((string, result)), loc, option(comments)) /* label, child */;
 
   let white = n => {
     let buffer = Buffer.create(n);
@@ -256,7 +257,7 @@ module Result = {
   };
   let rec showNode = (label, node, indent) => switch node {
     | Leaf((rule, sub), string, loc) => (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")" ++ ": " ++ String.escaped(string)
-    | Node((rule, sub), children, loc) =>
+    | Node((rule, sub), children, loc, comments) =>
       (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")"
       ++ String.concat(
         "\n",
