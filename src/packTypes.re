@@ -89,6 +89,7 @@ module Parsing = {
   let showRule = ({passThrough, ignoreNewlines, leaf, docs, choices}) => Printf.sprintf({|{
     passThrough: %s,
     ignoreNewlines: %s,
+    capturesComments: false,
     leaf: %s,
     docs: %s,
     choices: %s,
