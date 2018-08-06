@@ -244,9 +244,9 @@ and outputItem = (grammar, ~isLexical, ignoringNewlines, items, children) => {
         let%try (res2, unused) = loop(ignoringNewlines, rest, children);
         Ok((map(m => Pretty.indent(4, m), res2), unused))
 
-      /* | [FullIndent, ...rest] =>
+      | [FullIndent, ...rest] =>
         let%try (res2, unused) = loop(ignoringNewlines, rest, children);
-        Ok((map(m => Pretty.indent(4, m), res2), unused)) */
+        Ok((map(m => Pretty.fullIndent(m), res2), unused))
 
       | [item] => singleOutput(grammar, ignoringNewlines, isLexical, item, children, loop)
 
@@ -373,7 +373,7 @@ let toPretty = (grammar: grammar, result) => {
   resultToPretty(false, grammar, result);
 };
 
-let startToString = (~maxWidth=50, grammar, (sub, children, loc, comments)) => {
+let startToString = (~maxWidth=30, grammar, (sub, children, loc, comments)) => {
   let node = Node(("Start", sub), children, loc, comments);
   let%try pretty = resultToPretty(false, grammar, node);
   Ok(prettyString(~width=maxWidth, pretty))

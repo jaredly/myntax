@@ -53,7 +53,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
     )
   ])),
   ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
-  ("type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
+  ("type", {|"("& "type"$ TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
   ("module", {|"("& "module"$ capIdent > ModuleExpr &")"|},
     (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
       Location.mkloc(name, nameLoc),
@@ -94,7 +94,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "constructor_poly",
-    {|"("& polyIdent Expression+ &")"|},
+    {|"("& polyIdent > Expression+ &")"|},
     (~loc, [@node "polyIdent"]ident, [@nodes "Expression"]exprs) => H.Exp.variant(~loc, ident.txt, Some(constructorArgs(exprs, H.Exp.tuple)))
   ),
   (
@@ -116,34 +116,34 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "tuple",
-    {|"("& "," Expression Expression+ &")"|},
+    {|"("& "," >> Expression Expression+ &")"|},
     (~loc, [@nodes "Expression"]exprs) => H.Exp.tuple(~loc, exprs)
   ),
   (
     "array_literal",
-    {|"[|"& [items]Expression* &"|]"|},
+    {|"[|"& >> [items]Expression* &"|]"|},
     (~loc, [@nodes.items "Expression"]items) => H.Exp.array(~loc, items)
   ),
   (
     "list_literal",
-    {|"["& [items]Expression* ("..."& [spread]Expression)? &"]"|},
+    {|"["& >> [items]Expression* ("..."& [spread]Expression)? &"]"|},
     (~loc, [@nodes.items "Expression"]items, [@node_opt.spread "Expression"]spread) => listToConstruct(~loc, items, spread, (~loc, a, b) => H.Exp.construct(~loc, a, b), H.Exp.tuple, item => item.pexp_loc)
   ),
   (
     "object_literal",
-    {|"{"& ("..."& Expression)? ObjectItem* &"}"|},
+    {|"{"& >> ("..."& Expression)? ObjectItem* &"}"|},
     (~loc, [@node_opt "Expression"]spread, [@nodes "ObjectItem"]items) => H.Exp.record(items, spread)
   ),
 
   (
     "let",
-    {|"("& "let" "["& ValueBinding+ &"]" Expression* &")"|},
+    {|"("& "let"$ "["& LetPairs &"]" > Expression* &")"|},
     (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
       H.Exp.let_(~loc, Nonrecursive, bindings, expressionSequence(contents))
   ),
   (
     "do",
-    {|"("& "do" Expression* &")"|},
+    {|"("& "do" > Expression* &")"|},
     (~loc, [@nodes "Expression"]exprs) => expressionSequence(exprs)
   ),
   (
@@ -158,12 +158,12 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "open",
-    {|"("& "open" longCap Expression* &")"|},
+    {|"("& "open" longCap > Expression* &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
   ),
   (
     "if",
-    {|"("& "if" [test]Expression [yes]Expression [no]Expression? &")"|},
+    {|"("& "if" [test]Expression > [yes]Expression [no]Expression? &")"|},
     (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
   ),
   (
@@ -173,7 +173,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "module",
-    {|"("& "module"$ capIdent ModuleExpr Expression* &")"|},
+    {|"("& "module"$ capIdent$ ModuleExpr > Expression* &")"|},
     (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
@@ -184,14 +184,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ), */
   (
     "arrow",
-    {|"("& "=>" FnArgs Expression* &")"|},
+    {|"("& "=>" FnArgs > Expression* &")"|},
     (~loc, [@node "FnArgs"]args, [@nodes "Expression"]exprs) => {
       makeArrow(~args, ~exprs)
     }
   ),
   (
     "threading_last",
-    {|"("& "->>" Expression ThreadItem* &")"|},
+    {|"("& "->>" Expression > ThreadItem* &")"|},
     (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
@@ -204,7 +204,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "threading",
-    {|"("& "->" [target]Expression ThreadItem* &")"|},
+    {|"("& "->" [target]Expression > ThreadItem* &")"|},
     (~loc, [@node.target "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
@@ -217,7 +217,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "threading_as",
-    {|"("& "as->" [target]Expression Pattern [items]Expression* &")"|},
+    {|"("& "as->" [target]Expression Pattern > [items]Expression* &")"|},
     (~loc, [@node.target "Expression"]target, [@node "Pattern"]pat, [@nodes.items "Expression"]items) => {
       Belt.List.reduce(items, target, (target, item) => {
         H.Exp.apply(H.Exp.fun_("", None, pat, item), [("", target)])
@@ -242,24 +242,24 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "array_index",
-    {|"("& "["& [index]Expression &"]" [array]Expression &")"|},
+    {|"("& "["& [index]Expression &"]" > [array]Expression &")"|},
     (~loc, [@node.index "Expression"]index, [@node.array "Expression"]array) =>
       H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Ldot(Lident("Array"), "get"), loc)), [("", array), ("", index)])
   ),
   (
     "js_object_attribute",
-    {|"("& string Expression &")"|},
+    {|"("& string > Expression &")"|},
     (~loc, [@text "string"](attr, aloc), [@node "Expression"]object_) => H.Exp.apply(~loc, H.Exp.ident(~loc, Location.mkloc(Lident("##"), loc)), [("", object_), ("", H.Exp.ident(~loc=aloc, Location.mkloc(Lident(processString(attr)), aloc)))])
   ),
   (
     "setField",
-    {|"("& "<-" attribute [target]Expression [value]Expression &")"|},
+    {|"("& "<-" attribute > [target]Expression [value]Expression &")"|},
     (~loc, [@node "attribute"]attribute, [@node.target "Expression"]target, [@node.value "Expression"]value) =>
       H.Exp.setfield(~loc, target, attribute, value)
   ),
   (
     "record_attribute",
-    {|"("& attribute Expression &")"|},
+    {|"("& attribute > Expression &")"|},
     (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => H.Exp.field(~loc, expr, attr)
   ),
   (
@@ -269,10 +269,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "constraint",
-    {|"("& ":" Expression CoreType &")"|},
+    {|"("& ":" Expression > CoreType &")"|},
     (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
   ),
 ]];
+
+[@passThrough]
+[@name "LetPairs"]
+[%%rule ">> ValueBinding+"];
 
 [@ignoreNewlines]
 [@name "Pattern"]
@@ -367,13 +371,13 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
 [@name "LetPair"]
 [%%rule (
-  {|Pattern Expression|},
+  {|Pattern > Expression|},
   ([@node "Pattern"]pattern, [@node "Expression"]expr) => H.Vb.mk(pattern, expr)
 )];
 
 [@name "TypePair"]
 [%%rule (
-  {|TypeName TypeKind|},
+  {|TypeName > TypeKind|},
   (~loc, [@node "TypeName"](name, vbls), [@node "TypeKind"]kind) => {
     switch kind {
       | `Kind(kind) => H.Type.mk(~loc, ~params=vbls, ~kind, name)
@@ -385,7 +389,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@name "TypeName"]
 [%%rule [
   (
-    "vbl", {|"("& lowerIdent typeVariable+ &")"|},
+    "vbl", {|"("& lowerIdent > typeVariable+ &")"|},
     (~loc, [@text "lowerIdent"](name, loc), [@texts "typeVariable"]vbls) => (
       Location.mkloc(name, loc),
       vbls |> List.map(((name, loc)) => (H.Typ.var(~loc, name), Invariant)),
@@ -401,7 +405,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule [
   (
     "record",
-    {|"{"& TypeObjectItem+ &"}"|},
+    {|"{"& >> TypeObjectItem+ &"}"|},
     (~loc, [@nodes "TypeObjectItem"]items) => `Kind(Ptype_record(items))
   ), (
     "constructors",
@@ -418,7 +422,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule [
   (
     "normal",
-    "shortAttribute CoreType",
+    "shortAttribute > CoreType",
     (~loc, [@node "shortAttribute"](name, nameLoc), [@node "CoreType"]t) => {
       H.Type.field(~loc, Location.mkloc(name, nameLoc), t)
     }
@@ -436,7 +440,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
 [@name "shortAttribute"]
 [%%rule (
-  {|":" lowerIdent|},
+  {|":"$ lowerIdent|},
   ([@text "lowerIdent"]pair) => pair
 )];
 
@@ -448,7 +452,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
     (~loc, [@text "capIdent"](text, tloc)) => H.Type.constructor(~loc, Location.mkloc(text, tloc))
   ), (
     "args",
-    {|"("& capIdent CoreType+ &")"|},
+    {|"("& capIdent > CoreType+ &")"|},
     (~loc, [@text "capIdent"](text, tloc), [@nodes "CoreType"]args) => H.Type.constructor(~loc, ~args, Location.mkloc(text, tloc))
   )
 ]];
@@ -467,12 +471,12 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "constructor",
-    {|"("& longIdent CoreType+ &")"|},
+    {|"("& longIdent > CoreType+ &")"|},
     (~loc, [@node "longIdent"]ident, [@nodes "CoreType"]args) => H.Typ.constr(~loc, ident, args)
   ),
   (
     "arrow",
-    {|"("& "=>" "["& [args]CoreType+ &"]" CoreType &")"|},
+    {|"("& "=>" "["& [args]CoreType+ &"]" > CoreType &")"|},
     (~loc, [@node.args "CoreType"]args, [@node "CoreType"]res) => H.Typ.arrow("", args, res)
   )
 ]];
@@ -482,14 +486,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@name "typeVariable"]
 [%%rule {|'\'' lowerIdent|}];
 
-[@name "ValueBinding"][%%rule ("Pattern Expression", (~loc, [@node "Pattern"]pat, [@node "Expression"]expr) => H.Vb.mk(~loc, pat, expr))]
+[@name "ValueBinding"][%%rule ("Pattern > Expression", (~loc, [@node "Pattern"]pat, [@node "Expression"]expr) => H.Vb.mk(~loc, pat, expr))]
 
 
 [@name "FnCallArg"]
 [%%rule [
   (
     "labeled",
-    {|argLabel "=" Expression|},
+    {|argLabel $&"=" > Expression|},
     ([@node "argLabel"]label, [@node "Expression"]expr) => (label.txt, expr)
   ),
   (
@@ -509,7 +513,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@name "SwitchBody"][%%rule "SwitchCase+"];
 
 [@name "SwitchCase"]
-[%%rule ("SwitchCond Expression", (~loc, [@node "SwitchCond"](pat, guard), [@node "Expression"]expr) => {
+[%%rule ("SwitchCond > Expression", (~loc, [@node "SwitchCond"](pat, guard), [@node "Expression"]expr) => {
   H.Exp.case(pat, ~guard?, expr)
 })];
 
@@ -552,7 +556,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule [
   (
     "normal",
-    {|attribute Expression|},
+    {|attribute > Expression|},
     (~loc, [@node "attribute"]attr, [@node "Expression"]expr) => (attr, expr)
   ),
   (
@@ -672,8 +676,8 @@ let rec listToConstruct = (~loc, list, maybeRest, construct, tuple, itemLoc) =>
 [@name "Parened"]
 [%%rule {|"("& Expression & ")"|}];
 
-[@name "attribute"][%%rule ({|':' longIdent|}, ([@node "longIdent"]ident) => ident)];
-[@name "shortAttribute"][%%rule {|':' lowerIdent|}];
+[@name "attribute"][%%rule ({|':'&$ longIdent|}, ([@node "longIdent"]ident) => ident)];
+[@name "shortAttribute"][%%rule {|':'&$ lowerIdent|}];
 
 /** A potentially-namespaced lower-case identifier */
 [@name "longIdent"][%%rule (

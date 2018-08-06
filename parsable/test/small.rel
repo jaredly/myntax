@@ -1,7 +1,7 @@
 (module Dogs
   (str
     (type dog {:name string :age float})
-    (def fluff {:name "Fluff" :age 0.4})
+    (def fluff {:name_and_things_and_long "Fluff" :age 0.4})
     (defn humanAge [{:age}]
       (print_endline "Converting")
       (int_of_float (*. age 7.0)))
@@ -9,6 +9,12 @@
 
 ; what folx
 (+ 2 3)
+
+(let [name_and_things_and_long 1234
+      more_name_and_things_and_long evenmore
+      one two
+      three four]
+  (+ one three))
 
 (let [a 2] a)
 [2 3 4]

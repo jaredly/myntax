@@ -60,8 +60,8 @@ let grammar = {lineComment: Some(";"), blockComment: Some(("/*", "*/")), rules: 
     leaf: false,
     docs: None,
     choices: [
-("indent", "", [Terminal(">", None)]),
 ("full_indent", "", [Terminal(">>", None)]),
+("indent", "", [Terminal(">", None)]),
 ("item", "", [NonTerminal("Item_", None)])
 ],
   }), ("Item_", {

@@ -18,6 +18,7 @@ and node =
   | Append(doc, doc)
   | Empty
   | Group(doc)
+  | FullIndent(doc)
   | Indent(int, doc) /* indent this whole doc */
   | BackLine(int, string) /* the string is what to print if we *don't* break */
   | Line(int, string) /* the string is what to print if we *dont't* break */
@@ -58,9 +59,15 @@ let back = (num, text) => {
 
 let group = doc => {...doc, node: Group(doc)};
 
+/** TODO I think "indent" is misreporting. also fullindent definitely */
 let indent = (amount, doc) => {
   ...doc,
   node: Indent(amount, doc),
+};
+
+let fullIndent = (doc) => {
+  ...doc,
+  node: FullIndent(doc),
 };
 
 let line = defaultString => {
@@ -113,6 +120,7 @@ let rec flatten = doc =>
   | Text(_) => doc
   | Group(x)
   | Indent(_, x) => flatten(x)
+  | FullIndent(x) => flatten(x)
   | Line(_, x) => text(x)
   | BackLine(_, x) => text(x)
   };
@@ -170,10 +178,14 @@ let print = (~width=70, ~output=print_string, ~indent=print_indentation, doc) =>
           };
         /* output("g"); */
         loop(currentIndent, push(offset, flatDoc, rest));
+      | FullIndent(doc) =>
+        /* indent(ident); */
+        /* output("i"); */
+        loop(currentIndent, push(currentIndent, doc, rest))
       | Indent(ident, doc) =>
         indent(ident);
         /* output("i"); */
-        loop(currentIndent, push(offset + ident, doc, rest))
+        loop(currentIndent + ident, push(offset + ident, doc, rest))
       | BackLine(num, _) =>
         output("\n");
         indent(offset - num);
