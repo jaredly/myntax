@@ -9,8 +9,8 @@ module RP = PackTypes.Path;
 /** STATEFUL STUFF
  * It would probably nice to thread this through,
  * but this is way easier at the moment :shrug: */;
-let currentDocComment = ref(None);
-let pendingComments = ref([]);
+/* let currentDocComment = ref(None);
+let pendingComments = ref([]); */
 
 let locForOffs = (a, b) => {
   Location.loc_start: a,
@@ -70,15 +70,15 @@ let rec loop = (
   let loop = loop(~isLexical, ~state, ~ignoringNewlines, ~grammar, ~parse);
   /* If in a NonLexical context, skip whitespace before trying to match a rule
     * Unless there are no more items. */
-  let (i, items) =
+  let (i, items, comments) =
     if (isLexical || items == []) {
-      (i, items)
+      (i, items, [])
     } else {
       switch items {
-      | [P.Lexify(p), ...rest] => (i, [p, ...rest])
+      | [P.Lexify(p), ...rest] => (i, [p, ...rest], [])
       | _ =>
         let i = skipWhite(i, state.input, state.len, ignoringNewlines);
-        let i' =
+        let (i', comments) =
           switch (ignoringNewlines, grammar.P.blockComment, grammar.P.lineComment) {
           | (false, Some(x), _) => skipBlockComments(i, x, state.input, state.len, false)
           | (true, Some(x), None) => skipBlockComments(i, x, state.input, state.len, true)
@@ -86,13 +86,13 @@ let rec loop = (
             skipBlockAndLineComments(i, x, y, state.input, state.len)
           | (true, None, Some(x)) => skipLineComments(i, x, state.input, state.len)
           | (false, None, Some(_))
-          | (_, None, None) => i
+          | (_, None, None) => (i, [])
           };
         /* Printf.printf "Skipped comments %d %d\n" i i'; */
-        (i', items)
+        (i', items, comments)
       }
     };
-  switch items {
+  let (pos, results, errors) = switch items {
   | [P.Empty, ...rest] => loop(i, rest, path, loopIndex + 1, isNegated)
   | [P.NoSpaceAfter(p), ...rest]
   | [P.NoSpaceBefore(p), ...rest]
@@ -124,14 +124,15 @@ let rec loop = (
         (Lexing.dummy_pos, [], (i, [(true, [RP.Item(item, loopIndex), ...path])]))
       }
     | Some(lineComment) =>
-      let i' = skipLineComments(i, lineComment, state.input, state.len);
+      /** TODO FIXME */
+      let (i', comment) = skipLineComments(i, lineComment, state.input, state.len);
       let i' =
         if (i'.pos_cnum > i.pos_cnum || i'.pos_cnum >= state.len || state.input.[i.pos_cnum] != '\n') {
           i'
         } else
           {
             let i' = skipWhite(i', state.input, state.len, true);
-            let i' = skipLineComments(i', lineComment, state.input, state.len);
+            let (i', _comment) = skipLineComments(i', lineComment, state.input, state.len);
             i'
           };
           /* i' + 1 */
@@ -170,6 +171,7 @@ let rec loop = (
         passThrough ?
           switch result {
           | R.Node(_, subchildren, _, _comments) => List.concat([subchildren, children])
+          | R.Comment(_) => failwith("Passthrough can't handle a comment")
           | R.Leaf(_) => failwith("Passthrough can't have a leaf node")
           } :
           [(label |> optOr(""), result), ...children];
@@ -265,7 +267,8 @@ let rec loop = (
       (Lexing.dummy_pos, [], errs)
     }
   | [] => (i, [], (Lexing.dummy_pos, []))
-  }
+  };
+  (pos, (comments |> List.map(m => ("", m))) @ results, errors)
 };
 
 let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNegated, path) => {
@@ -293,11 +296,11 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
       let subPath = numChoices === 1 ? path : [RP.Choice(choiceIndex, sub_name), ...path];
 
       /* TODO maybe I don't have to do this if I'm not capturing comments... */
-      let precomments = if (capturesComments) {
+      /* let precomments = if (capturesComments) {
         let p = pendingComments^;
         pendingComments := [];
         p
-      } else {[]};
+      } else {[]}; */
 
       let (i', children, err) =
         loop(
@@ -323,12 +326,13 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
           leaf ? R.Leaf(name, String.sub(state.input, i.pos_cnum, i'.pos_cnum - i.pos_cnum), loc) : {
             R.Node(name, children, loc, capturesComments
             ? {
-              let d = currentDocComment^;
+              /* let d = currentDocComment^;
               currentDocComment := None;
               let innerComments = pendingComments^;
-              pendingComments := [];
+              pendingComments := []; */
               /* TODO EOLComments */
-              Some((d, precomments, innerComments, None))
+              /* Some((d, precomments, innerComments, None)) */
+              None
             }
             : None)
           },
@@ -339,9 +343,9 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
         /* let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex)  passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough; */
         (i', result, errs)
       } else {
-        if (capturesComments) {
+        /* if (capturesComments) {
           pendingComments := precomments;
-        };
+        }; */
         /* Printf.eprintf "<nother choice>\n"; */
         process(otherChoices, errs, choiceIndex + 1)
       }
@@ -370,7 +374,8 @@ let parse = (~filename="no name", grammar: PackTypes.Parsing.grammar, start, inp
       false,
       [],
     );
-  let i = i.pos_cnum >=0 ? skipAllWhite(i, grammar, input, String.length(input)) : i;
+  /* TODO add these in to the toplevel rule */
+  let (i, trailingComments) = i.pos_cnum >=0 ? skipAllWhite(i, grammar, input, String.length(input)) : (i, []);
   if (i == Lexing.dummy_pos) {
     Belt.Result.Error((None, (0, fst(errs), errs)))
   } else if (i.pos_cnum < state.len) {

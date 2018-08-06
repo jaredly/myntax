@@ -238,8 +238,10 @@ module Result = {
   type comments = (option(comment), list(comment), list(comment), option(comment));
 
   type rule = (string, string);
+  type commentType = Doc | Multi | EOL;
   type result =
     | Leaf(rule, string, loc)
+    | Comment(commentType, string, loc)
     | Node(rule, list((string, result)), loc, option(comments)) /* label, child */;
 
   let white = n => {
@@ -257,6 +259,7 @@ module Result = {
   };
   let rec showNode = (label, node, indent) => switch node {
     | Leaf((rule, sub), string, loc) => (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")" ++ ": " ++ String.escaped(string)
+    | Comment(t, string, loc) => "Comment: " ++ string
     | Node((rule, sub), children, loc, comments) =>
       (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")"
       ++ String.concat(

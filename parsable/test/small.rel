@@ -6,6 +6,7 @@
       (int_of_float (*. age 7.0))))
     ) )
 
+; what folx
 (+ 2 3)
 
 (let [a 2] a)

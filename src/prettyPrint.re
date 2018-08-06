@@ -228,6 +228,9 @@ let rec resultToOutput: (bool, grammar, result) => option(Output.outputT) =
   (ignoringNewlines, grammar, result) =>
     switch result {
     | Leaf(_, contents, _) => Some(Output.Text(contents))
+    | Comment(EOL, contents, _) => Some(Output.Straight([Output.Text(contents), Output.EOL]))
+    | Comment(Doc, contents, _) => Some(Output.Text(contents))
+    | Comment(Multi, contents, _) => Some(Output.Text(contents))
     | Node((name, sub), children, _, _comments) =>
       nodeToOutput(ignoringNewlines, grammar, (name, sub), children)
     }
@@ -301,6 +304,17 @@ and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
   let isLexical = Char.uppercase(name.[0]) != name.[0];
   /* print_endline ("Ignoring newlines: " ^ (ignoringNewlines ? "yep" :" nop")); */
   let rec loop = (ignoringNewlines, items, children) =>
+    switch children {
+      | [("", Comment(EOL, contents, _)), ...rest] => {
+        let (a, b, c) = loop(ignoringNewlines, items, rest);
+        (a, [Output.Text(contents), Output.EOL, ...b], c)
+      }
+      | [("", Comment(_, contents, _)), ...rest] => {
+        let (a, b, c) = loop(ignoringNewlines, items, rest);
+        (a, [Output.Text(contents), ...b], c)
+      }
+
+      | _ =>
     switch items {
     | [] => (true, [], children)
     | [item, ...rest] =>
@@ -383,6 +397,7 @@ and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
           (success, res, unused)
         }
       }
+    };
     };
   let (success, res, unused) = loop(ignoringNewlines, items, children);
   switch unused {

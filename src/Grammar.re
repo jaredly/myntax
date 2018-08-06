@@ -8,7 +8,7 @@ let choice = raw => {
     let mid = Unix.gettimeofday();
     let (_, _, res) = GrammarOfGrammar.parseChoice(children);
     res
-  | Belt.Result.Ok(Leaf(_)) => assert(false)
+  | Belt.Result.Ok(Leaf(_) | Comment(_)) => assert(false)
   }
 };
 
@@ -21,6 +21,6 @@ let getResult = (grammar, entry, contents) => {
     /* print_endline(PackTypes.Result.showLoc(loc)); */
     (sub, children, loc, comments)
   }
-  | Belt.Result.Ok(Leaf(_)) => failwith("parse should not be a leaf")
+  | Belt.Result.Ok(Leaf(_) | Comment(_)) => failwith("parse should not be a leaf")
   }
 };

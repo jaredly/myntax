@@ -1,6 +1,5 @@
 open PackTypes.Result;
 
-
 module P = PackTypes.Parsing;
 
 let rec getChild = (children, mapper) =>
@@ -32,7 +31,7 @@ let getContentsByLabel = (children, needle) =>
       } else {
         switch child {
         | Leaf(_, contents, _) => Some(contents)
-        | Node(_) => failwith("expected a leaf")
+        | Comment(_) | Node(_) => failwith("expected a leaf")
         }
       }
   );
@@ -137,7 +136,7 @@ let getNodeByLabel = (children, needle) =>
       if (label == needle) {
         switch child {
         | Node(rule, children, loc, comments) => Some((rule, children, loc, comments))
-        | Leaf(_) => failwith("Expected node for label " ++ needle)
+        | Comment(_) | Leaf(_) => failwith("Expected node for label " ++ needle)
         }
       } else {
         None
