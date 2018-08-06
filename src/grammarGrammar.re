@@ -70,7 +70,7 @@ let grammar = {lineComment: Some(";"), blockComment: Some(("/*", "*/")), rules: 
     capturesComments: false,
     leaf: false,
     docs: None,
-    choices: [("", "", [Optional(NoSpaceAfter(Terminal("~", Some("neg")))), Optional(NoSpaceAfter(Terminal("#", Some("lexify")))), Optional(NoSpaceAfter(Group([NoSpaceAfter(Terminal("[", None)), Optional(NoSpaceAfter(NonTerminal("flag", Some("flag")))), NoSpaceAfter(NonTerminal("ident", Some("name"))), Terminal("]", None)]))), Optional(NoSpaceAfter(NonTerminal("noSpace", Some("noSpaceBefore")))), NonTerminal("ItemInner", Some("inner")), Optional(NoSpaceBefore(NonTerminal("noSpace", Some("noSpaceAfter")))), Optional(NoSpaceBefore(NonTerminal("suffix", Some("suffix"))))])],
+    choices: [("", "", [Optional(NoSpaceAfter(Terminal("~", Some("neg")))), Optional(NoSpaceAfter(Terminal("#", Some("lexify")))), Optional(NoSpaceAfter(Group([NoSpaceAfter(Terminal("[", None)), Optional(NoSpaceAfter(NonTerminal("flag", Some("flag")))), NoSpaceAfter(NonTerminal("ident", Some("name"))), Terminal("]", None)]))), Optional(NoSpaceBefore(NonTerminal("noBreak", Some("noBreakBefore")))), Optional(NoSpaceAfter(NonTerminal("noSpace", Some("noSpaceBefore")))), NonTerminal("ItemInner", Some("inner")), Optional(NoSpaceBefore(NonTerminal("noSpace", Some("noSpaceAfter")))), Optional(NoSpaceBefore(NonTerminal("noBreak", Some("noBreakAfter")))), Optional(NoSpaceBefore(NonTerminal("suffix", Some("suffix"))))])],
   }), ("noSpace", {
     passThrough: false,
     ignoreNewlines: Inherit,
@@ -78,6 +78,13 @@ let grammar = {lineComment: Some(";"), blockComment: Some(("/*", "*/")), rules: 
     leaf: true,
     docs: None,
     choices: [("", "", [Terminal("&", None)])],
+  }), ("noBreak", {
+    passThrough: false,
+    ignoreNewlines: Inherit,
+    capturesComments: false,
+    leaf: true,
+    docs: None,
+    choices: [("", "", [Terminal("$", None)])],
   }), ("ItemInner", {
     passThrough: false,
     ignoreNewlines: Inherit,

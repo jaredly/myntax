@@ -134,12 +134,16 @@ let rec parseInner = (label, ((_, sub), children, loc, _)) =>
 and parseItem = (children) => {
   let neg = RU.getPresenceByLabel(children, "neg");
   let lexify = RU.getPresenceByLabel(children, "lexify");
+  let noBreakAfter = RU.getPresenceByLabel(children, "noBreakAfter");
+  let noBreakBefore = RU.getPresenceByLabel(children, "noBreakBefore");
   let noSpaceAfter = RU.getPresenceByLabel(children, "noSpaceAfter");
   let noSpaceBefore = RU.getPresenceByLabel(children, "noSpaceBefore");
   let suffix = getSuffix(children);
   let _ = getFlag(children); /* TODO use flags? */
   let label = RU.getContentsByLabel(children, "name");
   let inner = RU.getNodeByLabel(children, "inner") |> RU.unwrap |> parseInner(label);
+  let inner = noBreakAfter ? P.NoBreakAfter(inner) : inner;
+  let inner = noBreakBefore ? P.NoBreakBefore(inner) : inner;
   let inner = noSpaceAfter ? P.NoSpaceAfter(inner) : inner;
   let inner = noSpaceBefore ? P.NoSpaceBefore(inner) : inner;
   let inner =

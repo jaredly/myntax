@@ -80,14 +80,29 @@ let commad_list = (loop, items) => {
 
 open Belt.Result;
 
-let combine = (item, res, sep) => {
+/**
+ $&  &$
+  &
+     &
+ $&  
+ */
+
+let mergeSides = (ar, bl, a, b, canSpace) => switch (ar, bl) {
+  | (`Tight, _) | (_, `Tight) => a @! b
+  | (`Space, _) | (_, `Space) => a @! str(" ") @! b
+  | (`Normal, `Normal) when canSpace => a @! space @! b
+  | _ => a @! break @! b
+};
+
+let combine = (item, res, canSpace) => {
   /* print_endline("Combining"); */
 
     switch (item, res) {
     | (one, `Empty) => one
     | (`Empty, one) => one
+    | (`Sides(al, ar, a), `Sides(bl, br, b)) => `Sides(al, br, mergeSides(ar, bl, a, b, canSpace))
 
-    | (`Normal(a), `Normal(b)) => `Normal(a @! sep @! b)
+    /* | (`Normal(a), `Normal(b)) => `Normal(a @! sep @! b)
     | (`Normal(a), `Left(b)) => `Normal(a @! b)
     | (`Normal(a), `Right(b)) => `Right(a @! sep @! b)
     | (`Normal(a), `Both(b)) => `Right(a @! b)
@@ -105,37 +120,35 @@ let combine = (item, res, sep) => {
     | (`Right(a), `Normal(b)) => `Normal(a @! b)
     | (`Right(a), `Left(b)) => `Normal(a @! b)
     | (`Right(a), `Right(b)) => `Right(a @! b)
-    | (`Right(a), `Both(b)) => `Right(a @! b)
+    | (`Right(a), `Both(b)) => `Right(a @! b) */
     };
 };
 
 let unwrap = item => switch item {
   | `Empty => Pretty.empty
-  | `Normal(a) | `Left(a) | `Right(a) | `Both(a) => a
+  | `Sides(_, _, a) => a
 };
 
 let map = (fn, item) => switch item {
   | `Empty => `Empty
-  | `Normal(a) => `Normal(fn(a))
-  | `Left(a) => `Left(fn(a))
-  | `Right(a) => `Right(fn(a))
-  | `Both(a) => `Both(fn(a))
+  | `Sides(l, r, a) => `Sides(l, r, fn(a))
 };
 
-let left = item => switch item {
-  | `Empty => `Empty
-  | `Normal(a) => `Left(a)
-  | `Left(a) => `Left(a)
-  | `Right(a) => `Both(a)
-  | `Both(a) => `Both(a)
+let mergeOne = (a, b) => switch (a, b) {
+  | (`Tight, _) | (_, `Tight) => `Tight
+  | (`Space, _) | (_, `Space) => `Space
+  | (`Break, _) | (_, `Break) => `Break
+  | _ => `Normal
 };
 
-let right = item => switch item {
+let left = (item, newL) => switch item {
   | `Empty => `Empty
-  | `Normal(a) => `Right(a)
-  | `Right(a) => `Right(a)
-  | `Left(a) => `Both(a)
-  | `Both(a) => `Both(a)
+  | `Sides(l, r, a) => `Sides(mergeOne(l, newL), r, a)
+};
+
+let right = (item, newR) => switch item {
+  | `Empty => `Empty
+  | `Sides(l, r, a) => `Sides(l, mergeOne(r, newR), a)
 };
 
 let rec greedy = (isLexical, loop, p, children, min, max) =>
@@ -149,7 +162,7 @@ let rec greedy = (isLexical, loop, p, children, min, max) =>
       | Ok((res, unused)) =>
         switch (greedy(isLexical, loop, p, unused, min - 1, max - 1)) {
           | Ok((r2, u2)) when r2 == `Empty => Ok((res, u2))
-          | Ok((r2, u2)) => Ok((combine(res, r2, isLexical ? break : space), u2))
+          | Ok((r2, u2)) => Ok((combine(res, r2, !isLexical), u2))
           | Error(message) => min <= 1 ? Ok((res, unused)) : Error(message)
         }
     }
@@ -176,23 +189,29 @@ let prependItem = (sep, item, k) => {
 
 let rec singleOutput = (grammar, ignoringNewlines, isLexical, item, children, loop) => {
   switch item {
-  | Terminal(text, None) => Ok((`Normal(str(text)), children))
+  | Terminal(text, None) => Ok((`Sides(`Normal, `Normal, str(text)), children))
   | Terminal(text, Some(label)) =>
     switch (findByLabel(children, label)) {
     | (Error(m), _) => Error(m)
     | (Ok(x), children) =>
-      Ok((`Normal(str(text)), children))
+      Ok((`Sides(`Normal, `Normal, str(text)), children))
     }
   | NonTerminal(name, label) => processNonTerminal(grammar, name, label, children, ignoringNewlines, loop)
   | NoSpaceAfter(p) =>
     let%try (a, b) = singleOutput(grammar, ignoringNewlines, isLexical, p, children, loop);
-    Ok((right(a), b))
+    Ok((right(a, `Tight), b))
   | NoSpaceBefore(p) =>
     let%try (a, b) = singleOutput(grammar, ignoringNewlines, isLexical, p, children, loop);
-    Ok((left(a), b))
+    Ok((left(a, `Tight), b))
+  | NoBreakAfter(p) =>
+    let%try (a, b) = singleOutput(grammar, ignoringNewlines, isLexical, p, children, loop);
+    Ok((right(a, `Space), b))
+  | NoBreakBefore(p) =>
+    let%try (a, b) = singleOutput(grammar, ignoringNewlines, isLexical, p, children, loop);
+    Ok((left(a, `Space), b))
   | Lexify(p) => singleOutput(grammar, ignoringNewlines, isLexical, p, children, loop)
   | Group(p) => loop(ignoringNewlines, p, children);
-  | CommentEOL => Ok((`Normal(Pretty.breakAfter("")), children))
+  | CommentEOL => Ok((`Sides(`Normal, `Normal, Pretty.breakAfter("")), children))
   | EOF | Empty | Lookahead(_) | Not(_) | Indent | FullIndent => Ok((`Empty, children))
 
   | Star(p) => greedy(isLexical, loop(ignoringNewlines), p, children, 0, -1)
@@ -213,11 +232,11 @@ and outputItem = (grammar, ~isLexical, ignoringNewlines, items, children) => {
   let loop = outputItem(grammar, ~isLexical);
   switch children {
     | [("", Comment(EOL, contents, _)), ...rest] => {
-      loop(ignoringNewlines, items, rest) |> prependItem(break, `Normal(Pretty.breakAfter(contents)))
+      loop(ignoringNewlines, items, rest) |> prependItem(false, `Sides(`Normal, `Normal, Pretty.breakAfter(contents)))
     }
     /* TODO check to see that it's multiline */
     | [("", Comment(Multi | Doc, contents, _)), ...rest] =>
-      loop(ignoringNewlines, items, rest) |> prependItem(break, `Normal(Pretty.multiLine(contents)))
+      loop(ignoringNewlines, items, rest) |> prependItem(false, `Sides(`Normal, `Normal, Pretty.multiLine(contents)))
     | _ => switch items {
       | [] => Ok((`Empty, children))
 
@@ -238,9 +257,9 @@ and outputItem = (grammar, ~isLexical, ignoringNewlines, items, children) => {
         if (res == `Empty) {
           Ok((res2, unused))
         } else if (isLexical) {
-          Ok((combine(res, res2, break), unused))
+          Ok((combine(res, res2, false), unused))
         } else {
-          Ok((combine(res, res2, space), unused))
+          Ok((combine(res, res2, true), unused))
         }
       }
     }
@@ -277,7 +296,8 @@ and processNonTerminal = (grammar, name, label, children, ignoringNewlines, loop
     let%try result = child;
     /* print_endline("Nonterminal " ++ name ++ " with result " ++ PackTypes.Result.showNode("", result, 0)); */
     let%try output = resultToPretty(ignoringNewlines, grammar, result);
-    Ok((`Normal(
+    Ok((`Sides(
+      `Normal, `Normal,
       Pretty.group(output)
       /* Pretty.group(Pretty.indent(4, output)) */
       /* Pretty.indent(4, Pretty.group(output)) */

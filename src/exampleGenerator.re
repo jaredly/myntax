@@ -13,9 +13,10 @@ let optOr = (orr, opt) =>
   };
 
 let maybePrint = (grammar, result) =>
-  try (PrettyPrint.toString(grammar, result)) {
+  /* try (PrettyPrint.toString(grammar, result)) {
   | Failure(message) => Some(message)
-  };
+  }; */
+  None
 
 
 
@@ -33,6 +34,8 @@ let rec generateForItem = (grammar, table, depth, item) =>
   | P.Lexify(p)
   | P.NoSpaceAfter(p)
   | P.NoSpaceBefore(p)
+  | P.NoBreakAfter(p)
+  | P.NoBreakBefore(p)
   | P.Star(p)
   | P.Plus(p)
   | P.Optional(p) => generateForItem(grammar, table, depth, p)
@@ -129,6 +132,8 @@ let rec simpleForItem = (grammar, item) =>
     if (c == "\\") { "\\\\" } else { c }
     }
   )]
+  | P.NoBreakAfter(p)
+  | P.NoBreakBefore(p)
   | P.NoSpaceAfter(p) => simpleForItem(grammar, p) @ [`Collapse]
   | P.NoSpaceBefore(p) => [`Collapse, ...simpleForItem(grammar, p)]
 

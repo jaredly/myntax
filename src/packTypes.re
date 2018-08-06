@@ -34,6 +34,8 @@ module Parsing = {
     | FullIndent /* Indents to the current offset */
     | NoSpaceAfter(parsing) /* a printing rule, suppresses space */
     | NoSpaceBefore(parsing) /* a printing rule, suppresses space */
+    | NoBreakBefore(parsing) /* a printing rule, suppresses space */
+    | NoBreakAfter(parsing) /* a printing rule, suppresses space */
 
 
     | Any(option(string)) /* any */
@@ -76,6 +78,8 @@ module Parsing = {
     | Optional(p) => "Optional(" ++ showParsing(p) ++ ")"
     | NoSpaceAfter(p) => "NoSpaceAfter(" ++ showParsing(p) ++ ")"
     | NoSpaceBefore(p) => "NoSpaceBefore(" ++ showParsing(p) ++ ")"
+    | NoBreakAfter(p) => "NoBreakAfter(" ++ showParsing(p) ++ ")"
+    | NoBreakBefore(p) => "NoBreakBefore(" ++ showParsing(p) ++ ")"
     | Lookahead(p) => "Lookahead(" ++ showParsing(p) ++ ")"
     | Not(p) => "Not(" ++ showParsing(p) ++ ")"
     | Lexify(p) => "Lexify(" ++ showParsing(p) ++ ")"

@@ -145,14 +145,15 @@ switch command {
 | Pretty(dest) =>
   /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
   /* failwith "no impl" */
-  switch (PrettyPrint.toString(grammar, result)) {
+  /* switch (PrettyPrint.toString(grammar, result)) {
   | Some(x) =>
     switch dest {
     | "-" => print_endline(x)
     | _ => output_string(open_out(dest), x)
     }
   | None => failwith("Failed to pretty print :(")
-  }
+  } */
+  ()
 | RoundPretty =>
   /* let round = OcamlOfReason.convertFrom(OcamlOfReason.convert(result));
   switch (PrettyPrint.toString(grammar, round)) {
