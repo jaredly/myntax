@@ -106,13 +106,6 @@ let breakAfter = (~len=?, string) => {
 
 let dontFlatten = doc => {...doc, break_mode: CannotFlatten};
 
-let print_indentation = n => {
-  print_char('\n');
-  for (i in 1 to n) {
-    print_char(' ');
-  };
-};
-
 let rec flatten = doc =>
   switch (doc.node) {
   | Append(a, b) => append(flatten(a), flatten(b))
@@ -150,6 +143,13 @@ let push = (offset, node, stack: stack) => {
   Cons({doc: node, offset, min_total: current_min_total}, stack);
 };
 
+let print_indentation = n => {
+  /* print_char('\n'); */
+  for (i in 1 to n) {
+    print_char(' ');
+  };
+};
+
 let print = (~width=70, ~output=print_string, ~indent=print_indentation, doc) => {
   let rec loop = (currentIndent, stack) =>
     switch (stack) {
@@ -165,15 +165,21 @@ let print = (~width=70, ~output=print_string, ~indent=print_indentation, doc) =>
           if (doc.break_mode != CannotFlatten && doc.flat_size + min_total(rest) <= width - currentIndent) {
             flatten(doc);
           } else {
+        /* output("---|"); */
             doc;
           };
+        /* output("g"); */
         loop(currentIndent, push(offset, flatDoc, rest));
       | Indent(ident, doc) =>
+        indent(ident);
+        /* output("i"); */
         loop(currentIndent, push(offset + ident, doc, rest))
       | BackLine(num, _) =>
+        output("\n");
         indent(offset - num);
         loop(offset - num, rest);
       | Line(_) =>
+        output("\n");
         indent(offset);
         loop(offset, rest);
       | Text(len, string) =>

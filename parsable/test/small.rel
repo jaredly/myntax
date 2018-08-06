@@ -2,8 +2,8 @@
   (str
     (type dog {:name string :age float})
     (def fluff {:name "Fluff" :age 0.4})
-    (def humanAge (=> [{:age}]
-      (int_of_float (*. age 7.0))))
+    (defn humanAge [{:age}]
+      (int_of_float (*. age 7.0)))
     ) )
 
 ; what folx
