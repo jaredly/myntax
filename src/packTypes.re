@@ -26,11 +26,15 @@ module Parsing = {
     | Star(parsing) /* e* */
     | Plus(parsing) /* e+ */
     | Optional(parsing) /* e? */
-    | NoSpaceAfter(parsing) /* a printing rule, suppresses space */
-    | NoSpaceBefore(parsing) /* a printing rule, suppresses space */
     | Lookahead(parsing) /* &e */
     | Not(parsing) /* !e */
     | Lexify(parsing) /* # somelexrule */
+
+    | Indent /* Indents by 2 */
+    | FullIndent /* Indents to the current offset */
+    | NoSpaceAfter(parsing) /* a printing rule, suppresses space */
+    | NoSpaceBefore(parsing) /* a printing rule, suppresses space */
+
 
     | Any(option(string)) /* any */
 
@@ -76,6 +80,8 @@ module Parsing = {
     | Not(p) => "Not(" ++ showParsing(p) ++ ")"
     | Lexify(p) => "Lexify(" ++ showParsing(p) ++ ")"
     | EOF => "EOF"
+    | Indent => "Indent"
+    | FullIndent => "FullIndent"
     | CommentEOL => "CommentEOL"
     | Group(inner) => "Group(" ++ showList(inner, showParsing) ++ ")"
     | NonTerminal(name, label) => "NonTerminal(" ++ showString(name) ++ ", " ++ showOption(label, showString) ++ ")"

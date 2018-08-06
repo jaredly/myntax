@@ -24,7 +24,13 @@ Choice = Item+ (
   ";" [comment]rest_of_line
 )?
 
-Item = [?neg]"~"&? [?lexify]"#"&? ("["& [flag]flag&? [name]ident &"]")&? [noSpaceBefore]noSpace&? [inner]ItemInner [noSpaceAfter]&noSpace? [suffix]&suffix?
+Item =
+| ">" -- indent
+| ">>" -- full_indent
+| Item_ -- item
+
+@passThrough
+Item_ = [?neg]"~"&? [?lexify]"#"&? ("["& [flag]flag&? [name]ident &"]")&? [noSpaceBefore]noSpace&? [inner]ItemInner [noSpaceAfter]&noSpace? [suffix]&suffix?
 
 ; This rule is only for printing - it doesn't effect parsing at all.
 

@@ -193,7 +193,7 @@ let rec singleOutput = (grammar, ignoringNewlines, isLexical, item, children, lo
   | Lexify(p) => singleOutput(grammar, ignoringNewlines, isLexical, p, children, loop)
   | Group(p) => loop(ignoringNewlines, p, children);
   | CommentEOL => Ok((`Normal(Pretty.breakAfter("")), children))
-  | EOF | Empty | Lookahead(_) | Not(_) => Ok((`Empty, children))
+  | EOF | Empty | Lookahead(_) | Not(_) | Indent | FullIndent => Ok((`Empty, children))
 
   | Star(p) => greedy(isLexical, loop(ignoringNewlines), p, children, 0, -1)
   | Plus(p) => greedy(isLexical, loop(ignoringNewlines), p, children, 1, -1)
@@ -221,8 +221,12 @@ and outputItem = (grammar, ~isLexical, ignoringNewlines, items, children) => {
     | _ => switch items {
       | [] => Ok((`Empty, children))
 
-      /* | [("", Indent), ...rest] =>
-        let%try (res2, unused) = loop(ignoringNewlines, rest, unused);
+      | [Indent, ...rest] =>
+        let%try (res2, unused) = loop(ignoringNewlines, rest, children);
+        Ok((map(m => Pretty.indent(4, m), res2), unused))
+
+      /* | [FullIndent, ...rest] =>
+        let%try (res2, unused) = loop(ignoringNewlines, rest, children);
         Ok((map(m => Pretty.indent(4, m), res2), unused)) */
 
       | [item] => singleOutput(grammar, ignoringNewlines, isLexical, item, children, loop)
@@ -274,8 +278,8 @@ and processNonTerminal = (grammar, name, label, children, ignoringNewlines, loop
     /* print_endline("Nonterminal " ++ name ++ " with result " ++ PackTypes.Result.showNode("", result, 0)); */
     let%try output = resultToPretty(ignoringNewlines, grammar, result);
     Ok((`Normal(
-      /* Pretty.group(output) */
-      Pretty.group(Pretty.indent(4, output))
+      Pretty.group(output)
+      /* Pretty.group(Pretty.indent(4, output)) */
       /* Pretty.indent(4, Pretty.group(output)) */
     ), others));
 

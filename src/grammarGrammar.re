@@ -59,6 +59,17 @@ let grammar = {lineComment: Some(";"), blockComment: Some(("/*", "*/")), rules: 
     capturesComments: false,
     leaf: false,
     docs: None,
+    choices: [
+("indent", "", [Terminal(">", None)]),
+("full_indent", "", [Terminal(">>", None)]),
+("item", "", [NonTerminal("Item_", None)])
+],
+  }), ("Item_", {
+    passThrough: true,
+    ignoreNewlines: Inherit,
+    capturesComments: false,
+    leaf: false,
+    docs: None,
     choices: [("", "", [Optional(NoSpaceAfter(Terminal("~", Some("neg")))), Optional(NoSpaceAfter(Terminal("#", Some("lexify")))), Optional(NoSpaceAfter(Group([NoSpaceAfter(Terminal("[", None)), Optional(NoSpaceAfter(NonTerminal("flag", Some("flag")))), NoSpaceAfter(NonTerminal("ident", Some("name"))), Terminal("]", None)]))), Optional(NoSpaceAfter(NonTerminal("noSpace", Some("noSpaceBefore")))), NonTerminal("ItemInner", Some("inner")), Optional(NoSpaceBefore(NonTerminal("noSpace", Some("noSpaceAfter")))), Optional(NoSpaceBefore(NonTerminal("suffix", Some("suffix"))))])],
   }), ("noSpace", {
     passThrough: false,

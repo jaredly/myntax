@@ -42,6 +42,8 @@ let rec generateForItem = (grammar, table, depth, item) =>
   | P.Lookahead(_)
   | P.EOF
   | P.Empty
+  | P.Indent
+  | P.FullIndent
   | P.CommentEOL => []
   | P.Chars(start, cend, label) =>
     let s = Char.code(start);
@@ -143,6 +145,8 @@ let rec simpleForItem = (grammar, item) =>
   | P.Lookahead(_)
   | P.EOF
   | P.Empty
+  | P.Indent
+  | P.FullIndent
   | P.CommentEOL => []
   | P.Chars(start, cend, label) => [`Text(Char.escaped(start) ++ "…" ++ Char.escaped(cend))]
   }

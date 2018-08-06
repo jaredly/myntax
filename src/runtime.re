@@ -93,7 +93,7 @@ let rec loop = (
       }
     };
   let (pos, results, errors) = switch items {
-  | [P.Empty, ...rest] => loop(i, rest, path, loopIndex + 1, isNegated)
+  | [P.Empty | P.Indent | P.FullIndent, ...rest] => loop(i, rest, path, loopIndex + 1, isNegated)
   | [P.NoSpaceAfter(p), ...rest]
   | [P.NoSpaceBefore(p), ...rest]
   | [P.Lexify(p), ...rest] => loop(i, [p, ...rest], path, loopIndex, isNegated)

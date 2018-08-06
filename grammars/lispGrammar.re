@@ -45,7 +45,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   /** Define a toplevel value. */
   ("def", {|"("& "def" LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
-  ("defn", {|"("& "defn" lowerIdent FnArgs Expression* &")"|}, (~loc, [@text "lowerIdent"](text, tloc), [@node "FnArgs"]args, [@nodes "Expression"]exprs) => H.Str.value(~loc, Nonrecursive, [
+  ("defn", {|"("& "defn" lowerIdent FnArgs > Expression* &")"|}, (~loc, [@text "lowerIdent"](text, tloc), [@node "FnArgs"]args, [@nodes "Expression"]exprs) => H.Str.value(~loc, Nonrecursive, [
     H.Vb.mk(
       ~loc,
       H.Pat.var(Location.mkloc(text, tloc)),
@@ -54,7 +54,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ])),
   ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
   ("type", {|"("& "type" TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
-  ("module", {|"("& "module" capIdent ModuleExpr &")"|},
+  ("module", {|"("& "module" capIdent > ModuleExpr &")"|},
     (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
       Location.mkloc(name, nameLoc),
       expr
@@ -264,7 +264,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "fn_call",
-    {|"("& Expression FnCallArg* &")"|},
+    {|"("& Expression > FnCallArg* &")"|},
     (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => args == [] ? fn : H.Exp.apply(~loc, fn, args)
   ),
   (

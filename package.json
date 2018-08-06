@@ -13,6 +13,7 @@
     "docs": "./lib/bs/native/lisp.native docs > docs/LispGrammar.md",
     "mll": "./lib/bs/native/refmt.native ml-lisp parsable/lisp parsable/test/minimal.rel",
     "debug": "./lib/bs/native/lisp.native debug parsable/test/minimal.rel",
-    "pretty": "./lib/bs/native/lisp.native pretty parsable/test/small.rel"
+    "pretty": "./lib/bs/native/lisp.native pretty parsable/test/small.rel",
+    "regen": "./lib/bs/native/pack.native dump parsable/grammar > src/grammarGrammar.re"
   }
 }

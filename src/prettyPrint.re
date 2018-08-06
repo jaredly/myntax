@@ -245,6 +245,7 @@ and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
         (success, [Output.EOL, ...res], unused)
       | EOF
       | Empty
+      | Indent | FullIndent
       | Lookahead(_)
       | Not(_) => loop(ignoringNewlines, rest, children)
       | Star(p) =>

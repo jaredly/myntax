@@ -91,7 +91,9 @@ let rec parseInner = (label, ((_, sub), children, loc, _)) =>
         ((label, child)) =>
           if (label == "nested") {
             switch child {
-            | Node(_, children, _, _) => Some(parseItem(children))
+            | Node(("Item", "item"), children, _, _) => Some(parseItem(children))
+            | Node(("Item", "indent"), _, _, _) => Some(P.Indent)
+            | Node(("Item", "full_indent"), _, _, _) => Some(P.FullIndent)
             | _ => failwith("Nested child expected to be non-leaf")
             }
           } else {
@@ -161,7 +163,9 @@ let parseChoice = (children) => {
       children,
       ((label, child)) =>
         switch child {
-        | Node(("Item", _), children, _, _) => Some(parseItem(children))
+        | Node(("Item", "item"), children, _, _) => Some(parseItem(children))
+        | Node(("Item", "indent"), _, _, _) => Some(P.Indent)
+        | Node(("Item", "full_indent"), _, _, _) => Some(P.FullIndent)
         /* | Leaf ("noSpace", _) _ _ => Some (P.NoSpace) */
         | _ => None
         }
