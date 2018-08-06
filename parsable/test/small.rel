@@ -1,3 +1,4 @@
+(** Ok, welll *)
 (module Dogs
   (str
     (type dog {:name string :age float})
@@ -10,9 +11,16 @@
 ; what folx
 (+ 2 3)
 
+(switch awesome
+1 2
+3 4
+; this is a comment
+also things)
+
 (let [name_and_things_and_long 1234
       more_name_and_things_and_long evenmore
-      one two
+      one two ; eol,
+  ; a comment
       three four]
   (+ one three))
 
@@ -20,4 +28,4 @@
 [2 3 4]
 (def words ["Hello world"])
 (print_endline (String.concat " " (List.map String.uppercase words)))
-(OneLongThingThatIsSuperLongAndVeryLong.OneLongThingThatIsSuperLongAndVeryLong.name 23)
+(One.Thing.doThings 23)

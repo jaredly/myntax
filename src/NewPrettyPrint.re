@@ -242,7 +242,7 @@ and outputItem = (grammar, ~isLexical, ignoringNewlines, items, children) => {
 
       | [Indent, ...rest] =>
         let%try (res2, unused) = loop(ignoringNewlines, rest, children);
-        Ok((map(m => Pretty.indent(4, m), res2), unused))
+        Ok((map(m => Pretty.indent(2, m), res2), unused))
 
       | [FullIndent, ...rest] =>
         let%try (res2, unused) = loop(ignoringNewlines, rest, children);

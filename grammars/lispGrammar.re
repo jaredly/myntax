@@ -226,11 +226,11 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "switch",
-    {|"("& "switch" Expression SwitchBody &")"|},
+    {|"("& "switch"$ Expression > SwitchBody &")"|},
     (~loc, [@node "Expression"]expr, [@nodes "SwitchCase"]cases) => H.Exp.match(~loc, expr, cases)
   ), (
     "switch_function",
-    {|"("& "switch" "_" SwitchBody &")"|},
+    {|"("& "switch"$ "_" > SwitchBody &")"|},
     (~loc, [@nodes "SwitchCase"]cases) => H.Exp.function_(~loc, cases)
   ),
   (
@@ -299,12 +299,12 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ("ignored", {|"_"|}, (~loc) => H.Pat.any(~loc, ())),
   (
     "array",
-    {|"["& [items]Pattern* ("..."& [spread]Pattern)? &"]"|},
+    {|"["& >> [items]Pattern* ("..."& [spread]Pattern)? &"]"|},
     (~loc, [@nodes.items "Pattern"]items, [@node_opt.spread "Pattern"]spread) => listToConstruct(~loc, items, spread, (~loc, a, b) => H.Pat.construct(~loc, a, b), H.Pat.tuple, item => item.ppat_loc)
   ),
   (
     "tuple",
-    {|"("& "," Pattern Pattern+ &")"|},
+    {|"("& "," >> Pattern Pattern+ &")"|},
     (~loc, [@nodes "Pattern"]patterns) => H.Pat.tuple(~loc, patterns)
   ),
   (
@@ -312,7 +312,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "poly",
-    {|"("& polyIdent Pattern+ &")"|},
+    {|"("& polyIdent > Pattern+ &")"|},
     (~loc, [@node "polyIdent"]ident, [@nodes "Pattern"]args) => H.Pat.variant(~loc, ident.txt, Some(constructorArgs(args, H.Pat.tuple)))
   ),
   (
@@ -320,22 +320,22 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "exception",
-    {|"("& "exception" Pattern &")"|},
+    {|"("& "exception" > Pattern &")"|},
     (~loc, [@node "Pattern"]arg) => H.Pat.exception_(arg)
   ),
   (
     "constructor",
-    {|"("& longCap Pattern+ &")"|},
+    {|"("& longCap > Pattern+ &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Pattern"]args) => H.Pat.construct(~loc, ident, Some(constructorArgs(args, H.Pat.tuple)))
   ),
   (
     "object",
-    {|"{"& PatternObjectItem+ &"}"|},
+    {|"{"& >> PatternObjectItem+ &"}"|},
     (~loc, [@nodes "PatternObjectItem"]items) => H.Pat.record(~loc, items, Open)
   ),
   (
     "or",
-    {|"(|" Pattern+ ")"|},
+    {|"(|" >> Pattern+ ")"|},
     (~loc, [@nodes "Pattern"]opts) => {
       let rec loop = opts => switch opts {
         | [] => assert(false)
@@ -360,7 +360,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
     {|"("& "=>" "[" "]" Structure* &")"|},
     () => failwith("not impl")
   ), */
-  ("structure", {|"("& "str" Structure* &")"|}, (~loc, [@nodes "Structure"]items) => H.Mod.mk(~loc, Pmod_structure(items))),
+  ("structure", {|"("& "str" > Structure* &")"|}, (~loc, [@nodes "Structure"]items) => H.Mod.mk(~loc, Pmod_structure(items))),
   ("ident", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Mod.mk(~loc, Pmod_ident(ident))),
   /* (
     "functor_call",
@@ -493,7 +493,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule [
   (
     "labeled",
-    {|argLabel $&"=" > Expression|},
+    {|argLabel $&"="& > Expression|},
     ([@node "argLabel"]label, [@node "Expression"]expr) => (label.txt, expr)
   ),
   (
@@ -681,7 +681,7 @@ let rec listToConstruct = (~loc, list, maybeRest, construct, tuple, itemLoc) =>
 
 /** A potentially-namespaced lower-case identifier */
 [@name "longIdent"][%%rule (
-  {|(longCap_ "."&$)? lowerIdent|},
+  {|(longCap_ $&"."&$)? lowerIdent|},
   (~loc, [@node_opt "longCap_"]base, [@text "lowerIdent"](text, _)) => switch base {
     | None => Location.mkloc(Lident(text), loc)
     | Some((base, loc)) => Location.mkloc(Ldot(base, text), loc)
@@ -698,7 +698,7 @@ let rec listToConstruct = (~loc, list, maybeRest, construct, tuple, itemLoc) =>
 [%%rule [
   (
     "dot",
-    {|longCap_ "."&$ capIdent|},
+    {|longCap_ $&"."&$ capIdent|},
     (~loc, [@node "longCap_"](base, _), [@text "capIdent"](text, _)) => (Ldot(base, text), loc)
   ),
   (
