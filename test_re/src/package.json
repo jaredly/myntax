@@ -1,0 +1,40 @@
+{
+  "name": "@jaredly/testre",
+  "version": "0.0.1",
+  "description": "Easy inline tests",
+  "author": "Jared Forsyth <jared@jaredforsyth.com>",
+  "license": "MIT",
+  "scripts": {
+    "watch": "esy b && esy jbuilder exec test",
+    "watcher": "watchexec -w lib -w bin npm run watch -- -s",
+    "test": "esy b && esy refmt test/test.re --print binary > a && esy jbuilder exec universal/universal.exe a b && esy refmt --parse binary b > test/test.actual.re && rm a b"
+  },
+  "esy": {
+    "build": [
+      ["jbuilder", "build", "@install"]
+    ],
+    "install": [
+      "esy-installer"
+    ],
+    "buildsInSource": "_build"
+  },
+  "dependencies": {
+    "@opam/jbuilder": "^1.0.0-beta16",
+    "@opam/reason": "3.0.4",
+    "@esy-ocaml/esy-installer": "^0.0.0"
+  },
+  "buildDependencies": {
+  },
+  "peerDependencies": {
+    "ocaml": "~4.6.000"
+  },
+  "devDependencies": {
+    "@opam/jbuilder": "^1.0.0-beta16",
+    "@opam/merlin": "^3.0.5",
+    "@opam/reason": "3.0.4",
+    "ocaml": "~4.6.000"
+  },
+  "resolutions": {
+    "**/@opam/result": "1.2.0"
+  }
+}

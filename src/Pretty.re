@@ -151,6 +151,13 @@ let push = (offset, node, stack: stack) => {
   Cons({doc: node, offset, min_total: current_min_total}, stack);
 };
 
+let break = line("");
+let space = line(" ");
+let dedent = back(2, "");
+
+let str = text;
+let (@!) = append;
+
 let print_indentation = n => {
   /* print_char('\n'); */
   for (i in 1 to n) {
@@ -158,6 +165,23 @@ let print_indentation = n => {
   };
 };
 
+let prettyString = (~width=100, doc, print) => {
+  let buffer = Buffer.create(100);
+  print(~width=?Some(width), ~output=?Some(text => Buffer.add_string(buffer, text)), ~indent=?Some(num => {
+    /* Buffer.add_string(buffer, "\n"); */
+    for (i in 1 to num) { Buffer.add_char(buffer, ' ') }
+  }), doc);
+  Buffer.to_bytes(buffer) |> Bytes.to_string
+};
+
+[@test.call (doc) => prettyString(~width=10, group(doc), print)]
+[@test [
+  (empty, ""),
+  (str("Hello"), "Hello"),
+  (str("Hello") @! break @! str("Folks_and_Folks"), "Hello\nFolks_and_Folks"),
+  (str("Hello") @! break @! indent(4, str("Folks_and_Folks")), "Hello\n    Folks_and_Folks"),
+  (str("Hello") @! str(" ") @! fullIndent(str("12345") @! break @! str("54321234")), "Hello 12345\n      54321234")
+]]
 let print = (~width=70, ~output=print_string, ~indent=print_indentation, doc) => {
   let rec loop = (currentIndent, stack) =>
     switch (stack) {

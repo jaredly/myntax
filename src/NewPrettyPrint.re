@@ -296,20 +296,7 @@ and processNonTerminal = (grammar, name, label, children, ignoringNewlines, loop
     let%try result = child;
     /* print_endline("Nonterminal " ++ name ++ " with result " ++ PackTypes.Result.showNode("", result, 0)); */
     let%try output = resultToPretty(ignoringNewlines, grammar, result);
-    Ok((`Sides(
-      `Normal, `Normal,
-      Pretty.group(output)
-      /* Pretty.group(Pretty.indent(4, output)) */
-      /* Pretty.indent(4, Pretty.group(output)) */
-    ), others));
-
-        /* let (success, res, unused) = loop(ignoringNewlines, rest, others);
-        let children =
-          switch output {
-          | Output.Newlined(x) => [Output.NoSpace, output, Output.NoSpace, ...res]
-          | _ => [output, ...res]
-          };
-        (success, children, unused) */
+    Ok((`Sides(`Normal, `Normal, Pretty.group(output)), others));
   }
 
 

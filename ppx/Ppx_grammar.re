@@ -191,7 +191,9 @@ let mapper = _argv =>
     ...Ast_mapper.default_mapper,
     structure: (mapper, items) => {
       let monads = Ppx_Monads.mapper();
+      let test = PpxMapper.mapper;
       let items = monads.structure(monads, items);
+      let items = test.structure(test, items);
       let (top, rules, converters, found) = List.fold_left(((top, rules, converters, found), item) => {
         switch item.pstr_desc {
           | Parsetree.Pstr_extension(({txt: "rule"}, contents), attributes) => {

@@ -10,7 +10,9 @@
     {"dir": "src", "subdirs": true},
     {"dir": "bin"},
     {"dir": "grammars"},
-    {"dir": "ppx", "type": "ppx"}
+    {"dir": "test_re", "subdirs": "src"},
+    {"dir": "ppx", "type": "ppx"},
+    {"dir": "test_re/ppx", "type": "ppx"}
   ],
   "ppx-flags": [
     // "Ppx_Monads",
@@ -31,6 +33,9 @@
   }, {
     "backend": "native",
     "main-module": "Lisp"
+  }, {
+    "backend": "native",
+    "main-module": "Test"
   }, {
     "backend": "native",
     "main-module": "Pack"

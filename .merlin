@@ -9,8 +9,12 @@ S /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/ocaml/native
 B /Users/jared/clone/tools/myntax/node_modules/bs-platform/lib/ocaml/native
 FLG -no-alias-deps -color always
 FLG -w -30-40+6+7+27+32..39+44+45+101-40-6+7-26-27-32..39-28-44-45
+S test_re/ppx
+B lib/bs/native/test_re/ppx
 S ppx
 B lib/bs/native/ppx
+S test_re/src
+B lib/bs/native/test_re/src
 S grammars
 B lib/bs/native/grammars
 S bin
