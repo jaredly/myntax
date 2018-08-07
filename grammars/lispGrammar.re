@@ -35,14 +35,17 @@ let constructorArgs = (exprs, fn) => switch exprs {
 )];
 
 [@ignoreNewlines]
+[@preserveInnerSpace]
 [@name "ModuleBody"]
 [%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
+[@preserveInnerSpace]
 [@ignoreNewlines]
 [@name "ExpressionSequence"]
 [%%rule ("Expression*", ([@nodes "Expression"]exprs) => expressionSequence(exprs))];
 
 /** Forms that are valid at the top level of a file or module */
+[@preserveInnerSpace]
 [@name "Structure"]
 [%%rule [
   ( "open", {|"("& "open" > longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
@@ -76,6 +79,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
+[@preserveInnerSpace]
 [@name "Expression"]
 [%%rule [
   (
@@ -144,8 +148,8 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "let",
-    {|"("& "let"$ "["& LetPairs &"]" > ExpressionSequence &")"|},
-    (~loc, [@nodes "ValueBinding"]bindings, [@node "ExpressionSequence"]body) =>
+    {|"("& "let"$ LetPairs > ExpressionSequence &")"|},
+    (~loc, [@node "LetPairs"]bindings, [@node "ExpressionSequence"]body) =>
       H.Exp.let_(~loc, Nonrecursive, bindings, body)
   ),
   (
@@ -282,9 +286,8 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
 ]];
 
-[@passThrough]
 [@name "LetPairs"]
-[%%rule ">> ValueBinding+"];
+[%%rule ({| "["& >> ValueBinding+ &"]" |}, ([@nodes "ValueBinding"]bindings) => bindings)];
 
 [@name "Pattern"]
 [%%rule [

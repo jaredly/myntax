@@ -88,6 +88,7 @@ open Belt.Result;
  */
 
 let mergeSides = (~preserveInnerLine, ar, bl, a, b, canSpace, aloc, bloc) => switch (ar, bl) {
+  | (`MustBreak, _) | (_, `MustBreak) => a @! break @! b
   | (`Tight, _) | (_, `Tight) => a @! b
   | (`Space, _) | (_, `Space) => a @! str(" ") @! b
   | (`Normal, `Normal) when canSpace =>
@@ -106,10 +107,14 @@ let combine = (~preserveInnerLine=false, item, res, canSpace) => {
     | (one, `Empty) => one
     | (`Empty, one) => one
     | (`Sides(al, ar, a, aloc), `Sides(bl, br, b, bloc)) =>
-      `Sides((al, br, mergeSides(~preserveInnerLine, ar, bl, a, b, canSpace, aloc, bloc), {
+      `Sides((al, br, mergeSides(~preserveInnerLine, ar, bl, a, b, canSpace, aloc, bloc),
+      aloc == Location.none ? bloc :
+      bloc == Location.none ? aloc :
+      {
         ...aloc,
         loc_end: bloc.loc_end,
-      }))
+      }
+      ))
     };
 };
 
@@ -124,6 +129,7 @@ let map = (fn, item) => switch item {
 };
 
 let mergeOne = (a, b) => switch (a, b) {
+  | (`MustBreak, _) | (_, `MustBreak) => `MustBreak
   | (`Tight, _) | (_, `Tight) => `Tight
   | (`Space, _) | (_, `Space) => `Space
   | (`Break, _) | (_, `Break) => `Break
@@ -220,12 +226,12 @@ let rec singleOutput = (rule, grammar, ignoringNewlines, isLexical, item, childr
 and outputItem = (rule, grammar, ~isLexical, ignoringNewlines, items, children) => {
   let loop = outputItem(rule, grammar, ~isLexical);
   switch children {
-    | [("", Comment(EOL, contents, _)), ...rest] => {
-      loop(ignoringNewlines, items, rest) |> prependItem(false, `Sides(`Normal, `Normal, Pretty.breakAfter(contents), Location.none))
+    | [("", Comment(EOL, contents, cloc)), ...rest] => {
+      loop(ignoringNewlines, items, rest) |> prependItem(false, `Sides(`Normal, `MustBreak, Pretty.breakAfter(contents), cloc))
     }
     /* TODO check to see that it's multiline */
-    | [("", Comment(Multi | Doc, contents, _)), ...rest] =>
-      loop(ignoringNewlines, items, rest) |> prependItem(false, `Sides(`Normal, `Normal, Pretty.multiLine(contents), Location.none))
+    | [("", Comment(Multi | Doc, contents, cloc)), ...rest] =>
+      loop(ignoringNewlines, items, rest) |> prependItem(false, `Sides(`Normal, `Normal, Pretty.multiLine(contents), cloc))
     | _ => switch items {
       | [] => Ok((`Empty, children))
 

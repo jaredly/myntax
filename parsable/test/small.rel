@@ -1,6 +1,7 @@
 (** Ok, welll *)
 (module Dogs
     (type dog {:name string :age float})
+
     (def fluff {:name_and_things_and_long "Fluff" :age 0.4})
     (defn humanAge [{:age}]
       (print_endline "Converting")
@@ -12,6 +13,7 @@
 
 (switch awesome
 1 2
+
 3 4
 ; this is a comment
 also things)
@@ -21,10 +23,14 @@ also things)
       one two ; eol,
   ; a comment
 
-      three four]
+      three four
+      ; wat
+      ]
 
+  ; more comment
   (+ one three)
   
+  ; line
   more
   things
   

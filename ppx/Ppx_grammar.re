@@ -204,7 +204,7 @@ let mapper = _argv =>
             let docs = attrString(attributes, "ocaml.doc");
             let passThrough = attrBool(attributes, "passThrough") |? false;
             let capturesComments = attrBool(attributes, "capturesComments") |? false;
-            let preserveInnerSpace = attrBool(attributes, "capturesComments") |? false;
+            let preserveInnerSpace = attrBool(attributes, "preserveInnerSpace") |? false;
             let leaf = attrBool(attributes, "leaf") |? false;
             let ignoreNewlines = switch (attrBool(attributes, "ignoreNewlines")) {
               | None => [%expr Inherit]
