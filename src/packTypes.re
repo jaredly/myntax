@@ -14,6 +14,7 @@ module Parsing = {
     passThrough: bool,
     ignoreNewlines,
     capturesComments: bool,
+    preserveInnerSpace: bool,
     leaf: bool,
     docs: option(string),
     choices: list(choice)

@@ -204,10 +204,8 @@ let mapper = _argv =>
             let docs = attrString(attributes, "ocaml.doc");
             let passThrough = attrBool(attributes, "passThrough") |? false;
             let capturesComments = attrBool(attributes, "capturesComments") |? false;
-            let leaf = switch (attrBool(attributes, "leaf")) {
-              | None => false
-              | Some(n) => n
-            };
+            let preserveInnerSpace = attrBool(attributes, "capturesComments") |? false;
+            let leaf = attrBool(attributes, "leaf") |? false;
             let ignoreNewlines = switch (attrBool(attributes, "ignoreNewlines")) {
               | None => [%expr Inherit]
               | Some(true) => [%expr Yes]
@@ -225,6 +223,10 @@ let mapper = _argv =>
               )],
               passThrough: [%e Ast_helper.Exp.construct(
                 Location.mknoloc(Longident.Lident(passThrough ? "true" : "false")),
+                None
+              )],
+              preserveInnerSpace: [%e Ast_helper.Exp.construct(
+                Location.mknoloc(Longident.Lident(preserveInnerSpace ? "true" : "false")),
                 None
               )],
               docs: [%e switch docs { | None => [%expr None] | Some(x) => [%expr Some([%e strExp(x)])]}],

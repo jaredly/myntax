@@ -151,7 +151,7 @@ let rec greedy = (rule, isLexical, loop, p, children, min, max) =>
       | Ok((res, unused)) =>
         switch (greedy(rule, isLexical, loop, p, unused, min - 1, max - 1)) {
           | Ok((r2, u2)) when r2 == `Empty => Ok((res, u2))
-          | Ok((r2, u2)) => Ok((combine(~preserveInnerLine=rule.ignoreNewlines == Yes, res, r2, !isLexical), u2))
+          | Ok((r2, u2)) => Ok((combine(~preserveInnerLine=rule.preserveInnerSpace, res, r2, !isLexical), u2))
           | Error(message) => min <= 1 ? Ok((res, unused)) : Error(message)
         }
     }
@@ -247,7 +247,7 @@ and outputItem = (rule, grammar, ~isLexical, ignoringNewlines, items, children) 
         } else if (isLexical) {
           Ok((combine(res, res2, false), unused))
         } else {
-          Ok((combine(~preserveInnerLine=rule.ignoreNewlines == Yes, res, res2, true), unused))
+          Ok((combine(~preserveInnerLine=rule.preserveInnerSpace, res, res2, true), unused))
         }
       }
     }

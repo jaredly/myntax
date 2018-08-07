@@ -208,6 +208,7 @@ let parseRule = (children) => {
       P.docs: None,
       P.ignoreNewlines: newLines,
       capturesComments: false,
+      preserveInnerSpace: false,
       P.leaf,
       P.choices:
         RU.getChildren(
