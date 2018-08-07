@@ -276,16 +276,6 @@ and processNonTerminal = (grammar, name, label, children, ignoringNewlines, loop
       | (Inherit, x) => x
       };
     let%try (res, unused) = loop(newIgnore, subs, children);
-    /* let output =
-      switch res {
-      | [sub] => sub
-      | res =>
-        if (ignoreNewlines == Yes) {
-          Output.MaybeNewlined(res)
-        } else {
-          makeStraightWithEOLs(res)
-        }
-      }; */
     Ok((res, unused))
   | None =>
     let (child, others) =
@@ -294,7 +284,6 @@ and processNonTerminal = (grammar, name, label, children, ignoringNewlines, loop
       | None => findByType(children, name)
       };
     let%try result = child;
-    /* print_endline("Nonterminal " ++ name ++ " with result " ++ PackTypes.Result.showNode("", result, 0)); */
     let%try output = resultToPretty(ignoringNewlines, grammar, result);
     Ok((`Sides(`Normal, `Normal, Pretty.group(output)), others));
   }

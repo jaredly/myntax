@@ -11,9 +11,9 @@ let rec expressionSequence = exprs => switch exprs {
   | [one, ...rest] => H.Exp.sequence(one, expressionSequence(rest))
 };
 
-let makeArrow = (~args, ~exprs) => {
+let makeArrow = (~args, ~body) => {
   let rec loop = args => switch args {
-    | [] => expressionSequence(exprs)
+    | [] => body
     | [(label, expr, pat), ...rest] => H.Exp.fun_(~loc=pat.ppat_loc, label, expr, pat, loop(rest))
   };
   loop(args)
@@ -38,6 +38,10 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@name "ModuleBody"]
 [%%rule ("Structure+", ([@nodes "Structure"]s) => s)];
 
+[@ignoreNewlines]
+[@name "ExpressionSequence"]
+[%%rule ("Expression*", ([@nodes "Expression"]exprs) => expressionSequence(exprs))];
+
 /** Forms that are valid at the top level of a file or module */
 [@capturesComments]
 [@name "Structure"]
@@ -45,11 +49,11 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ( "open", {|"("& "open" > longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   /** Define a toplevel value. */
   ("def", {|"("& "def"$ LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
-  ("defn", {|"("& "defn"$ lowerIdent$ FnArgs > Expression* &")"|}, (~loc, [@text "lowerIdent"](text, tloc), [@node "FnArgs"]args, [@nodes "Expression"]exprs) => H.Str.value(~loc, Nonrecursive, [
+  ("defn", {|"("& "defn"$ lowerIdent$ FnArgs > ExpressionSequence &")"|}, (~loc, [@text "lowerIdent"](text, tloc), [@node "FnArgs"]args, [@node "ExpressionSequence"]body) => H.Str.value(~loc, Nonrecursive, [
     H.Vb.mk(
       ~loc,
       H.Pat.var(Location.mkloc(text, tloc)),
-      makeArrow(~args, ~exprs)
+      makeArrow(~args, ~body)
     )
   ])),
   ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
@@ -143,14 +147,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "let",
-    {|"("& "let"$ "["& LetPairs &"]" > Expression* &")"|},
-    (~loc, [@nodes "ValueBinding"]bindings, [@nodes "Expression"]contents) =>
-      H.Exp.let_(~loc, Nonrecursive, bindings, expressionSequence(contents))
+    {|"("& "let"$ "["& LetPairs &"]" > ExpressionSequence &")"|},
+    (~loc, [@nodes "ValueBinding"]bindings, [@node "ExpressionSequence"]body) =>
+      H.Exp.let_(~loc, Nonrecursive, bindings, body)
   ),
   (
     "do",
-    {|"("& "do" > Expression* &")"|},
-    (~loc, [@nodes "Expression"]exprs) => expressionSequence(exprs)
+    {|"("& "do" > ExpressionSequence &")"|},
+    (~loc, [@node "ExpressionSequence"]body) => body
   ),
   (
     "assert",
@@ -164,8 +168,8 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "open",
-    {|"("& "open" longCap > Expression* &")"|},
-    (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.open_(~loc, Fresh, ident, expressionSequence(exprs))
+    {|"("& "open" longCap > ExpressionSequence &")"|},
+    (~loc, [@node "longCap"]ident, [@node "ExpressionSequence"]body) => H.Exp.open_(~loc, Fresh, ident, body)
   ),
   (
     "if",
@@ -179,9 +183,9 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "module",
-    {|"("& "module"$ capIdent$ ModuleExpr > Expression* &")"|},
-    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => 
-    H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs)),
+    {|"("& "module"$ capIdent$ ModuleExpr > ExpressionSequence &")"|},
+    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@node "ExpressionSequence"]body) => 
+    H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, body),
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
   /* (
@@ -191,9 +195,9 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ), */
   (
     "arrow",
-    {|"("& "=>" FnArgs > Expression* &")"|},
-    (~loc, [@node "FnArgs"]args, [@nodes "Expression"]exprs) => {
-      makeArrow(~args, ~exprs)
+    {|"("& "=>" FnArgs > ExpressionSequence &")"|},
+    (~loc, [@node "FnArgs"]args, [@node "ExpressionSequence"]body) => {
+      makeArrow(~args, ~body)
     }
   ),
   (
