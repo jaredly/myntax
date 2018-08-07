@@ -100,6 +100,7 @@ module Parsing = {
     passThrough: %s,
     ignoreNewlines: %s,
     capturesComments: false,
+    preserveInnerSpace: false,
     leaf: %s,
     docs: %s,
     choices: %s,
@@ -254,6 +255,10 @@ module Result = {
     | Leaf(rule, string, loc)
     | Comment(commentType, string, loc)
     | Node(rule, list((string, result)), loc, option(comments)) /* label, child */;
+
+  let loc = res => switch res {
+    | Leaf(_, _, loc) | Comment(_, _, loc) | Node(_, _, loc, _) => loc
+  }
 
   let white = n => {
     let buffer = Buffer.create(n);

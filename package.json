@@ -15,6 +15,7 @@
     "mll": "./lib/bs/native/refmt.native ml-lisp parsable/lisp parsable/test/minimal.rel",
     "debug": "./lib/bs/native/lisp.native debug parsable/test/tiny.rel",
     "pretty": "./lib/bs/native/lisp.native pretty parsable/test/small.rel",
+    "pretty-tiny": "./lib/bs/native/lisp.native pretty parsable/test/tiny.rel",
     "regen": "./lib/bs/native/pack.native dump parsable/grammar > src/grammarGrammar.re"
   }
 }

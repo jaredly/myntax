@@ -20,8 +20,15 @@ also things)
       more_name_and_things_and_long evenmore
       one two ; eol,
   ; a comment
+
       three four]
-  (+ one three))
+
+  (+ one three)
+  
+  more
+  things
+  
+  here)
 
 (let [a 2] a)
 [2 3 4]
