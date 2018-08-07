@@ -123,7 +123,16 @@ let (command, input) =
       input
     )
   | [|_, input|] => (Debug, input)
-  | _ => failwith("Usage: [command=debug] grammarfile inputfile")
+  | _ =>
+    print_endline({|Usage: [command=debug] inputfile
+
+Commands:
+  bin    - parse & print the binary representation of the ocaml ast to stdout
+  ml     - parse & print as ocaml syntax
+  debug  - parse & print the ocaml AST as human-readable text
+  pretty - parse & pretty print as lisp
+|});
+    exit(1)
   };
 
 let result = Grammar.getResult(LispGrammar.grammar, "Start", getContents(input));
