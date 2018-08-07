@@ -210,22 +210,16 @@ let print = (~width=70, ~output=print_string, ~indent=print_indentation, doc) =>
           if (doc.break_mode != CannotFlatten && doc.flat_size + min_total(rest) <= width - currentIndent) {
             flatten(doc);
           } else {
-        /* output("---|"); */
             doc;
           };
-        /* output("g"); */
         loop(currentIndent, push(offset, flatDoc, rest));
       | NewLine =>
         output("\n");
-        indent(currentIndent);
         loop(currentIndent, rest)
       | FullIndent(doc) =>
-        /* indent(ident); */
-        /* output("i"); */
         loop(currentIndent, push(currentIndent, doc, rest))
       | Indent(ident, doc) =>
         indent(ident);
-        /* output("i"); */
         loop(currentIndent + ident, push(offset + ident, doc, rest))
       | BackLine(num, _) =>
         output("\n");

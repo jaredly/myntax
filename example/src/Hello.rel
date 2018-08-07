@@ -1,9 +1,8 @@
-
 ; (** Hello folkx *)
-
 (-> 2 Js.log)
 
-(type greeting (Hello string) Goodbye)
+(type greeting
+  (Hello string) Goodbye)
 
 (open Belt)
 
@@ -11,7 +10,8 @@
 
 (defn party [one two]
   (let [m one
-        n 4]
+        n 4
+        somethinglong 20]
     (Js.log (+ n m))
     (Hello "folks")))
 
@@ -20,9 +20,7 @@
 (let [x 1
       ; !await y (+ 2 x)
       ]
-  2
-  (+ 20 4)
-  )
+  2 (+ 20 4))
 
 (party 2 "hello")
 
@@ -30,10 +28,4 @@
 ;   (let!try )
 ;   (let!await [something (other thing)]
 ;     (+ 2 something)))
-
-
 (def awesome 20)
-; w
-
-
-; more
