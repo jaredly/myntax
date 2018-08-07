@@ -126,8 +126,8 @@ let report = () => {
     }
   }, (0, 0));
   if (failed == 0) {
-    Printf.printf("\n\n✅ All clear! Ran %d tests\n", total);
+    Printf.printf("\n\n✅  All clear! Ran %d tests\n", total);
   } else {
-    Printf.printf("\n\n🛑 Ran %d tests, with %d failures\n", total, failed);
+    Printf.printf("\n\n🛑  Ran %d tests, with %d failures\n", total, failed);
   }
 };

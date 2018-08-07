@@ -43,7 +43,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule ("Expression*", ([@nodes "Expression"]exprs) => expressionSequence(exprs))];
 
 /** Forms that are valid at the top level of a file or module */
-[@capturesComments]
 [@name "Structure"]
 [%%rule [
   ( "open", {|"("& "open" > longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
@@ -77,8 +76,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
-[@capturesComments]
-[@ignoreNewlines]
 [@name "Expression"]
 [%%rule [
   (
@@ -289,7 +286,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@name "LetPairs"]
 [%%rule ">> ValueBinding+"];
 
-[@ignoreNewlines]
 [@name "Pattern"]
 [%%rule [
   (
@@ -363,7 +359,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@passThrough]
 [%%rule "TypePair+"];
 
-[@ignoreNewlines]
 [@name "ModuleApply"]
 [%%rule [
   ("ident", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Mod.mk(~loc, Pmod_ident(ident))),
@@ -374,7 +369,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ), */
 ]];
 
-[@ignoreNewlines]
 [@name "ModuleExpr"]
 [%%rule [
   /* (
@@ -530,7 +524,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
 ]];
 
-[@ignoreNewlines]
 [@passThrough]
 [@name "SwitchBody"][%%rule "SwitchCase+"];
 
@@ -612,7 +605,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
 ]];
 
-[@ignoreNewlines]
 [@passThrough]
 [@name "FnArgItems"]
 [%%rule "FnArg+"];
@@ -622,7 +614,6 @@ let argPat = (label, mtyp) => switch (mtyp) {
   | Some(t) => H.Pat.constraint_(H.Pat.var(label), t)
 };
 
-[@ignoreNewlines]
 [@name "FnArg"]
 [%%rule [
   (

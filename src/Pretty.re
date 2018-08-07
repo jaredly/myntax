@@ -19,6 +19,7 @@ and node =
   | Empty
   | Group(doc)
   | FullIndent(doc)
+  | NewLine
   | Indent(int, doc) /* indent this whole doc */
   | BackLine(int, string) /* the string is what to print if we *don't* break */
   | Line(int, string) /* the string is what to print if we *dont't* break */
@@ -70,6 +71,16 @@ let fullIndent = (doc) => {
   node: FullIndent(doc),
 };
 
+let newLine = {
+  {
+    node: NewLine,
+    flat_size: 0,
+    min_width: 0,
+    single_line: false,
+    break_mode: Normal,
+  };
+};
+
 let line = defaultString => {
   let length = String.length(defaultString);
   {
@@ -118,6 +129,7 @@ let rec flatten = doc =>
   | Append(a, b) => append(flatten(a), flatten(b))
   | Empty
   | Text(_) => doc
+  | NewLine => empty
   | Group(x)
   | Indent(_, x) => flatten(x)
   | FullIndent(x) => flatten(x)
@@ -179,6 +191,7 @@ let prettyString = (~width=100, doc, print) => {
   (empty, ""),
   (str("Hello"), "Hello"),
   (str("Hello") @! break @! str("Folks_and_Folks"), "Hello\nFolks_and_Folks"),
+  (str("Hello") @! break @! newLine @! str("Folks_and_Folks"), "Hello\n\nFolks_and_Folks"),
   (str("Hello") @! break @! indent(4, str("Folks_and_Folks")), "Hello\n    Folks_and_Folks"),
   (str("Hello") @! str(" ") @! fullIndent(str("12345") @! break @! str("54321234")), "Hello 12345\n      54321234")
 ]]
@@ -202,6 +215,10 @@ let print = (~width=70, ~output=print_string, ~indent=print_indentation, doc) =>
           };
         /* output("g"); */
         loop(currentIndent, push(offset, flatDoc, rest));
+      | NewLine =>
+        output("\n");
+        indent(currentIndent);
+        loop(currentIndent, rest)
       | FullIndent(doc) =>
         /* indent(ident); */
         /* output("i"); */
