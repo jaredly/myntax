@@ -26,11 +26,17 @@ module Parsing = {
     | Star(parsing) /* e* */
     | Plus(parsing) /* e+ */
     | Optional(parsing) /* e? */
-    | NoSpaceAfter(parsing) /* a printing rule, suppresses space */
-    | NoSpaceBefore(parsing) /* a printing rule, suppresses space */
     | Lookahead(parsing) /* &e */
     | Not(parsing) /* !e */
     | Lexify(parsing) /* # somelexrule */
+
+    | Indent /* Indents by 2 */
+    | FullIndent /* Indents to the current offset */
+    | NoSpaceAfter(parsing) /* a printing rule, suppresses space */
+    | NoSpaceBefore(parsing) /* a printing rule, suppresses space */
+    | NoBreakBefore(parsing) /* a printing rule, suppresses space */
+    | NoBreakAfter(parsing) /* a printing rule, suppresses space */
+
 
     | Any(option(string)) /* any */
 
@@ -72,10 +78,14 @@ module Parsing = {
     | Optional(p) => "Optional(" ++ showParsing(p) ++ ")"
     | NoSpaceAfter(p) => "NoSpaceAfter(" ++ showParsing(p) ++ ")"
     | NoSpaceBefore(p) => "NoSpaceBefore(" ++ showParsing(p) ++ ")"
+    | NoBreakAfter(p) => "NoBreakAfter(" ++ showParsing(p) ++ ")"
+    | NoBreakBefore(p) => "NoBreakBefore(" ++ showParsing(p) ++ ")"
     | Lookahead(p) => "Lookahead(" ++ showParsing(p) ++ ")"
     | Not(p) => "Not(" ++ showParsing(p) ++ ")"
     | Lexify(p) => "Lexify(" ++ showParsing(p) ++ ")"
     | EOF => "EOF"
+    | Indent => "Indent"
+    | FullIndent => "FullIndent"
     | CommentEOL => "CommentEOL"
     | Group(inner) => "Group(" ++ showList(inner, showParsing) ++ ")"
     | NonTerminal(name, label) => "NonTerminal(" ++ showString(name) ++ ", " ++ showOption(label, showString) ++ ")"
@@ -89,6 +99,7 @@ module Parsing = {
   let showRule = ({passThrough, ignoreNewlines, leaf, docs, choices}) => Printf.sprintf({|{
     passThrough: %s,
     ignoreNewlines: %s,
+    capturesComments: false,
     leaf: %s,
     docs: %s,
     choices: %s,
@@ -207,18 +218,18 @@ module Error = {
     );
   let genErrorText = (text, (pos, errors)) => {
     let (showText, pad) =
-      if (pos <= 0) {
+      if (pos.Lexing.pos_cnum <= 0) {
         (text, 0)
       } else {
         (
           String.sub(
             text,
             0,
-            try (String.index_from(text, pos, '\n')) {
+            try (String.index_from(text, pos.pos_cnum, '\n')) {
             | Not_found => String.length(text)
             }
           ),
-          lastLineLength(text, pos) - 1
+          lastLineLength(text, pos.pos_cnum) - 1
         )
       };
     Printf.sprintf("%s\n%s^\n", showText, leftPad("-", pad, "")) ++ errorsText(errors)
@@ -232,14 +243,17 @@ module Result = {
      | Terminal string
      | Lexical (string, string, int) string bool
      | Nonlexical (string, string, int) bool [@@deriving (yojson, show)]; */
-  [@deriving (yojson, show)]
-  type rule = (string, string);
-  [@deriving (yojson, show)]
+
   type loc = Location.t;
-  [@deriving (yojson, show)]
+  type comment = (string, loc);
+  type comments = (option(comment), list(comment), list(comment), option(comment));
+
+  type rule = (string, string);
+  type commentType = Doc | Multi | EOL;
   type result =
     | Leaf(rule, string, loc)
-    | Node(rule, list((string, result)), loc) /* label, child */;
+    | Comment(commentType, string, loc)
+    | Node(rule, list((string, result)), loc, option(comments)) /* label, child */;
 
   let white = n => {
     let buffer = Buffer.create(n);
@@ -256,7 +270,8 @@ module Result = {
   };
   let rec showNode = (label, node, indent) => switch node {
     | Leaf((rule, sub), string, loc) => (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")" ++ ": " ++ String.escaped(string)
-    | Node((rule, sub), children, loc) =>
+    | Comment(t, string, loc) => "Comment: " ++ string
+    | Node((rule, sub), children, loc, comments) =>
       (label == "" ? "" : "[" ++ label ++ "]") ++ rule ++ "(" ++ (sub == "" ? "" : sub ++ ", ") ++ showLoc(loc) ++ ")"
       ++ String.concat(
         "\n",

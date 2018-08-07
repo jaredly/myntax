@@ -37,8 +37,8 @@ type fromOcaml = {
 
 type toOcaml = {
   toLoc: (loc) => Location.t,
-  expression: (toOcaml, (string, list((string, result)), loc)) => expression,
-  structure: (toOcaml, (string, list((string, result)), loc)) => structure_item
+  expression: (toOcaml, (string, list((string, result)), loc, option(PackTypes.Result.comments))) => expression,
+  structure: (toOcaml, (string, list((string, result)), loc, option(PackTypes.Result.comments))) => structure_item
 };
 
 let sliceToEnd = (s, start) => {
@@ -54,12 +54,12 @@ let failexpr = message => H.Exp.apply(
   [("", Ast_helper.Exp.constant(Const_string(message, None)))]
 );
 
-let stripRuleName = (((name, sub), children, loc)) => (sub, children, loc);
+let stripRuleName = (((name, sub), children, loc, comments)) => (sub, children, loc, comments);
 
 
 /* Utils */
 
-let rec parseLongCap_ = ((sub, children, _)) =>
+let rec parseLongCap_ = ((sub, children, _, _)) =>
   switch sub {
   | "lident" => Lident(RU.getContentsByType(children, "capIdent") |> unwrap)
   | "dot" =>
@@ -70,10 +70,10 @@ let rec parseLongCap_ = ((sub, children, _)) =>
   | _ => failwith("Invalid longCap_ sub " ++ sub)
   };
 
-let parseLongCap = ((_, children, _)) =>
+let parseLongCap = ((_, children, _, _)) =>
   RU.getNodeByType(children, "longCap_") |> unwrap |> parseLongCap_;
 
-let parseLongIdent = ((_, children, _)) => {
+let parseLongIdent = ((_, children, _, _)) => {
   let first = RU.getNodeByType(children, "longCap_") |?>> parseLongCap_;
   let last = RU.getContentsByType(children, "lowerIdent") |> unwrap;
   switch first {
@@ -84,7 +84,7 @@ let parseLongIdent = ((_, children, _)) => {
 
 /* Types */
 
-let parseCoreType = (toOcaml, (sub, children, loc)) => switch sub {
+let parseCoreType = (toOcaml, (sub, children, loc, _)) => switch sub {
   | "constr_no_args" => {
     let name = RU.getNodeByType(children, "longIdent") |> unwrap |> parseLongIdent;
     H.Typ.constr(Location.mkloc(name, toOcaml.toLoc(loc)), [])
@@ -93,13 +93,13 @@ let parseCoreType = (toOcaml, (sub, children, loc)) => switch sub {
 
 };
 
-let parseTypeKind = (toOcaml, (sub, children, loc)) => {
+let parseTypeKind = (toOcaml, (sub, children, loc, _)) => {
   switch sub {
     | "record" => {
       Ptype_record(
-        RU.getNodesByType(children, "TypeObjectItem", ((sub, children, loc)) => {
+        RU.getNodesByType(children, "TypeObjectItem", ((sub, children, loc, _)) => {
           let (name, nameLoc) = {
-            let (_, children, loc) = RU.getNodeByType(children, "shortAttribute") |> unwrap;
+            let (_, children, loc, _) = RU.getNodeByType(children, "shortAttribute") |> unwrap;
             (RU.getContentsByType(children, "lowerIdent") |> unwrap, loc)
           };
           let t = sub == "punned"
@@ -119,16 +119,16 @@ let parseTypeKind = (toOcaml, (sub, children, loc)) => {
 
 /* Patterns */
 
-let rec parsePattern = (toOcaml, (sub, children, loc)) => {
+let rec parsePattern = (toOcaml, (sub, children, loc, _)) => {
   let ocamlLoc = toOcaml.toLoc(loc);
   switch sub {
     | "ident" => H.Pat.var(~loc=ocamlLoc, Location.mkloc(RU.getContentsByType(children, "lowerIdent") |> unwrap, toOcaml.toLoc(loc)))
     | "object" => {
       H.Pat.record(
         ~loc=ocamlLoc,
-        RU.getNodesByType(children, "PatternObjectItem", ((sub, children, loc)) => {
+        RU.getNodesByType(children, "PatternObjectItem", ((sub, children, loc, _)) => {
           let (name, nameLoc) = {
-            let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+            let (_, children, loc, _) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
             (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
           };
           let t = sub == "punned"
@@ -146,7 +146,7 @@ let rec parsePattern = (toOcaml, (sub, children, loc)) => {
 
 /* Expressions */
 
-let parseConstant = ((sub, children, loc)) => {
+let parseConstant = ((sub, children, loc, _)) => {
   let raw = RU.getContentsByLabel(children, "val") |> unwrap;
   switch sub {
     | "string" => Const_string(processString(raw), None)
@@ -170,9 +170,9 @@ let rec listToConstruct = (list, maybeRest, typeC, tupleC) =>
     )
   };
 
-let parseArrow = (toOcaml, (sub, children, loc)) => {
+let parseArrow = (toOcaml, (sub, children, loc, _)) => {
   let res = RU.getNodeByType(children, "Expression") |> unwrapWith("no expr") |> toOcaml.expression(toOcaml);
-  let (sub, children, loc) = RU.getNodeByType(children, "FnArgs") |> unwrapWith("no args");
+  let (sub, children, loc, _) = RU.getNodeByType(children, "FnArgs") |> unwrapWith("no args");
   switch sub {
     | "single" => H.Exp.fun_(
       "",
@@ -197,7 +197,7 @@ let parseArrow = (toOcaml, (sub, children, loc)) => {
     | "multiple" => {
       let rec loop = (items, res) => switch items {
         | [] => res
-        | [(sub, children, loc), ...rest] => {
+        | [(sub, children, loc, _), ...rest] => {
           let (pattern, label) = switch sub {
             | "unlabeled" => {
               (parsePattern(toOcaml, RU.getNodeByType(children, "Pattern") |> unwrapWith("No pat")), None);
@@ -227,7 +227,7 @@ let parseArrow = (toOcaml, (sub, children, loc)) => {
   }
 };
 
-let parseExpression = (toOcaml, (sub, children, loc)) => {
+let parseExpression = (toOcaml, (sub, children, loc, comments)) => {
 
   let oloc = toOcaml.toLoc(loc);
   switch sub {
@@ -235,7 +235,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
     | "fn_call" => H.Exp.apply(
         ~loc=oloc,
         toOcaml.expression(toOcaml, RU.getNodeByLabel(children, "fn") |> unwrap |> stripRuleName),
-        RU.getNodesByType(children, "FnCallArg", ((sub, children, loc)) => {
+        RU.getNodesByType(children, "FnCallArg", ((sub, children, loc, _)) => {
           switch sub {
             | "expr" => ("", toOcaml.expression(toOcaml, RU.getNodeByType(children, "Expression") |> unwrap))
             | "labeled" => {
@@ -261,13 +261,13 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
       let items = RU.getNodesByType(children, "ThreadItem", x => x);
       let rec loop = (target, items) => switch items {
         | [] => target
-        | [("ident", children, _), ...rest] => 
+        | [("ident", children, _, _), ...rest] => 
           loop(H.Exp.apply(
         ~loc=oloc,
             H.Exp.ident(Location.mkloc(parseLongIdent(RU.getNodeByType(children, "longIdent") |> unwrap), toOcaml.toLoc(loc))),
             [("", target)]
           ), rest)
-        | [("fn_call", children, _), ...rest] => 
+        | [("fn_call", children, _, _), ...rest] => 
           loop(H.Exp.apply(
             toOcaml.expression(toOcaml, RU.getNodeByLabel(children, "fn") |> unwrap |> stripRuleName),
             (RU.getNodesByLabel(children, "args", toOcaml.expression(toOcaml))
@@ -279,7 +279,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
     }
     | "attribute" => {
       let (name, nameLoc) = {
-        let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+        let (_, children, loc, _) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
         (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
       };
       H.Exp.fun_(
@@ -306,7 +306,7 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
     | "arrow" => parseArrow(toOcaml, RU.getNodeByType(children, "Arrow") |> unwrap)
     | "record_attribute" => {
       let (name, nameLoc) = {
-        let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+        let (_, children, loc, _) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
         (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
       };
       H.Exp.field(
@@ -333,9 +333,9 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
     | "object_literal" =>
       H.Exp.record(
         ~loc=oloc,
-        RU.getNodesByType(children, "ObjectItem", ((sub, children, loc)) => {
+        RU.getNodesByType(children, "ObjectItem", ((sub, children, loc, _)) => {
           let (name, nameLoc) = {
-            let (_, children, loc) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
+            let (_, children, loc, _) = RU.getNodeByType(children, "attribute") |> unwrapWith("No attribute");
             (RU.getNodeByType(children, "longIdent") |> unwrapWith("No longident") |> parseLongIdent, loc)
           };
           let t = sub == "punned"
@@ -352,17 +352,17 @@ let parseExpression = (toOcaml, (sub, children, loc)) => {
 
 /* Structures */
 
-let parseLetPair = (toOcaml, (sub, children, loc)) => {
+let parseLetPair = (toOcaml, (sub, children, loc, _)) => {
   let pat = RU.getNodeByType(children, "Pattern") |> unwrapWith("no pattern") |> parsePattern(toOcaml);
   let init = RU.getNodeByType(children, "Expression") |> unwrapWith("no expr") |> toOcaml.expression(toOcaml);
   H.Vb.mk(pat, init)
 };
 
-let parseStructure = (toOcaml, (sub, children, loc)) => {
+let parseStructure = (toOcaml, (sub, children, loc, _)) => {
   switch sub {
     | "module" => {
       let name = RU.getContentsByType(children, "capIdent") |> unwrap;
-      let (sub, children, loc) = RU.getNodeByType(children, "ModuleExpr") |> unwrap;
+      let (sub, children, loc, _) = RU.getNodeByType(children, "ModuleExpr") |> unwrap;
       let desc = switch sub {
         | "structure" => {
           let items = RU.getNodesByType(children, "Structure", toOcaml.structure(toOcaml));
@@ -379,9 +379,9 @@ let parseStructure = (toOcaml, (sub, children, loc)) => {
     }
     | "eval" => H.Str.eval(RU.getNodeByType(children, "Expression") |> unwrap |> toOcaml.expression(toOcaml))
     | "type" => H.Str.type_(
-      RU.getNodesByType(children, "TypePair", ((sub, children, loc)) => {
+      RU.getNodesByType(children, "TypePair", ((sub, children, loc, _)) => {
         let (name, vbls) = {
-          let (sub, children, loc) = RU.getNodeByType(children, "TypeName") |> unwrap;
+          let (sub, children, loc, _) = RU.getNodeByType(children, "TypeName") |> unwrap;
           let name = RU.getContentsByType(children, "lowerIdent") |> unwrap;
           switch (sub) {
             | "plain" => (name, [])
@@ -449,7 +449,7 @@ let convert = (result, fname, text) => {
   let bols = calcBols(text);
 
   switch result {
-  | Node(("Start", _), children, _) =>
+  | Node(("Start", _), children, _, _) =>
     RU.getNodesByType(children, "Structure", toOcaml.structure({
       ...toOcaml,
       /* TODO */

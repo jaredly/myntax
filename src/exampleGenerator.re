@@ -13,9 +13,10 @@ let optOr = (orr, opt) =>
   };
 
 let maybePrint = (grammar, result) =>
-  try (PrettyPrint.toString(grammar, result)) {
+  /* try (PrettyPrint.toString(grammar, result)) {
   | Failure(message) => Some(message)
-  };
+  }; */
+  None
 
 
 
@@ -33,6 +34,8 @@ let rec generateForItem = (grammar, table, depth, item) =>
   | P.Lexify(p)
   | P.NoSpaceAfter(p)
   | P.NoSpaceBefore(p)
+  | P.NoBreakAfter(p)
+  | P.NoBreakBefore(p)
   | P.Star(p)
   | P.Plus(p)
   | P.Optional(p) => generateForItem(grammar, table, depth, p)
@@ -42,6 +45,8 @@ let rec generateForItem = (grammar, table, depth, item) =>
   | P.Lookahead(_)
   | P.EOF
   | P.Empty
+  | P.Indent
+  | P.FullIndent
   | P.CommentEOL => []
   | P.Chars(start, cend, label) =>
     let s = Char.code(start);
@@ -64,13 +69,14 @@ and generateForRule = (grammar, table, rulename, depth) =>
       R.Node(
         (rulename, sub),
         List.concat(List.map(generateForItem(grammar, table, depth), items)),
-        mLoc
+        mLoc,
+        None
       )
     }
   };
 
 let generateForChoice = (grammar, table, rule, items) =>
-  R.Node(rule, List.concat(List.map(generateForItem(grammar, table, 5), items)), mLoc);
+  R.Node(rule, List.concat(List.map(generateForItem(grammar, table, 5), items)), mLoc, None);
 
 let generateExamples = (grammar, ruleName, table) => {
   let {P.choices, _} = List.assoc(ruleName, grammar.P.rules);
@@ -126,6 +132,8 @@ let rec simpleForItem = (grammar, item) =>
     if (c == "\\") { "\\\\" } else { c }
     }
   )]
+  | P.NoBreakAfter(p)
+  | P.NoBreakBefore(p) => simpleForItem(grammar, p)
   | P.NoSpaceAfter(p) => simpleForItem(grammar, p) @ [`Collapse]
   | P.NoSpaceBefore(p) => [`Collapse, ...simpleForItem(grammar, p)]
 
@@ -142,6 +150,8 @@ let rec simpleForItem = (grammar, item) =>
   | P.Lookahead(_)
   | P.EOF
   | P.Empty
+  | P.Indent
+  | P.FullIndent
   | P.CommentEOL => []
   | P.Chars(start, cend, label) => [`Text(Char.escaped(start) ++ "…" ++ Char.escaped(cend))]
   }

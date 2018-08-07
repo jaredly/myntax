@@ -20,7 +20,7 @@ let parseDecorator = (children) => {
       children,
       (child) =>
         switch child {
-        | ("args", Node(("decarg", sub), children, _)) =>
+        | ("args", Node(("decarg", sub), children, _, _)) =>
           Some(
             switch sub {
             | "bool" =>
@@ -48,7 +48,7 @@ let getFlag = (children) =>
     children,
     (child) =>
       switch child {
-      | ("flag", Node((_, sub), _, _)) => Some(sub)
+      | ("flag", Node((_, sub), _, _, _)) => Some(sub)
       | ("flag", _) => failwith("Flag expected to be non-leaf")
       | _ => None
       }
@@ -72,7 +72,7 @@ let getSuffix = (children) =>
     children,
     (child) =>
       switch child {
-      | ("suffix", Node((_, sub), _, _)) => Some(sub)
+      | ("suffix", Node((_, sub), _, _, _)) => Some(sub)
       | ("suffix", _) => failwith("Suffix expected to be non-leaf")
       | _ => None
       }
@@ -80,7 +80,7 @@ let getSuffix = (children) =>
 
 let unwrapString = (txt) => unescapeString(String.sub(txt, 1, String.length(txt) - 2));
 
-let rec parseInner = (label, ((_, sub), children, loc)) =>
+let rec parseInner = (label, ((_, sub), children, loc, _)) =>
   if (sub == "nested") {
     if (isSome(label)) {
       failwith("groups can't have labels: " ++ RU.unwrap(label))
@@ -91,7 +91,9 @@ let rec parseInner = (label, ((_, sub), children, loc)) =>
         ((label, child)) =>
           if (label == "nested") {
             switch child {
-            | Node(_, children, _) => Some(parseItem(children))
+            | Node(("Item", "item"), children, _, _) => Some(parseItem(children))
+            | Node(("Item", "indent"), _, _, _) => Some(P.Indent)
+            | Node(("Item", "full_indent"), _, _, _) => Some(P.FullIndent)
             | _ => failwith("Nested child expected to be non-leaf")
             }
           } else {
@@ -110,7 +112,7 @@ let rec parseInner = (label, ((_, sub), children, loc)) =>
         | Leaf(("ident", _), "EOF", _) => Some(P.EOF)
         | Leaf(("ident", _), "EOL", _) => Some(P.CommentEOL)
         | Leaf(("ident", _), contents, _) => Some(P.NonTerminal(contents, label))
-        | Node(("char", _), children, _) =>
+        | Node(("char", _), children, _, _) =>
           RU.getChild(
             children,
             ((_, child)) =>
@@ -120,7 +122,7 @@ let rec parseInner = (label, ((_, sub), children, loc)) =>
               | _ => None
               }
           )
-        | Node(("char_range", _), children, _) =>
+        | Node(("char_range", _), children, _, _) =>
           let start = RU.getContentsByLabel(children, "start") |> RU.unwrap;
           let send = RU.getContentsByLabel(children, "end") |> RU.unwrap;
           Some(P.Chars(unescapeChar(start), unescapeChar(send), label))
@@ -132,12 +134,16 @@ let rec parseInner = (label, ((_, sub), children, loc)) =>
 and parseItem = (children) => {
   let neg = RU.getPresenceByLabel(children, "neg");
   let lexify = RU.getPresenceByLabel(children, "lexify");
+  let noBreakAfter = RU.getPresenceByLabel(children, "noBreakAfter");
+  let noBreakBefore = RU.getPresenceByLabel(children, "noBreakBefore");
   let noSpaceAfter = RU.getPresenceByLabel(children, "noSpaceAfter");
   let noSpaceBefore = RU.getPresenceByLabel(children, "noSpaceBefore");
   let suffix = getSuffix(children);
   let _ = getFlag(children); /* TODO use flags? */
   let label = RU.getContentsByLabel(children, "name");
   let inner = RU.getNodeByLabel(children, "inner") |> RU.unwrap |> parseInner(label);
+  let inner = noBreakAfter ? P.NoBreakAfter(inner) : inner;
+  let inner = noBreakBefore ? P.NoBreakBefore(inner) : inner;
   let inner = noSpaceAfter ? P.NoSpaceAfter(inner) : inner;
   let inner = noSpaceBefore ? P.NoSpaceBefore(inner) : inner;
   let inner =
@@ -161,7 +167,9 @@ let parseChoice = (children) => {
       children,
       ((label, child)) =>
         switch child {
-        | Node(("Item", _), children, _) => Some(parseItem(children))
+        | Node(("Item", "item"), children, _, _) => Some(parseItem(children))
+        | Node(("Item", "indent"), _, _, _) => Some(P.Indent)
+        | Node(("Item", "full_indent"), _, _, _) => Some(P.FullIndent)
         /* | Leaf ("noSpace", _) _ _ => Some (P.NoSpace) */
         | _ => None
         }
@@ -175,7 +183,7 @@ let parseRule = (children) => {
     List.fold_left(
       (flags, child) =>
         switch child {
-        | ("decorators", Node(_, children, _)) =>
+        | ("decorators", Node(_, children, _, _)) =>
           let (white, pass, leaf) = flags;
           switch (parseDecorator(children)) {
           | ("ignoreNewlines", [Bool(whether)]) => (whether ? P.Yes : P.No, pass, leaf)
@@ -206,7 +214,7 @@ let parseRule = (children) => {
           children,
           ((_, child)) =>
             switch child {
-            | Node(("Choice", _), children, _) => Some(parseChoice(children))
+            | Node(("Choice", _), children, _, _) => Some(parseChoice(children))
             | _ => None
             }
         )
@@ -218,7 +226,7 @@ let getToplevelDecorators = (children) =>
   List.fold_left(
     (decs, child) =>
       switch child {
-      | ("decorators", Node(_, children, _)) =>
+      | ("decorators", Node(_, children, _, _)) =>
         let (line, block) = decs;
         switch (parseDecorator(children)) {
         | ("lineComment", [String(line)]) => (Some(line), block)
@@ -233,13 +241,13 @@ let getToplevelDecorators = (children) =>
 
 let convert = (result: result) =>
   switch result {
-  | Node(("Start", _), children, _) =>
+  | Node(("Start", _), children, _, _) =>
     let rules =
       RU.getChildren(
         children,
         ((_, child)) =>
           switch child {
-          | Node(("Rule", _), children, _) => Some(parseRule(children))
+          | Node(("Rule", _), children, _, _) => Some(parseRule(children))
           | _ => None
           }
       );
@@ -248,7 +256,7 @@ let convert = (result: result) =>
         children,
         ((label, child)) =>
           switch child {
-          | Node(("Rule", _), children, _) => Some(getToplevelDecorators(children))
+          | Node(("Rule", _), children, _, _) => Some(getToplevelDecorators(children))
           | _ => None
           }
       )

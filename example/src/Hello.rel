@@ -4,7 +4,7 @@
 (type greeting (Hello string) Goodbye)
 
 (defn party [one two]
-  (let [m 2 n 4]
+  (let [m one n 4]
     (Js.log (+ n m))
     (Hello "folks")
     ))

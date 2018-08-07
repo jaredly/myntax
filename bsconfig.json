@@ -12,13 +12,20 @@
     {"dir": "grammars"},
     {"dir": "ppx", "type": "ppx"}
   ],
-  "ppx-flags": ["Ppx_grammar"],
+  "ppx-flags": [
+    // "Ppx_Monads",
+    "Ppx_grammar"
+  ],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
   "entries": [{
     "backend": "native",
     "type": "ppx",
     "main-module": "Ppx_grammar"
   }, {
+  //   "backend": "native",
+  //   "type": "ppx",
+  //   "main-module": "Ppx_Monads"
+  // }, {
     "backend": "native",
     "main-module": "Refmt"
   }, {

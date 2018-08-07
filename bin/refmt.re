@@ -101,9 +101,9 @@ let getResult = (grammarFile, input) => {
    */
 
 type printType =
-  | Bin
+  /* | Bin
+  | Debug */
   | Pretty(string)
-  | Debug
   | DebugLisp
   | MlLisp
   | BinLisp
@@ -117,7 +117,7 @@ let (command, grammarFile, input) =
   | [|_, "pretty", grammarFile, input, output|] => (Pretty(output), grammarFile, input)
   | [|_, command, grammarFile, input|] => (
       switch command {
-      | "bin" => Bin
+      /* | "bin" => Bin */
       | "dump" => Dump
       | "pretty" => Pretty("-")
       | "debug-lisp" => DebugLisp
@@ -130,36 +130,37 @@ let (command, grammarFile, input) =
       grammarFile,
       input
     )
-  | [|_, grammarFile, input|] => (Debug, grammarFile, input)
+  /* | [|_, grammarFile, input|] => (Debug, grammarFile, input) */
   | _ => failwith("Usage: [command=debug] grammarfile inputfile")
   };
 
 let (result, grammar, raw) = getResult(grammarFile, input);
 
 switch command {
-| Bin => out_binary(OcamlOfReason.convert(result), input)
-| Debug => printImpl(OcamlOfReason.convert(result))
+/* | Bin => out_binary(OcamlOfReason.convert(result), input)
+| Debug => printImpl(OcamlOfReason.convert(result)) */
 | DebugLisp => printImpl(LispToOcaml.convert(result, input, raw))
 | MlLisp => pprintImpl(LispToOcaml.convert(result, input, raw))
 | BinLisp => out_binary(LispToOcaml.convert(result, input, raw), input)
 | Pretty(dest) =>
   /* print_endline (PackTypes.Result.show_result (OcamlOfReason.convertFrom (OcamlOfReason.convert result))); */
   /* failwith "no impl" */
-  switch (PrettyPrint.toString(grammar, result)) {
+  /* switch (PrettyPrint.toString(grammar, result)) {
   | Some(x) =>
     switch dest {
     | "-" => print_endline(x)
     | _ => output_string(open_out(dest), x)
     }
   | None => failwith("Failed to pretty print :(")
-  }
+  } */
+  ()
 | RoundPretty =>
-  let round = OcamlOfReason.convertFrom(OcamlOfReason.convert(result));
-  /* failwith "no impl" */
+  /* let round = OcamlOfReason.convertFrom(OcamlOfReason.convert(result));
   switch (PrettyPrint.toString(grammar, round)) {
   | Some(x) => print_endline(x)
   | None => failwith("Failed to pretty print :(")
-  }
+  } */
+  ()
 | Dump =>
   /* print_endline (PackTypes.Result.show_result result); */
   ()

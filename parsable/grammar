@@ -24,13 +24,23 @@ Choice = Item+ (
   ";" [comment]rest_of_line
 )?
 
-Item = [?neg]"~"&? [?lexify]"#"&? ("["& [flag]flag&? [name]ident &"]")&? [noSpaceBefore]noSpace&? [inner]ItemInner [noSpaceAfter]&noSpace? [suffix]&suffix?
+Item =
+| ">>" -- full_indent
+| ">" -- indent
+| Item_ -- item
+
+@passThrough
+Item_ = [?neg]"~"&? [?lexify]"#"&? ("["& [flag]flag&? [name]ident &"]")&? [noBreakBefore]&noBreak? [noSpaceBefore]noSpace&? [inner]ItemInner [noSpaceAfter]&noSpace? [noBreakAfter]&noBreak? [suffix]&suffix?
 
 ; This rule is only for printing - it doesn't effect parsing at all.
 
 ; During printing, it suppresses space if space would be there.
 @leaf
 noSpace = "&"
+
+; During printing, it suppresses a line break
+@leaf
+noBreak = "$"
 
 ItemInner =
   | string

@@ -28,8 +28,8 @@ type fromOcaml = {
 
 type loc = PackTypes.Result.loc;
 type toOcaml = {
-  expression: (toOcaml, (string, list((string, result)), loc)) => expression,
-  structure: (toOcaml, (string, list((string, result)), loc)) => structure_item
+  expression: (toOcaml, (string, list((string, result)), loc, option(PackTypes.Result.comments))) => expression,
+  structure: (toOcaml, (string, list((string, result)), loc, option(PackTypes.Result.comments))) => structure_item
 };
 
 let optOr = (orr, opt) =>
@@ -111,7 +111,7 @@ let _parseLongCap = (children) => {
   /* loop leafs */
 };
 
-let rec parseLongCap_ = ((sub, children, _)) =>
+let rec parseLongCap_ = ((sub, children, _, _)) =>
   switch sub {
   | "lident" => Lident(RU.getContentsByType(children, "capIdent") |> unwrap)
   | "dot" =>
@@ -122,7 +122,7 @@ let rec parseLongCap_ = ((sub, children, _)) =>
   | _ => failwith("Invalid longCap_ sub " ++ sub)
   };
 
-let parseLongCap = ((_, children, _)) =>
+let parseLongCap = ((_, children, _, _)) =>
   RU.getNodeByType(children, "longCap_") |> unwrap |> parseLongCap_;
 
 let parseLongIdent = ((_, children, _)) => {
@@ -155,9 +155,9 @@ let parseLongIdent = ((_, children, _)) => {
 let rec fromLongCap_ = (longident) =>
   switch longident {
   /* TODO lower vs caps */
-  | Lident(x) => Node(("longCap_", "lident"), [("", Leaf(("capIdent", ""), x, mLoc))], mLoc)
+  | Lident(x) => Node(("longCap_", "lident"), [("", Leaf(("capIdent", ""), x, mLoc))], mLoc, None)
   | Ldot(a, b) =>
-    Node(("longCap_", "dot"), [("", fromLongCap_(a)), ("", Leaf(("capIdent", ""), b, mLoc))], mLoc)
+    Node(("longCap_", "dot"), [("", fromLongCap_(a)), ("", Leaf(("capIdent", ""), b, mLoc))], mLoc, None)
   | Lapply(a, b) => failwith("long cap can't have an lapply")
   };
 
@@ -717,7 +717,7 @@ let fromValueBinding = (fromOcaml, {pvb_pat, pvb_expr, _}) =>
     );
     /*** TODO check to see if it's a function, and if so, use the "func" subtype **/
 
-let rec parseType = ((sub, children, loc)) => {
+let rec parseType = ((sub, children, loc, _)) => {
   let oloc = ocamlLoc(loc);
   switch sub {
   | "constructor" =>
@@ -728,7 +728,7 @@ let rec parseType = ((sub, children, loc)) => {
   }
 };
 
-let parseStructure = (toOcaml, (sub, children, loc)) => {
+let parseStructure = (toOcaml, (sub, children, loc, _)) => {
   let oloc = ocamlLoc(loc);
   switch sub {
   | "let_module" =>
@@ -1167,7 +1167,7 @@ let parseBinExpression = (toOcaml, (sub, children, loc)) =>
   /* | _ => failwith ("unknown expressio type " ^ sub) */
   };
 
-let parseExpression = (toOcaml, (sub, children, loc)) =>
+let parseExpression = (toOcaml, (sub, children, loc, _)) =>
   switch sub {
   | "base" =>
     RU.getNodeByType(children, "BaseExpression") |> unwrap |> parseBaseExpression(toOcaml)

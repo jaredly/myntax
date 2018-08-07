@@ -1,6 +1,5 @@
 open PackTypes.Result;
 
-
 module P = PackTypes.Parsing;
 
 let rec getChild = (children, mapper) =>
@@ -32,7 +31,7 @@ let getContentsByLabel = (children, needle) =>
       } else {
         switch child {
         | Leaf(_, contents, _) => Some(contents)
-        | Node(_) => failwith("expected a leaf")
+        | Comment(_) | Node(_) => failwith("expected a leaf")
         }
       }
   );
@@ -43,7 +42,7 @@ let getManyContentsByType = (children, needle) =>
     (child) =>
       switch child {
       | (_, Leaf((name, _), contents, _)) when name == needle => Some(contents)
-      | (_, Node((name, _), _, _)) when name == needle => failwith("expected a leaf")
+      | (_, Node((name, _), _, _, _)) when name == needle => failwith("expected a leaf")
       | _ => None
       }
   );
@@ -54,7 +53,7 @@ let getContentsByType = (children, needle) =>
     (child) =>
       switch child {
       | (_, Leaf((name, _), contents, _)) when name == needle => Some(contents)
-      | (_, Node((name, _), _, _)) when name == needle => failwith("expected a leaf")
+      | (_, Node((name, _), _, _, _)) when name == needle => failwith("expected a leaf")
       | _ => None
       }
   );
@@ -85,7 +84,7 @@ let getPresenceByType = (children, needle) =>
     (child) =>
       switch child {
       | (_, Leaf((name, _), _, _))
-      | (_, Node((name, _), _, _)) when name == needle => true
+      | (_, Node((name, _), _, _, _)) when name == needle => true
       | _ => false
       }
   );
@@ -98,7 +97,7 @@ let getNodeByType = (children, needle) =>
         None
       } else {
         switch child {
-        | Node((name, sub), children, loc) when name == needle => Some((sub, children, loc))
+        | Node((name, sub), children, loc, comments) when name == needle => Some((sub, children, loc, comments))
         | _ => None
         }
       }
@@ -109,8 +108,8 @@ let getNodesByType = (children, needle, nodeMapper) =>
     children,
     ((label, child)) =>
       switch child {
-      | Node((name, sub), children, loc) when name == needle =>
-        Some(nodeMapper((sub, children, loc)))
+      | Node((name, sub), children, loc, comments) when name == needle =>
+        Some(nodeMapper((sub, children, loc, comments)))
       | _ => None
       }
   );
@@ -121,7 +120,7 @@ let getNodesByLabel = (children, needle, nodeMapper) =>
     ((label, child)) => {
       if (label == needle) {
         switch child {
-        | Node((name, sub), children, loc) => Some(nodeMapper((sub, children, loc)))
+        | Node((name, sub), children, loc, comments) => Some(nodeMapper((sub, children, loc, comments)))
         | _ => None
         }
       } else {
@@ -136,8 +135,8 @@ let getNodeByLabel = (children, needle) =>
     ((label, child)) =>
       if (label == needle) {
         switch child {
-        | Node(rule, children, loc) => Some((rule, children, loc))
-        | Leaf(_) => failwith("Expected node for label " ++ needle)
+        | Node(rule, children, loc, comments) => Some((rule, children, loc, comments))
+        | Comment(_) | Leaf(_) => failwith("Expected node for label " ++ needle)
         }
       } else {
         None

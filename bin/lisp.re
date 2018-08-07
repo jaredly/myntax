@@ -101,12 +101,14 @@ switch command {
 | Ml =>    Pprintast.structure(Format.std_formatter, converted)
 | Bin =>   out_binary(converted, input)
 | Pretty(dest) =>
-  switch (PrettyPrint.startToString(LispGrammar.grammar, result)) {
-  | Some(x) =>
+  switch (NewPrettyPrint.startToString(LispGrammar.grammar, result)) {
+  /* | Some(x) => */
+  | Belt.Result.Ok(x) =>
     switch dest {
     | "-" => print_endline(x)
     | _ => output_string(open_out(dest), x)
     }
-  | None => failwith("Failed to pretty print :(")
+  /* | None => failwith("Failed to pretty print :(") */
+  | Error(message) => failwith("Failed to pretty print :( " ++ message)
   }
 };

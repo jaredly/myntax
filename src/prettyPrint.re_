@@ -4,129 +4,7 @@ open PackTypes.Parsing;
 
 module P = PackTypes.Parsing;
 
-module Output = {
-
-  /*** TODO how do I whitespace? newlined things can be indented, yes, but how about whitespace between things? **/
-
-  /*** I'm imagining maybe a rule annotation that says "everything has a splace between them" or sth. And then maybe
-       a pseudo-item that says "suppress space here" or "add space here" **/
-  type outputT =
-    | Text(string)
-    | EOL
-    | NoSpace
-    | MaybeNewlined(list(outputT))
-    | Newlined(list(outputT))
-    | Lexical(list(outputT))
-    | Straight(list(outputT));
-    /* | Newlined (list outputT) TODO I do think I want this... */
-    /* [@@deriving show] */
-};
-
-type config = {
-  maxWidth: int,
-  indentWidth: int,
-  indentStr: string
-};
-
-let pad = (num, base) => {
-  let txt = ref("");
-  for (i in 0 to num) {
-    txt := txt^ ++ base
-  };
-  txt^
-};
-
-type iterim =
-  | Text(string)
-  | NoSpace;
-
-let rec outputToString = (config, indentLevel, output) =>
-  switch output {
-  | Output.EOL => ("\n" ++ pad(indentLevel - 1, config.indentStr), true) /* TODO need to account for current indent level too */
-  | Output.NoSpace => failwith("unhandled nospace")
-  /* ("", false) /* TODO make sure this isn't happening much... */ */
-  /* failwith "NoSpace should be handled by the parent" */
-  | Output.Text(str) => (str, false) /* TODO check for newlines? */
-  /*** TODO multiline strings -- should I be aware of that? Also lexical things that span multiple lines.. for some reason */
-  | Output.Lexical(items) => (
-      String.concat("", List.map((x) => fst(outputToString(config, 0, x)), items)),
-      false
-    )
-  | Output.Straight(items) =>
-    let rec loop = (items) =>
-      switch items {
-      | [] => ("", false)
-      | [Output.NoSpace, ...rest] => loop(rest)
-      | [child] => outputToString(config, indentLevel, child)
-      | [child, Output.NoSpace, ...rest] =>
-        let (restext, multi) = loop(rest);
-        let (res, nmulti) = outputToString(config, indentLevel, child);
-        (res ++ restext, multi || nmulti)
-      | [child, ...rest] =>
-        let (restext, multi) = loop(rest);
-        let (res, nmulti) = outputToString(config, indentLevel, child);
-        (res ++ (" " ++ restext), multi || nmulti)
-      };
-    loop(items)
-  | Output.MaybeNewlined(items) =>
-    let rec loop = (items) =>
-      switch items {
-      | [] => ([], 0, 0)
-      | [Output.NoSpace, ...rest] =>
-        let (items, len, multis) = loop(rest);
-        /* let (res, nmulti) = outputToString config indentLevel child; */
-        ([NoSpace, ...items], len, multis)
-      | [child, ...rest] =>
-        let (items, len, multis) = loop(rest);
-        let (res, nmulti) = outputToString(config, indentLevel + 1, child);
-        ([Text(res), ...items], len + String.length(res), nmulti ? multis + 1 : multis)
-      };
-    let (items, total, multis) = loop(items);
-    if (multis > 1
-        || total
-        + config.indentWidth
-        * indentLevel > config.maxWidth
-        && List.length(items) > 1) {
-      let padt = "\n" ++ pad(indentLevel + 0, config.indentStr);
-      let rec loop = (items) =>
-        switch items {
-        | [] => ""
-        | [Text(child)] => child
-        | [Text(child), NoSpace, ...rest] => child ++ loop(rest)
-        | [Text(child), ...rest] => child ++ (padt ++ loop(rest))
-        | [NoSpace, ...rest] => loop(rest)
-        };
-      (padt ++ (loop(items) ++ ("\n" ++ pad(indentLevel - 1, config.indentStr))), true)
-    } else {
-      let rec loop = (items) =>
-        switch items {
-        | [] => ""
-        | [Text(child)] => child
-        | [Text(child), NoSpace, ...rest] => child ++ loop(rest)
-        | [Text(child), ...rest] => child ++ (" " ++ loop(rest))
-        | [NoSpace, ...rest] => loop(rest)
-        };
-      (loop(items), false)
-    }
-  | Output.Newlined(items) =>
-    let padt = "\n" ++ pad(indentLevel + 0, config.indentStr);
-    let rec loop = (items) =>
-      switch items {
-      | [] => ("", false)
-      | [Output.NoSpace, ...rest] => loop(rest)
-      | [child] => outputToString(config, indentLevel + 1, child)
-      | [child, Output.NoSpace, ...rest] =>
-        let (restext, multi) = loop(rest);
-        let (res, nmulti) = outputToString(config, indentLevel + 1, child);
-        (res ++ restext, multi || nmulti)
-      | [child, ...rest] =>
-        let (restext, multi) = loop(rest);
-        let (res, nmulti) = outputToString(config, indentLevel + 1, child);
-        (res ++ (padt ++ restext), multi || nmulti)
-      };
-    let (str, multi) = loop(items);
-    (padt ++ (str ++ ("\n" ++ pad(indentLevel - 1, config.indentStr))), multi)
-  };
+open PrettyOutput;
 
 /* Finds an item and returns the list without that item */
 let rec maybeFind = (children, check) =>
@@ -151,7 +29,7 @@ let findByType = (children, needle) =>
       if (label == "") {
         switch child {
         | Leaf((name, sub), _, _) as child
-        | Node((name, sub), _, _) as child when name == needle => Some(child)
+        | Node((name, sub), _, _, _) as child when name == needle => Some(child)
         | _ => None
         }
       } else {
@@ -232,7 +110,10 @@ let rec resultToOutput: (bool, grammar, result) => option(Output.outputT) =
   (ignoringNewlines, grammar, result) =>
     switch result {
     | Leaf(_, contents, _) => Some(Output.Text(contents))
-    | Node((name, sub), children, _) =>
+    | Comment(EOL, contents, _) => Some(Output.Straight([Output.Text(contents), Output.EOL]))
+    | Comment(Doc, contents, _) => Some(Output.Text(contents))
+    | Comment(Multi, contents, _) => Some(Output.Text(contents))
+    | Node((name, sub), children, _, _comments) =>
       nodeToOutput(ignoringNewlines, grammar, (name, sub), children)
     }
 and processNonTerminal = (grammar, name, label, children, ignoringNewlines, rest, loop) =>
@@ -305,6 +186,17 @@ and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
   let isLexical = Char.uppercase(name.[0]) != name.[0];
   /* print_endline ("Ignoring newlines: " ^ (ignoringNewlines ? "yep" :" nop")); */
   let rec loop = (ignoringNewlines, items, children) =>
+    switch children {
+      | [("", Comment(EOL, contents, _)), ...rest] => {
+        let (a, b, c) = loop(ignoringNewlines, items, rest);
+        (a, [Output.Text(contents), Output.EOL, ...b], c)
+      }
+      | [("", Comment(_, contents, _)), ...rest] => {
+        let (a, b, c) = loop(ignoringNewlines, items, rest);
+        (a, [Output.Text(contents), ...b], c)
+      }
+
+      | _ =>
     switch items {
     | [] => (true, [], children)
     | [item, ...rest] =>
@@ -353,6 +245,7 @@ and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
         (success, [Output.EOL, ...res], unused)
       | EOF
       | Empty
+      | Indent | FullIndent
       | Lookahead(_)
       | Not(_) => loop(ignoringNewlines, rest, children)
       | Star(p) =>
@@ -388,6 +281,7 @@ and nodeToOutput = (ignoringNewlines, grammar, (name, sub), children) => {
         }
       }
     };
+    };
   let (success, res, unused) = loop(ignoringNewlines, items, children);
   switch unused {
   | [] =>
@@ -422,7 +316,7 @@ let toString = (~maxWidth=50, grammar: grammar, result) =>
   | None => None
   };
 
-let startToString = (~maxWidth=50, grammar, (sub, children, loc)) => {
-  let node = Node(("Start", sub), children, loc);
+let startToString = (~maxWidth=50, grammar, (sub, children, loc, comments)) => {
+  let node = Node(("Start", sub), children, loc, comments);
   toString(~maxWidth, grammar, node)
 };
