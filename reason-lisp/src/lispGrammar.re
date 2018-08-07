@@ -58,7 +58,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
       makeArrow(~args, ~body)
     )
   ])),
-  ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
+  ("def_rec", {|"("& "def-rec"$ LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
   ("type", {|"("& "type"$ TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
   ("module", {|"("& "module"$ capIdent > Structure+ &")"|},
     (~loc, [@text "capIdent"](name, nameLoc), [@nodes "Structure"]items) => H.Str.module_(~loc, H.Mb.mk(
@@ -159,27 +159,27 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "assert",
-    {|"("& "assert" Expression &")"|},
+    {|"("& "assert" > Expression &")"|},
     (~loc, [@node "Expression"]expr) => H.Exp.assert_(~loc, expr)
   ),
   (
     "lazy",
-    {|"("& "lazy" Expression &")"|},
+    {|"("& "lazy" > Expression &")"|},
     (~loc, [@node "Expression"]expr) => H.Exp.lazy_(~loc, expr)
   ),
   (
     "open",
-    {|"("& "open" longCap > ExpressionSequence &")"|},
+    {|"("& "open"$ longCap > ExpressionSequence &")"|},
     (~loc, [@node "longCap"]ident, [@node "ExpressionSequence"]body) => H.Exp.open_(~loc, Fresh, ident, body)
   ),
   (
     "if",
-    {|"("& "if" [test]Expression > [yes]Expression [no]Expression? &")"|},
+    {|"("& "if"$ [test]Expression > [yes]Expression [no]Expression? &")"|},
     (~loc, [@node.test "Expression"]test, [@node.yes "Expression"]yes, [@node_opt.no "Expression"]no) => H.Exp.ifthenelse(~loc, test, yes, no)
   ),
   (
     "module_pack",
-    {|"("& "module" ModuleExpr &")"|},
+    {|"("& "module"$ ModuleExpr &")"|},
     (~loc, [@node "ModuleExpr"]modexp) => H.Exp.pack(~loc, modexp)
   ),
   (
@@ -196,14 +196,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ), */
   (
     "arrow",
-    {|"("& "=>" FnArgs > ExpressionSequence &")"|},
+    {|"("& "=>"$ FnArgs > ExpressionSequence &")"|},
     (~loc, [@node "FnArgs"]args, [@node "ExpressionSequence"]body) => {
       makeArrow(~args, ~body)
     }
   ),
   (
     "threading_last",
-    {|"("& "->>" Expression > ThreadItem* &")"|},
+    {|"("& "->>"$ Expression > ThreadItem* &")"|},
     (~loc, [@node "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
@@ -216,7 +216,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "threading",
-    {|"("& "->" [target]Expression > ThreadItem* &")"|},
+    {|"("& "->"$ [target]Expression > ThreadItem* &")"|},
     (~loc, [@node.target "Expression"]target, [@nodes "ThreadItem"]items) => {
       Belt.List.reduce(items, target, (target, (loc, item)) => {
         switch item {
@@ -229,7 +229,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "threading_as",
-    {|"("& "as->" [target]Expression Pattern > [items]Expression* &")"|},
+    {|"("& "as->"$ [target]Expression$ Pattern > [items]Expression* &")"|},
     (~loc, [@node.target "Expression"]target, [@node "Pattern"]pat, [@nodes.items "Expression"]items) => {
       Belt.List.reduce(items, target, (target, item) => {
         H.Exp.apply(H.Exp.fun_("", None, pat, item), [("", target)])
@@ -247,7 +247,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "try",
-    {|"("& "try" [target]Expression SwitchCase+ &")"|},
+    {|"("& "try"$ [target]Expression > SwitchCase+ &")"|},
     (~loc, [@node "Expression"]target, [@nodes "SwitchCase"]cases) => H.Exp.try_(~loc, target, cases)
   ),
 
@@ -265,7 +265,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "setField",
-    {|"("& "<-" attribute > [target]Expression [value]Expression &")"|},
+    {|"("& "<-"$ attribute > [target]Expression [value]Expression &")"|},
     (~loc, [@node "attribute"]attribute, [@node.target "Expression"]target, [@node.value "Expression"]value) =>
       H.Exp.setfield(~loc, target, attribute, value)
   ),
@@ -281,7 +281,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "constraint",
-    {|"("& ":" Expression > CoreType &")"|},
+    {|"("& ":"$ Expression > CoreType &")"|},
     (~loc, [@node "Expression"]expr, [@node "CoreType"]t) => H.Exp.constraint_(~loc, expr, t)
   ),
 ]];
@@ -495,7 +495,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
   (
     "arrow",
-    {|"("& "=>" "["& [args]CoreType+ &"]" > CoreType &")"|},
+    {|"("& "=>"$ "["& [args]CoreType+ &"]" > CoreType &")"|},
     (~loc, [@node.args "CoreType"]args, [@node "CoreType"]res) => H.Typ.arrow("", args, res)
   )
 ]];
