@@ -1,23 +1,30 @@
 
+; (** Hello folkx *)
+
 (-> 2 Js.log)
 
 (type greeting (Hello string) Goodbye)
 
-(defn party [one two]
-  (let [m one n 4]
-    (Js.log (+ n m))
-    (Hello "folks")
-    ))
+(open Belt)
 
-[1,2,3,"hi"]
+(List.add [2 3 4] 6)
+
+(defn party [one two]
+  (let [m one
+        n 4]
+    (Js.log (+ n m))
+    (Hello "folks")))
+
+[1 2 3 4]
 
 (let [x 1
       ; !await y (+ 2 x)
       ]
   2
-  (+ 2.0 4)
+  (+ 20 4)
   )
 
+(party 2 "hello")
 
 ; (defn awesome [one two]
 ;   (let!try )

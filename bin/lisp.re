@@ -33,6 +33,39 @@ switch (Sysop.argv) {
     print_endline(ExampleGenerator.help ++ "\n\nIf you're interested, <a href=\"../parsable/grammar\">take a look at the grammar definition</a>");
     print_endline(ExampleGenerator.docsForGrammar(GrammarGrammar.grammar));
     exit(0)
+
+  | [|_, "--print", "re", width, "--parse", "re"|] =>
+    switch (Str.split(Str.regexp_string("="), width)) {
+      | [_, width] =>
+        let width = int_of_string(width);
+        let raw = Sysop.readStdin();
+        let result = Grammar.getResult(LispGrammar.grammar, "Start", raw);
+        /* let result = switch (LispGrammar.start("Start", raw)) {
+          | x => x
+          | exception PackTypes.ConversionError(loc, ruleName, searchedFor) =>
+            failwith("Grammar error! Please report this to the lisp.re maintainers. Unable to find " ++ searchedFor ++ " in " ++ ruleName ++ " at " ++ PackTypes.Result.showLoc(loc))
+        }; */
+        switch (NewPrettyPrint.startToString(LispGrammar.grammar, result)) {
+        | Ok(res) => print_string(res)
+        | Error(message) =>
+          Printf.eprintf("Unable to print %s", message);
+          exit(1);
+        };
+
+        /* switch result {
+          | Ok(converted) =>
+          | Error((_, (_, loc, failure))) =>
+            Printf.eprintf("File \"%s\", line %d, characters %d-%d:\n%s",
+              loc.pos_fname, loc.pos_lnum, loc.pos_cnum - loc.pos_bol, loc.pos_cnum - loc.pos_bol + 10,
+              PackTypes.Error.errorsText(snd(failure))
+            );
+            exit(1)
+        }; */
+        exit(0)
+      | _ => Printf.eprintf("Invalid width declaration"); exit(1)
+
+    }
+
   | [|_, "--print", "binary", "--parse", "re"|] =>
     let raw = Sysop.readStdin();
     let result = switch (LispGrammar.start("Start", raw)) {

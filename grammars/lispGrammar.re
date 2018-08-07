@@ -700,9 +700,11 @@ let rec listToConstruct = (~loc, list, maybeRest, construct, tuple, itemLoc) =>
 /** A potentially-namespaced lower-case identifier */
 [@name "longIdent"][%%rule (
   {|(longCap_ $&"."&$)? lowerIdent|},
-  (~loc, [@node_opt "longCap_"]base, [@text "lowerIdent"](text, _)) => switch base {
+  (~loc, [@node_opt "longCap_"]base, [@text "lowerIdent"](text, _)) => {
+    switch base {
     | None => Location.mkloc(Lident(text), loc)
-    | Some((base, loc)) => Location.mkloc(Ldot(base, text), loc)
+    | Some((base, _loc)) => Location.mkloc(Ldot(base, text), loc)
+  }
   }
 )];
 
