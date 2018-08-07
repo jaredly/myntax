@@ -20,9 +20,11 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | --- | --- |
 | <i>open</i> | <code>(open <a href="#longcap">longCap</a>)</code> |
 | <i>def</i> | <code>(def <a href="#pattern">Pattern</a> <a href="#expression">Expression</a>)</code> |
+| <i>defn</i> | <code>(defn <a href="#lowerident">lowerIdent</a> <a href="#fnargs">FnArgs</a> <a href="#expression">Expression</a><sup>*</sup>)</code> |
 | <i>def_rec</i> | <code>(def-rec <a href="#pattern">Pattern</a> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>type</i> | <code>(type <a href="#typename">TypeName</a> <a href="#typekind">TypeKind</a><sup>+</sup>)</code> |
-| <i>module</i> | <code>(module <a href="#capident">capIdent</a> <a href="#moduleexpr">ModuleExpr</a>)</code> |
+| <i>module</i> | <code>(module <a href="#capident">capIdent</a> <a href="#structure">Structure</a><sup>+</sup>)</code> |
+| <i>module_alias</i> | <code>(module-alias <a href="#capident">capIdent</a> <a href="#longcap">longCap</a>)</code> |
 | <i>external</i> | <code>(external <a href="#lowerident">lowerIdent</a> <a href="#coretype">CoreType</a> <a href="#string">string</a><sup>+</sup>)</code> |
 | <i>eval</i> | <code><a href="#expression">Expression</a></code> |
 
@@ -38,21 +40,21 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>empty_poly</i> | <code>`<a href="#capident">capIdent</a></code> |
 | <i>attribute</i> | <code>:<a href="#longident">longIdent</a></code> |
 | <i>op</i> | <code><a href="#operator">operator</a></code> |
-| <i>tuple</i> | <code>(, <a href="#expression">Expression</a><sup>+</sup>)</code> |
+| <i>tuple</i> | <code>(, <a href="#expression">Expression</a> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>array_literal</i> | <code>[\|<a href="#expression">Expression</a><sup>*</sup>\|]</code> |
 | <i>list_literal</i> | <code>[<a href="#expression">Expression</a><sup>*</sup> ⦅...<a href="#expression">Expression</a>⦆<sup>?</sup>]</code> |
-| <i>object_literal</i> | <code>{⦅...<a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#objectitem">ObjectItem</a><sup>+</sup>}</code> |
-| <i>let</i> | <code>(let [<a href="#pattern">Pattern</a> <a href="#expression">Expression</a><sup>+</sup>] <a href="#expression">Expression</a><sup>+</sup>)</code> |
+| <i>object_literal</i> | <code>{⦅...<a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#objectitem">ObjectItem</a><sup>*</sup>}</code> |
+| <i>let</i> | <code>(let [<a href="#pattern">Pattern</a> <a href="#expression">Expression</a><sup>+</sup>] <a href="#expression">Expression</a><sup>*</sup>)</code> |
 | <i>do</i> | <code>(do <a href="#expression">Expression</a><sup>*</sup>)</code> |
 | <i>assert</i> | <code>(assert <a href="#expression">Expression</a>)</code> |
 | <i>lazy</i> | <code>(lazy <a href="#expression">Expression</a>)</code> |
-| <i>open</i> | <code>(open <a href="#longcap">longCap</a> <a href="#expression">Expression</a><sup>+</sup>)</code> |
+| <i>open</i> | <code>(open <a href="#longcap">longCap</a> <a href="#expression">Expression</a><sup>*</sup>)</code> |
 | <i>if</i> | <code>(if <a href="#expression">Expression</a> <a href="#expression">Expression</a> <a href="#expression">Expression</a><sup>?</sup>)</code> |
 | <i>module_pack</i> | <code>(module <a href="#moduleexpr">ModuleExpr</a>)</code> |
 | <i>module</i> | <code>(module <a href="#capident">capIdent</a> <a href="#moduleexpr">ModuleExpr</a> <a href="#expression">Expression</a><sup>*</sup>)</code> |
 | <i>arrow</i> | <code>(=&gt; <a href="#fnargs">FnArgs</a> <a href="#expression">Expression</a><sup>*</sup>)</code> |
-| <i>threading_last</i> | <code>(-&gt;&gt; <a href="#expression">Expression</a> <a href="#threaditem">ThreadItem</a><sup>+</sup>)</code> |
-| <i>threading</i> | <code>(-&gt; <a href="#expression">Expression</a> <a href="#threaditem">ThreadItem</a><sup>+</sup>)</code> |
+| <i>threading_last</i> | <code>(-&gt;&gt; <a href="#expression">Expression</a> <a href="#threaditem">ThreadItem</a><sup>*</sup>)</code> |
+| <i>threading</i> | <code>(-&gt; <a href="#expression">Expression</a> <a href="#threaditem">ThreadItem</a><sup>*</sup>)</code> |
 | <i>threading_as</i> | <code>(as-&gt; <a href="#expression">Expression</a> <a href="#pattern">Pattern</a> <a href="#expression">Expression</a><sup>*</sup>)</code> |
 | <i>switch</i> | <code>(switch <a href="#expression">Expression</a> <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>switch_function</i> | <code>(switch _ <a href="#pattern">Pattern</a> ⦅when <a href="#expression">Expression</a>⦆<sup>?</sup> <a href="#expression">Expression</a><sup>+</sup>)</code> |
@@ -61,7 +63,7 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>js_object_attribute</i> | <code>(<a href="#string">string</a> <a href="#expression">Expression</a>)</code> |
 | <i>setField</i> | <code>(&lt;- :<a href="#longident">longIdent</a> <a href="#expression">Expression</a> <a href="#expression">Expression</a>)</code> |
 | <i>record_attribute</i> | <code>(:<a href="#longident">longIdent</a> <a href="#expression">Expression</a>)</code> |
-| <i>fn_call</i> | <code>(<a href="#expression">Expression</a> <a href="#fncallarg">FnCallArg</a><sup>+</sup>)</code> |
+| <i>fn_call</i> | <code>(<a href="#expression">Expression</a> <a href="#fncallarg">FnCallArg</a><sup>*</sup>)</code> |
 | <i>constraint</i> | <code>(: <a href="#expression">Expression</a> <a href="#coretype">CoreType</a>)</code> |
 
 ### Pattern
@@ -74,7 +76,7 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>unit</i> | <code>()</code> |
 | <i>ignored</i> | <code>_</code> |
 | <i>array</i> | <code>[<a href="#pattern">Pattern</a><sup>*</sup> ⦅...<a href="#pattern">Pattern</a>⦆<sup>?</sup>]</code> |
-| <i>tuple</i> | <code>(, <a href="#pattern">Pattern</a><sup>+</sup>)</code> |
+| <i>tuple</i> | <code>(, <a href="#pattern">Pattern</a> <a href="#pattern">Pattern</a><sup>+</sup>)</code> |
 | <i>empty_constr</i> | <code><a href="#longcap">longCap</a></code> |
 | <i>poly</i> | <code>(`<a href="#capident">capIdent</a> <a href="#pattern">Pattern</a><sup>+</sup>)</code> |
 | <i>empty_poly</i> | <code>`<a href="#capident">capIdent</a></code> |
@@ -138,7 +140,7 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 
 | Name | Syntax |
 | --- | --- |
-| <i>labeled</i> | <code>~<a href="#lowerident">lowerIdent</a> = <a href="#expression">Expression</a></code> |
+| <i>labeled</i> | <code>~<a href="#lowerident">lowerIdent</a>=<a href="#expression">Expression</a></code> |
 | <i>punned</i> | <code>~<a href="#lowerident">lowerIdent</a></code> |
 | <i>expr</i> | <code><a href="#expression">Expression</a></code> |
 
@@ -310,6 +312,8 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | Name | Syntax |
 | --- | --- |
 | <i></i> | <code>=&gt;</code> |
+| <i></i> | <code>-&gt;</code> |
+| <i></i> | <code>-&gt;&gt;</code> |
 | <i></i> | <code>...</code> |
 
 ### opChar

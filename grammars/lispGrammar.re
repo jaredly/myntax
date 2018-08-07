@@ -42,7 +42,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [@capturesComments]
 [@name "Structure"]
 [%%rule [
-  ( "open", {|"("& "open" longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
+  ( "open", {|"("& "open" > longCap &")"|}, (~loc, [@node "longCap"]lident) => H.Str.open_(~loc, H.Opn.mk(lident))),
   /** Define a toplevel value. */
   ("def", {|"("& "def"$ LetPair &")"|}, (~loc, [@node "LetPair"]pair) => H.Str.value(~loc, Nonrecursive, [pair])),
   ("defn", {|"("& "defn"$ lowerIdent$ FnArgs > Expression* &")"|}, (~loc, [@text "lowerIdent"](text, tloc), [@node "FnArgs"]args, [@nodes "Expression"]exprs) => H.Str.value(~loc, Nonrecursive, [
@@ -54,8 +54,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ])),
   ("def_rec", {|"("& "def-rec" LetPair+ &")"|}, (~loc, [@nodes "LetPair"]pairs) => H.Str.value(~loc, Recursive, pairs)),
   ("type", {|"("& "type"$ TypeBody &")"|}, (~loc, [@nodes "TypePair"]pairs) => H.Str.type_(pairs),),
-  ("module", {|"("& "module"$ capIdent > ModuleExpr &")"|},
-    (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleExpr"]expr) => H.Str.module_(~loc, H.Mb.mk(
+  ("module", {|"("& "module"$ capIdent > Structure+ &")"|},
+    (~loc, [@text "capIdent"](name, nameLoc), [@nodes "Structure"]items) => H.Str.module_(~loc, H.Mb.mk(
+      Location.mkloc(name, nameLoc),
+      H.Mod.mk(~loc, Pmod_structure(items)),
+    )),
+  ),
+  ("module_alias", {|"("& "module-alias"$ capIdent > ModuleApply &")"|},
+    (~loc, [@text "capIdent"](name, nameLoc), [@node "ModuleApply"]expr) => H.Str.module_(~loc, H.Mb.mk(
       Location.mkloc(name, nameLoc),
       expr
     )),
@@ -174,7 +180,8 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "module",
     {|"("& "module"$ capIdent$ ModuleExpr > Expression* &")"|},
-    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs))
+    (~loc, [@text "capIdent"](text, tloc), [@node "ModuleExpr"]modexp, [@nodes "Expression"]exprs) => 
+    H.Exp.letmodule(~loc, Location.mkloc(text, tloc), modexp, expressionSequence(exprs)),
   ),
     /* ; not 100% sure I want to do this :P but it could be so handy!! */
   /* (
@@ -353,11 +360,22 @@ let constructorArgs = (exprs, fn) => switch exprs {
 [%%rule "TypePair+"];
 
 [@ignoreNewlines]
+[@name "ModuleApply"]
+[%%rule [
+  ("ident", {|longCap|}, (~loc, [@node "longCap"]ident) => H.Mod.mk(~loc, Pmod_ident(ident))),
+  /* (
+    "functor_call",
+    {|"("& longCap ModuleExpr+ &")"|},
+    (~loc, [@node "longCap"]ident, ) => failwith("not impl")
+  ), */
+]];
+
+[@ignoreNewlines]
 [@name "ModuleExpr"]
 [%%rule [
   /* (
     "arrow",
-    {|"("& "=>" "[" "]" Structure* &")"|},
+    {|"("& "=>" "[" "]" > Structure* &")"|},
     () => failwith("not impl")
   ), */
   ("structure", {|"("& "str" > Structure* &")"|}, (~loc, [@nodes "Structure"]items) => H.Mod.mk(~loc, Pmod_structure(items))),

@@ -1,12 +1,11 @@
 (** Ok, welll *)
 (module Dogs
-  (str
     (type dog {:name string :age float})
     (def fluff {:name_and_things_and_long "Fluff" :age 0.4})
     (defn humanAge [{:age}]
       (print_endline "Converting")
       (int_of_float (*. age 7.0)))
-    ) )
+    )
 
 ; what folx
 (+ 2 3)

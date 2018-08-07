@@ -133,7 +133,7 @@ let rec simpleForItem = (grammar, item) =>
     }
   )]
   | P.NoBreakAfter(p)
-  | P.NoBreakBefore(p)
+  | P.NoBreakBefore(p) => simpleForItem(grammar, p)
   | P.NoSpaceAfter(p) => simpleForItem(grammar, p) @ [`Collapse]
   | P.NoSpaceBefore(p) => [`Collapse, ...simpleForItem(grammar, p)]
 
