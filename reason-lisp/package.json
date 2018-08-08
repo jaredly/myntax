@@ -1,4 +1,11 @@
 {
+  "name": "reason-lisp",
+  "version": "1.0.0-alpha.1",
+  "author": {
+    "name": "Jared Forsyth",
+    "email": "jared@jaredforsyth.com",
+    "url": "https://jaredforsyth.com"
+  },
   "dependencies": {
     "bs-platform": "bsansouci/bsb-native#3.2.0",
     "myntax": "file:../",
