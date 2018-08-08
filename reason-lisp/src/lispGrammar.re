@@ -734,6 +734,7 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   ("float", {|[val]float|}, ([@text "float"](t, _)) => Const_float(t)),
   ("int", {|[val]int64|}, ([@text "int64"](t, _)) => Const_int(int_of_string(t))),
   ("string", {|ConstString|}, ([@node "ConstString"]t) => t),
+  ("longString", {|longString|}, ([@text "longString"](t, _)) => Const_string(String.sub(t, 2, String.length(t) - 4), Some(""))),
   ("char", {|[val]char|}, ([@text "char"](t, _)) => Const_char(t.[0]) /* TODO fixx */
   ),
 ]];
@@ -766,6 +767,9 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   {|"\\" any|},
   {|~"\"" ~"\n" ~"\\" any|}
 ]];
+
+/** Note: This doesn't yet support arbitrary heredoc delimiters. Just {| and |} */
+[@leaf] [@name "longString"][%%rule {a|"{|" (~"|}" any)* "|}"|a}];
 
 /** A char constant */
 [@leaf] [@name "char"][%%rule {|"'" charchar "'"|}];

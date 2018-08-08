@@ -297,13 +297,6 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
       
       let subPath = numChoices === 1 ? path : [RP.Choice(choiceIndex, sub_name), ...path];
 
-      /* TODO maybe I don't have to do this if I'm not capturing comments... */
-      /* let precomments = if (capturesComments) {
-        let p = pendingComments^;
-        pendingComments := [];
-        p
-      } else {[]}; */
-
       let (i', children, err) =
         loop(
           ~isLexical,
@@ -326,29 +319,12 @@ let rec parse = (grammar, state, rulename, i, isLexical, ignoringNewlines, isNeg
         let loc = locForOffs(i, i');
         let result = (
           leaf ? R.Leaf(name, String.sub(state.input, i.pos_cnum, i'.pos_cnum - i.pos_cnum), loc) : {
-            R.Node(name, children, loc, capturesComments
-            ? {
-              /* let d = currentDocComment^;
-              currentDocComment := None;
-              let innerComments = pendingComments^;
-              pendingComments := []; */
-              /* TODO EOLComments */
-              /* Some((d, precomments, innerComments, None)) */
-              None
-            }
-            : None)
+            R.Node(name, children, loc, None)
           },
           passThrough
         );
-        /* let children = leaf ? [] : children; */
-        /* Printf.printf "match %s \"%s\" [%d..%d]\n" rulename name i (i' - 1); */
-        /* let typ = isLexical ? (Lexical (rulename, sub_name, choiceIndex)  passThrough) : Nonlexical (rulename, sub_name, choiceIndex) passThrough; */
         (i', result, errs)
       } else {
-        /* if (capturesComments) {
-          pendingComments := precomments;
-        }; */
-        /* Printf.eprintf "<nother choice>\n"; */
         process(otherChoices, errs, choiceIndex + 1)
       }
     };

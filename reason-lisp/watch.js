@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 
 const watch = require('watch')
 const fs = require('fs')
@@ -6,7 +7,7 @@ const path = require('path')
 
 const [_, __, target] = process.argv;
 if (!target) {
-  console.log('Usage: node watch.js some/directory')
+  console.log('Usage: reason-lisp-watch some/directory')
   process.exit(10)
 }
 console.log('Watching', target)

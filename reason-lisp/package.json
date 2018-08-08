@@ -4,19 +4,22 @@
     "myntax": "file:../",
     "watch": "^1.0.2"
   },
+  "bin": {
+    "reason-lisp-watch": "watch.js"
+  },
   "scripts": {
     "start": "bsb -make-world -backend native -w",
     "build": "bsb -make-world -backend native",
     "clean": "bsb -clean-world",
+    "postinstall": "npm run build",
     "example": "node watch.js example/src",
-    "test": "./lib/bs/native/test.nativ",
-    "lisp": "./lib/bs/native/lisp.native bin parsable/test/minimal.rel > node_modules/out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl node_modules/out.bin && node node_modules/out.js",
-    "ml": "./lib/bs/native/lisp.native ml parsable/test/minimal.rel",
+    "lisp": "./lib/bs/native/lisp.native bin parsable/minimal.rel > node_modules/out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl node_modules/out.bin && node node_modules/out.js",
+    "ml": "./lib/bs/native/lisp.native ml parsable/minimal.rel",
     "docs": "./lib/bs/native/lisp.native docs > docs/LispGrammar.md",
-    "mll": "./lib/bs/native/refmt.native ml-lisp parsable/lisp parsable/test/minimal.rel",
-    "debug": "./lib/bs/native/lisp.native debug parsable/test/tiny.rel",
-    "pretty": "./lib/bs/native/lisp.native pretty parsable/test/small.rel",
-    "pretty-tiny": "./lib/bs/native/lisp.native pretty parsable/test/tiny.rel",
+    "mll": "./lib/bs/native/refmt.native ml-lisp parsable/lisp parsable/minimal.rel",
+    "debug": "./lib/bs/native/lisp.native debug parsable/tiny.rel",
+    "pretty": "./lib/bs/native/lisp.native pretty parsable/small.rel",
+    "pretty-tiny": "./lib/bs/native/lisp.native pretty parsable/tiny.rel",
     "regen": "./lib/bs/native/pack.native dump parsable/grammar > src/grammarGrammar.re"
   }
 }
