@@ -1,4 +1,4 @@
-; (** Hello folkx *)
+(** Hello folkx *)
 (-> 2 Js.log)
 
 (type greeting
