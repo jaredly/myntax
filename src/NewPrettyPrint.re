@@ -29,8 +29,8 @@ let findByType = (children, needle) =>
     ((label, child)) =>
       if (label == "") {
         switch child {
-        | Leaf((name, sub), _, _) as child
-        | Node((name, sub), _, _, _) as child when name == needle => Some(child)
+        | Leaf((name, sub), _, _)
+        | Node((name, sub), _, _, _) when name == needle => Some(child)
         | _ => None
         }
       } else {

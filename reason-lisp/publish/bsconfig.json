@@ -9,15 +9,9 @@
   "sources": [
     {"dir": "src"}
   ],
-  "ppx-flags": [
-    // "Ppx_grammar"
-    "./node_modules/myntax/lib/bs/native/ppx_grammar.native"
-  ],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
-  "bs-dependencies": ["myntax"],
   "entries": [{
     "backend": "native",
-    "main-module": "LispFull"
-  }],
-  "refmt": 3
+    "main-module": "Lisp"
+  }]
 }

@@ -1,0 +1,19 @@
+{
+  "name": "reason-lisp",
+  "version": "1.0.0-alpha.3",
+  "author": {
+    "name": "Jared Forsyth",
+    "email": "jared@jaredforsyth.com",
+    "url": "https://jaredforsyth.com"
+  },
+  "dependencies": {
+    "bs-platform": "bsansouci/bsb-native#3.2.0",
+    "watch": "^1.0.2"
+  },
+  "bin": {
+    "reason-lisp-watch": "watch.js"
+  },
+  "scripts": {
+    "postinstall": "bsb -make-world -backend native"
+  }
+}

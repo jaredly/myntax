@@ -148,8 +148,7 @@ This is intented for performing side-effects only -- `otherStuff`
 must end up as type `unit`.
 |};
 
-let mapper = _argv =>
-  Parsetree.{
+let mapper = Parsetree.{
     ...Ast_mapper.default_mapper,
     expr: (mapper, expr) =>
       switch expr.pexp_desc {
@@ -183,5 +182,3 @@ let mapper = _argv =>
       | _ => Ast_mapper.default_mapper.expr(mapper, expr)
       }
   };
-
-let () = Ast_mapper.run_main(mapper);

@@ -16,12 +16,16 @@
     ]},
     {"dir": "ppx", "type": "ppx"}
   ],
-  "ppx-flags": ["Ppx_grammar"],
+  "ppx-flags": ["Ppx_all"],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
   "entries": [{
     "backend": "native",
     "type": "ppx",
-    "main-module": "Ppx_grammar"
+    "main-module": "Ppx_all"
+  }, {
+    "backend": "native",
+    "type": "ppx",
+    "main-module": "Ppx_release"
   }, {
     "backend": "native",
     "main-module": "Refmt"
