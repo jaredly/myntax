@@ -6,6 +6,7 @@ let getContents = (input) =>
   };
 
 let out_binary = (ast: Parsetree.structure, input_name) => {
+  set_binary_mode_out(stdout, true);
   output_string(stdout, Config.ast_impl_magic_number);
   output_value(stdout, input_name);
   output_value(stdout, ast)

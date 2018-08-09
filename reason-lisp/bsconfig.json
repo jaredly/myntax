@@ -17,7 +17,7 @@
   "bs-dependencies": ["myntax"],
   "entries": [{
     "backend": "native",
-    "main-module": "LispFull"
+    "main-module": "Lisp"
   }],
   "refmt": 3
 }
