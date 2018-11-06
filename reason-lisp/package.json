@@ -19,7 +19,7 @@
     "build": "bsb -make-world -backend native",
     "clean": "bsb -clean-world",
     "postinstall": "npm run build",
-    "example": "node watch.js example/src",
+    "example": "node ./watch.js example/src",
     "lisp": "./lib/bs/native/lisp.native bin parsable/minimal.rel > node_modules/out.bin && ./node_modules/bs-platform/lib/bsc.exe -impl node_modules/out.bin && node node_modules/out.js",
     "ml": "./lib/bs/native/lisp.native ml parsable/minimal.rel",
     "docs": "./lib/bs/native/lisp.native docs > docs/LispGrammar.md",

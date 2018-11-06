@@ -92,6 +92,11 @@ let constructorArgs = (exprs, fn) => switch exprs {
     {|constant|},
     (~loc, [@node "constant"]c) => H.Exp.constant(~loc, c)
   ),
+  (
+    "unit",
+    {|"()"|},
+    (~loc) => H.Exp.construct(~loc, Location.mkloc(Lident("()"), loc), None)
+  ),
 
   (
     "constructor",
@@ -277,7 +282,10 @@ let constructorArgs = (exprs, fn) => switch exprs {
   (
     "fn_call",
     {|"("& Expression > FnCallArg* &")"|},
-    (~loc, [@node "Expression"]fn, [@nodes "FnCallArg"]args) => args == [] ? fn : H.Exp.apply(~loc, fn, args)
+    (~loc, [@node "Expression"] fn, [@nodes "FnCallArg"] args) =>
+      args == [] ?
+        H.Exp.apply(~loc, fn, [("", H.Exp.construct(~loc, Location.mkloc(Lident("()"), loc), None))]) :
+        H.Exp.apply(~loc, fn, args)
   ),
   (
     "constraint",

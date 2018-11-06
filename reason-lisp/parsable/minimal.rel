@@ -6,6 +6,11 @@
 
 {| Ok here's the "deal" |}
 
+(defn get5 () 5)
+
+(def five (Js.log (+ 3 (get5))))
+(def five (Js.log (+ 2 (get5 ()))))
+
 (module Dogs
     (type dog {:name string :age float})
     (def fluff {:name "Fluff" :age 0.4})
