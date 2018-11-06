@@ -1,11 +1,13 @@
 {
-  "name": "reason-lisp",
-  "version": "1.0.0-alpha.2",
+  "name": "reason-lisp-source",
+  "version": "dont-publish",
   "author": {
     "name": "Jared Forsyth",
     "email": "jared@jaredforsyth.com",
     "url": "https://jaredforsyth.com"
   },
+  "//": "this isn't the one to publish from tho",
+  "private": true,
   "dependencies": {
     "bs-platform": "bsansouci/bsb-native#3.2.0",
     "myntax": "1.0.0-alpha.1",

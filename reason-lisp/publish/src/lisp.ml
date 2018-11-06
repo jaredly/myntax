@@ -3673,6 +3673,12 @@ and convert_Expression (sub,children,_loc,_comments) =
                   (_loc, "Expression:const", "constant")))
         | ((Some (node))) -> convert_constant node in
       H.Exp.constant ~loc c
+  | "unit" ->
+      let loc = _loc in
+      H.Exp.construct ~loc
+        (Location.mkloc
+           ((Lident ((("()")[@reason.raw_literal "()"]))))
+           loc) None
   | "constructor" ->
       let loc = _loc in
       let ((ident)[@node (("longCap")[@reason.raw_literal "longCap"])]) =
@@ -4183,7 +4189,13 @@ and convert_Expression (sub,children,_loc,_comments) =
       let ((args)[@nodes (("FnCallArg")[@reason.raw_literal "FnCallArg"])]) =
         ResultUtils.getNodesByType children "FnCallArg" convert_FnCallArg in
       (match args = [] with
-       | true  -> fn
+       | true  ->
+           H.Exp.apply ~loc fn
+             [("",
+                (H.Exp.construct ~loc
+                   (Location.mkloc
+                      ((Lident ((("()")[@reason.raw_literal "()"])))) loc)
+                   None))]
        | false  -> H.Exp.apply ~loc fn args)
   | "constraint" ->
       let loc = _loc in
@@ -5093,6 +5105,7 @@ let grammar =
             choices =
               [("ident", "", (Grammar.choice {|longIdent|}));
               ("const", "", (Grammar.choice {|constant|}));
+              ("unit", "", (Grammar.choice {|"()"|}));
               ("constructor", "",
                 (Grammar.choice {|"("& longCap Expression+ &")"|}));
               ("empty_constr", "", (Grammar.choice {|longCap|}));
