@@ -112,18 +112,6 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
 ]];
 
-[@leaf]
-[@name "decoratorName"]
-[%%rule "decoratorChar+"];
-
-[@name "decoratorChar"]
-[%%rule [
-  "identchar",
-  {|"."|},
-  {|"+"|},
-  {|"~"|}
-]];
-
 [@preserveInnerSpace]
 [@name "Expression"]
 [%%rule [
@@ -777,6 +765,18 @@ let rec listToConstruct = (~loc, list, maybeRest, construct, tuple, itemLoc) =>
     {|capIdent|},
     ([@text "capIdent"](text, loc)) => (Lident(text), loc)
   ),
+]];
+
+[@leaf]
+[@name "decoratorName"]
+[%%rule "decoratorChar+"];
+
+[@name "decoratorChar"]
+[%%rule [
+  "identchar",
+  {|"."|},
+  {|"+"|},
+  {|"~"|}
 ]];
 
 let stripQuotes = (str) => String.sub(str, 1, String.length(str) - 2);

@@ -26,6 +26,8 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>module</i> | <code>(module <a href="#capident">capIdent</a> <a href="#structure">Structure</a><sup>+</sup>)</code> |
 | <i>module_alias</i> | <code>(module-alias <a href="#capident">capIdent</a> <a href="#longcap">longCap</a>)</code> |
 | <i>external</i> | <code>(external <a href="#lowerident">lowerIdent</a> <a href="#coretype">CoreType</a> <a href="#string">string</a><sup>+</sup>)</code> |
+| <i>decorator_nopayload</i> | <code>(@<a href="#decoratorname">decoratorName</a> <a href="#structure">Structure</a>)</code> |
+| <i>decorator</i> | <code>(@<a href="#decoratorname">decoratorName</a> <a href="#structure">Structure</a> <a href="#structure">Structure</a>)</code> |
 | <i>eval</i> | <code><a href="#expression">Expression</a></code> |
 
 ### Expression
@@ -34,6 +36,7 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | --- | --- |
 | <i>ident</i> | <code><a href="#longident">longIdent</a></code> |
 | <i>const</i> | <code><a href="#constant">constant</a></code> |
+| <i>unit</i> | <code>()</code> |
 | <i>constructor</i> | <code>(<a href="#longcap">longCap</a> <a href="#expression">Expression</a><sup>+</sup>)</code> |
 | <i>empty_constr</i> | <code><a href="#longcap">longCap</a></code> |
 | <i>constructor_poly</i> | <code>(`<a href="#capident">capIdent</a> <a href="#expression">Expression</a><sup>+</sup>)</code> |
@@ -206,6 +209,15 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>dot</i> | <code><a href="#longcap_">longCap_</a>.<a href="#capident">capIdent</a></code> |
 | <i>lident</i> | <code><a href="#capident">capIdent</a></code> |
 
+### decoratorChar_
+
+| Name | Syntax |
+| --- | --- |
+| <i></i> | <code><a href="#identchar">identchar</a></code> |
+| <i></i> | <code>.</code> |
+| <i></i> | <code>+</code> |
+| <i></i> | <code>~</code> |
+
 ### constant
 
 | Name | Syntax |
@@ -213,6 +225,7 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | <i>float</i> | <code><a href="#float">float</a></code> |
 | <i>int</i> | <code><a href="#int64">int64</a></code> |
 | <i>string</i> | <code><a href="#string">string</a></code> |
+| <i>longString</i> | <code><a href="#longstring">longString</a></code> |
 | <i>char</i> | <code><a href="#char">char</a></code> |
 
 ### capIdent
@@ -259,6 +272,12 @@ If you're interested, <a href="../grammars/lispGrammar.re">take a look at the gr
 | --- | --- |
 | <i></i> | <code>\\<i>any</i></code> |
 | <i></i> | <code><i>any</i></code> |
+
+### longString
+
+ Note: This doesn't yet support arbitrary heredoc delimiters. Just {| and |} 
+
+<code>{\|⦅<i>any</i>⦆<sup>*</sup>\|}</code>
 
 ### char
 
