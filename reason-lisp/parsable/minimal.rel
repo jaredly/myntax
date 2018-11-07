@@ -11,13 +11,13 @@
 (def five (Js.log (+ 3 (get5))))
 (def five (Js.log (+ 2 (get5 ()))))
 
-(@bs.module (external awesome int ""))
-(@bs.module "awesome" (external awesome int ""))
+; (@bs.module (external fs int ""))
+(@bs.module "fs" (external readFileSync (=> [string] string) ""))
 ; (@ (bs.module "awesome") (external awesome int ""))
 
 (def obj (%bs.obj {:one "two" :three 4}))
 
-(def orr (+ awesome 4))
+(def bsconfig (readFileSync "./bsconfig.json"))
 
 (module Dogs
     (type dog {:name string :age float})
