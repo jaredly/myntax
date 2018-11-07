@@ -132,6 +132,32 @@ let constructorArgs = (exprs, fn) => switch exprs {
   ),
 
   (
+    "extension_expr",
+    {|"("& "%"& decoratorName Structure+ &")"|},
+    (~loc, [@text "decoratorName"](text, loc), [@nodes "Structure"]inner) => {
+      H.Exp.extension(~loc, (Location.mkloc(text, loc), PStr(inner)))
+    }
+  ),
+
+  (
+    "decorator_expr_nopayload",
+    {|"("& "@"& decoratorName [inner]Expression &")"|},
+    (~loc, [@text "decoratorName"](text, loc), [@node.inner "Expression"]inner) => {
+      let attr = (Location.mkloc(text, loc), PStr([]));
+      {...inner, pexp_attributes: [attr, ...inner.pexp_attributes]}
+    }
+  ),
+
+  (
+    "decorator_expr",
+    {|"("& "@"& decoratorName [payload]Structure [inner]Expression &")"|},
+    (~loc, [@text "decoratorName"](text, loc), [@node.payload "Structure"]payload, [@node.inner "Expression"]inner) => {
+      let attr = (Location.mkloc(text, loc), PStr([payload]));
+      {...inner, pexp_attributes: [attr, ...inner.pexp_attributes]}
+    }
+  ),
+
+  (
     "constructor",
     {|"("& longCap Expression+ &")"|},
     (~loc, [@node "longCap"]ident, [@nodes "Expression"]exprs) => H.Exp.construct(~loc, ident, Some(constructorArgs(exprs, H.Exp.tuple(~loc))))
