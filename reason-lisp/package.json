@@ -27,7 +27,7 @@
     "docs": "./lib/bs/native/lisp.native docs > ../docs/LispGrammar.md",
     "mll": "./lib/bs/native/refmt.native ml-lisp parsable/lisp parsable/minimal.rel",
     "debug": "./lib/bs/native/lisp.native debug parsable/tiny.rel",
-    "pretty": "./lib/bs/native/lisp.native pretty parsable/small.rel",
+    "pretty": "./lib/bs/native/lisp.native pretty parsable/minimal.rel",
     "pretty-tiny": "./lib/bs/native/lisp.native pretty parsable/tiny.rel",
     "regen": "./lib/bs/native/pack.native dump parsable/grammar > src/grammarGrammar.re"
   }

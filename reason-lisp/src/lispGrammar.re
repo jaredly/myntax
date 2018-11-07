@@ -72,14 +72,14 @@ let constructorArgs = (exprs, fn) => switch exprs {
       expr
     )),
   ),
-  ( "external", {|"("& "external" lowerIdent CoreType string+ &")"|}, 
+  ( "external", {|"("& "external"$ lowerIdent > CoreType string+ &")"|}, 
     (~loc, [@text "lowerIdent"](text, tloc), [@node "CoreType"]typ, [@texts "string"]prim) =>
       H.Str.primitive(~loc, H.Val.mk(~loc, ~prim=List.map(fst, prim) |> List.map(processString), Location.mkloc(text, tloc), typ))
   ),
 
   (
     "decorator_nopayload",
-    {|"("& "@"& decoratorName [inner]Structure &")"|},
+    {|"("& "@"& decoratorName > [inner]Structure &")"|},
     (~loc, [@text "decoratorName"](text, loc), [@node.inner "Structure"]inner) => {
       let attr = (Location.mkloc(text, loc), PStr([]));
       {...inner, pstr_desc: switch (inner.pstr_desc) {
@@ -95,7 +95,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "decorator",
-    {|"("& "@"& decoratorName [payload]Structure [inner]Structure &")"|},
+    {|"("& "@"& decoratorName > [payload]Structure [inner]Structure &")"|},
     (~loc, [@text "decoratorName"](text, loc), [@node.payload "Structure"]payload, [@node.inner "Structure"]inner) => {
       let attr = (Location.mkloc(text, loc), PStr([payload]));
       {...inner, pstr_desc: switch (inner.pstr_desc) {
@@ -133,7 +133,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "extension_expr",
-    {|"("& "%"& decoratorName Structure+ &")"|},
+    {|"("& "%"& decoratorName > Structure+ &")"|},
     (~loc, [@text "decoratorName"](text, loc), [@nodes "Structure"]inner) => {
       H.Exp.extension(~loc, (Location.mkloc(text, loc), PStr(inner)))
     }
@@ -141,7 +141,7 @@ let constructorArgs = (exprs, fn) => switch exprs {
 
   (
     "decorator_expr_nopayload",
-    {|"("& "@"& decoratorName [inner]Expression &")"|},
+    {|"("& "@"& decoratorName > [inner]Expression &")"|},
     (~loc, [@text "decoratorName"](text, loc), [@node.inner "Expression"]inner) => {
       let attr = (Location.mkloc(text, loc), PStr([]));
       {...inner, pexp_attributes: [attr, ...inner.pexp_attributes]}
