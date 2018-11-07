@@ -76,7 +76,52 @@ let constructorArgs = (exprs, fn) => switch exprs {
     (~loc, [@text "lowerIdent"](text, tloc), [@node "CoreType"]typ, [@texts "string"]prim) =>
       H.Str.primitive(~loc, H.Val.mk(~loc, ~prim=List.map(fst, prim) |> List.map(processString), Location.mkloc(text, tloc), typ))
   ),
+
+  (
+    "decorator_nopayload",
+    {|"("& "@"& decoratorName [inner]Structure &")"|},
+    (~loc, [@text "decoratorName"](text, loc), [@node.inner "Structure"]inner) => {
+      let attr = (Location.mkloc(text, loc), PStr([]));
+      {...inner, pstr_desc: switch (inner.pstr_desc) {
+        | Pstr_primitive(vdesc) => Pstr_primitive({
+          ...vdesc,
+          pval_attributes: [attr, ...vdesc.pval_attributes]
+        })
+        | Pstr_eval(expr, attrs) => Pstr_eval(expr, [attr, ...attrs])
+        | _ => failwith("Decorators only supported for expressions and `external`s")
+      }}
+    }
+  ),
+
+  (
+    "decorator",
+    {|"("& "@"& decoratorName [payload]Structure [inner]Structure &")"|},
+    (~loc, [@text "decoratorName"](text, loc), [@node.payload "Structure"]payload, [@node.inner "Structure"]inner) => {
+      let attr = (Location.mkloc(text, loc), PStr([payload]));
+      {...inner, pstr_desc: switch (inner.pstr_desc) {
+        | Pstr_primitive(vdesc) => Pstr_primitive({
+          ...vdesc,
+          pval_attributes: [attr, ...vdesc.pval_attributes]
+        })
+        | Pstr_eval(expr, attrs) => Pstr_eval(expr, [attr, ...attrs])
+        | _ => failwith("Decorators only supported for expressions and `external`s")
+      }}
+    }
+  ),
+
   ( "eval", "Expression", (~loc, [@node "Expression"]expr) => H.Str.eval(~loc, expr))
+]];
+
+[@leaf]
+[@name "decoratorName"]
+[%%rule "decoratorChar+"];
+
+[@name "decoratorChar"]
+[%%rule [
+  "identchar",
+  {|"."|},
+  {|"+"|},
+  {|"~"|}
 ]];
 
 [@preserveInnerSpace]
