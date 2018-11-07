@@ -2811,6 +2811,8 @@ and convert_constant (sub,children,_loc,_comments) =
         | ((Some ((contents,loc)))) -> (contents, loc) in
       ((Const_char ((t.[0]))))
   | _ -> assert false
+and convert_decoratorChar (sub,children,_loc,_comments) =
+  match sub with | _ -> assert false
 and convert_longCap_ (sub,children,_loc,_comments) =
   match sub with
   | "dot" ->
@@ -3679,6 +3681,85 @@ and convert_Expression (sub,children,_loc,_comments) =
         (Location.mkloc
            ((Lident ((("()")[@reason.raw_literal "()"]))))
            loc) None
+  | "extension_expr" ->
+      let loc = _loc in
+      let (((text,loc))[@text
+                         (("decoratorName")[@reason.raw_literal
+                                             "decoratorName"])])
+        =
+        match ResultUtils.getLeafByType children "decoratorName" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Expression:extension_expr", "decoratorName"))
+              )
+        | ((Some ((contents,loc)))) -> (contents, loc) in
+      let ((inner)[@nodes (("Structure")[@reason.raw_literal "Structure"])])
+        = ResultUtils.getNodesByType children "Structure" convert_Structure in
+      H.Exp.extension ~loc
+        ((Location.mkloc text loc), ((PStr (inner))))
+  | "decorator_expr_nopayload" ->
+      let loc = _loc in
+      let (((text,loc))[@text
+                         (("decoratorName")[@reason.raw_literal
+                                             "decoratorName"])])
+        =
+        match ResultUtils.getLeafByType children "decoratorName" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Expression:decorator_expr_nopayload",
+                    "decoratorName")))
+        | ((Some ((contents,loc)))) -> (contents, loc) in
+      let ((inner)[@node.inner
+                    (("Expression")[@reason.raw_literal "Expression"])])
+        =
+        match ResultUtils.getNodeByLabel children "inner" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Expression:decorator_expr_nopayload", "Expression"))
+              )
+        | ((Some (((_,sub),children,loc,comments)))) ->
+            convert_Expression (sub, children, loc, comments) in
+      let attr = ((Location.mkloc text loc), ((PStr ([])))) in
+      { inner with pexp_attributes = (attr :: (inner.pexp_attributes)) }
+  | "decorator_expr" ->
+      let loc = _loc in
+      let (((text,loc))[@text
+                         (("decoratorName")[@reason.raw_literal
+                                             "decoratorName"])])
+        =
+        match ResultUtils.getLeafByType children "decoratorName" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Expression:decorator_expr", "decoratorName"))
+              )
+        | ((Some ((contents,loc)))) -> (contents, loc) in
+      let ((payload)[@node.payload
+                      (("Structure")[@reason.raw_literal "Structure"])])
+        =
+        match ResultUtils.getNodeByLabel children "payload" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Expression:decorator_expr", "Structure")))
+        | ((Some (((_,sub),children,loc,comments)))) ->
+            convert_Structure (sub, children, loc, comments) in
+      let ((inner)[@node.inner
+                    (("Expression")[@reason.raw_literal "Expression"])])
+        =
+        match ResultUtils.getNodeByLabel children "inner" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Expression:decorator_expr", "Expression")))
+        | ((Some (((_,sub),children,loc,comments)))) ->
+            convert_Expression (sub, children, loc, comments) in
+      let attr =
+        ((Location.mkloc text loc), ((PStr ([payload])))) in
+      { inner with pexp_attributes = (attr :: (inner.pexp_attributes)) }
   | "constructor" ->
       let loc = _loc in
       let ((ident)[@node (("longCap")[@reason.raw_literal "longCap"])]) =
@@ -4340,6 +4421,101 @@ and convert_Structure (sub,children,_loc,_comments) =
         (H.Val.mk ~loc
            ~prim:((List.map fst prim) |> (List.map processString))
            (Location.mkloc text tloc) typ)
+  | "decorator_nopayload" ->
+      let loc = _loc in
+      let (((text,loc))[@text
+                         (("decoratorName")[@reason.raw_literal
+                                             "decoratorName"])])
+        =
+        match ResultUtils.getLeafByType children "decoratorName" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Structure:decorator_nopayload", "decoratorName"))
+              )
+        | ((Some ((contents,loc)))) -> (contents, loc) in
+      let ((inner)[@node.inner
+                    (("Structure")[@reason.raw_literal "Structure"])])
+        =
+        match ResultUtils.getNodeByLabel children "inner" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Structure:decorator_nopayload", "Structure"))
+              )
+        | ((Some (((_,sub),children,loc,comments)))) ->
+            convert_Structure (sub, children, loc, comments) in
+      let attr = ((Location.mkloc text loc), ((PStr ([])))) in
+      {
+        inner with
+        pstr_desc =
+          ((match inner.pstr_desc with
+            | ((Pstr_primitive (vdesc))) ->
+                ((Pstr_primitive
+                    ({
+                       vdesc with
+                       pval_attributes = (attr :: (vdesc.pval_attributes))
+                     })))
+            | ((Pstr_eval (expr,attrs))) ->
+                ((Pstr_eval (expr, (attr :: attrs))))
+            | _ ->
+                failwith
+                  (("Decorators only supported for expressions and `external`s")
+                  [@reason.raw_literal
+                    "Decorators only supported for expressions and `external`s"])))
+      }
+  | "decorator" ->
+      let loc = _loc in
+      let (((text,loc))[@text
+                         (("decoratorName")[@reason.raw_literal
+                                             "decoratorName"])])
+        =
+        match ResultUtils.getLeafByType children "decoratorName" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Structure:decorator", "decoratorName")))
+        | ((Some ((contents,loc)))) -> (contents, loc) in
+      let ((payload)[@node.payload
+                      (("Structure")[@reason.raw_literal "Structure"])])
+        =
+        match ResultUtils.getNodeByLabel children "payload" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Structure:decorator", "Structure")))
+        | ((Some (((_,sub),children,loc,comments)))) ->
+            convert_Structure (sub, children, loc, comments) in
+      let ((inner)[@node.inner
+                    (("Structure")[@reason.raw_literal "Structure"])])
+        =
+        match ResultUtils.getNodeByLabel children "inner" with
+        | None  ->
+            raise
+              ((PackTypes.ConversionError
+                  (_loc, "Structure:decorator", "Structure")))
+        | ((Some (((_,sub),children,loc,comments)))) ->
+            convert_Structure (sub, children, loc, comments) in
+      let attr =
+        ((Location.mkloc text loc), ((PStr ([payload])))) in
+      {
+        inner with
+        pstr_desc =
+          ((match inner.pstr_desc with
+            | ((Pstr_primitive (vdesc))) ->
+                ((Pstr_primitive
+                    ({
+                       vdesc with
+                       pval_attributes = (attr :: (vdesc.pval_attributes))
+                     })))
+            | ((Pstr_eval (expr,attrs))) ->
+                ((Pstr_eval (expr, (attr :: attrs))))
+            | _ ->
+                failwith
+                  (("Decorators only supported for expressions and `external`s")
+                  [@reason.raw_literal
+                    "Decorators only supported for expressions and `external`s"])))
+      }
   | "eval" ->
       let loc = _loc in
       let ((expr)[@node (("Expression")[@reason.raw_literal "Expression"])])
@@ -4651,6 +4827,35 @@ let grammar =
               ("string", "", (Grammar.choice {|ConstString|}));
               ("longString", "", (Grammar.choice {|longString|}));
               ("char", "", (Grammar.choice {|[val]char|}))]
+          });
+        ("decoratorChar",
+          {
+            capturesComments = false;
+            passThrough = false;
+            preserveInnerSpace = false;
+            docs = None;
+            ignoreNewlines = Inherit;
+            leaf = false;
+            choices =
+              [("", "",
+                 (Grammar.choice
+                    (("identchar")[@reason.raw_literal "identchar"])));
+              ("", "", (Grammar.choice {|"."|}));
+              ("", "", (Grammar.choice {|"+"|}));
+              ("", "", (Grammar.choice {|"~"|}))]
+          });
+        ("decoratorName",
+          {
+            capturesComments = false;
+            passThrough = false;
+            preserveInnerSpace = false;
+            docs = None;
+            ignoreNewlines = Inherit;
+            leaf = true;
+            choices =
+              [("", "",
+                 (Grammar.choice
+                    (("decoratorChar+")[@reason.raw_literal "decoratorChar+"])))]
           });
         ("longCap_",
           {
@@ -5106,6 +5311,14 @@ let grammar =
               [("ident", "", (Grammar.choice {|longIdent|}));
               ("const", "", (Grammar.choice {|constant|}));
               ("unit", "", (Grammar.choice {|"()"|}));
+              ("extension_expr", "",
+                (Grammar.choice {|"("& "%"& decoratorName Structure+ &")"|}));
+              ("decorator_expr_nopayload", "",
+                (Grammar.choice
+                   {|"("& "@"& decoratorName [inner]Expression &")"|}));
+              ("decorator_expr", "",
+                (Grammar.choice
+                   {|"("& "@"& decoratorName [payload]Structure [inner]Expression &")"|}));
               ("constructor", "",
                 (Grammar.choice {|"("& longCap Expression+ &")"|}));
               ("empty_constr", "", (Grammar.choice {|longCap|}));
@@ -5207,6 +5420,12 @@ let grammar =
               ("external", "",
                 (Grammar.choice
                    {|"("& "external" lowerIdent CoreType string+ &")"|}));
+              ("decorator_nopayload", "",
+                (Grammar.choice
+                   {|"("& "@"& decoratorName [inner]Structure &")"|}));
+              ("decorator", "",
+                (Grammar.choice
+                   {|"("& "@"& decoratorName [payload]Structure [inner]Structure &")"|}));
               ("eval", "",
                 (Grammar.choice
                    (("Expression")[@reason.raw_literal "Expression"])))]
