@@ -564,6 +564,11 @@ let constructorArgs = (exprs, fn) => switch exprs {
     "arrow",
     {|"("& "=>"$ "["& [args]CoreType+ &"]" > CoreType &")"|},
     (~loc, [@node.args "CoreType"]args, [@node "CoreType"]res) => H.Typ.arrow("", args, res)
+  ),
+  (
+    "tuple",
+    {|"("& "," > CoreType+ &")"|},
+    (~loc, [@nodes "CoreType"]items) => H.Typ.tuple(~loc, items)
   )
 ]];
 
