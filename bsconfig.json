@@ -9,14 +9,14 @@
   "sources": [
     {"dir": "src", "subdirs": true},
     {"dir": "bin"},
-    {"dir": "grammars"},
+    // {"dir": "grammars"},
     {"dir": "test_re", "subdirs": [
       "src",
       {"dir": "ppx", "type": "ppx"}
     ]},
     {"dir": "ppx", "type": "ppx"}
   ],
-  "ppx-flags": ["Ppx_all"],
+  // "ppx-flags": ["Ppx_all"],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
   "entries": [{
     "backend": "native",
