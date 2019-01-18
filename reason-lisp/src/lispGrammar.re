@@ -875,7 +875,6 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   {|"open"|},
   {|"import"|},
   {|"try"|},
-  {|"catch"|},
   {|"from"|}
 ]];
 
