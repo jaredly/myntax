@@ -21,6 +21,8 @@ and it can do what it want's *)
     thing Some None (Constr awesome other)
     )
 
+(type intPair (, int int))
+
 (->> pass
  (Constr one)
  :it
