@@ -7,13 +7,12 @@
     "error": "+8"
   },
   "sources": [
-    {"dir": "src", "subdirs": true},
+    {"dir": "src", "subdirs": true,
+      "ppx": "Ppx_all"
+    },
     {"dir": "bin"},
-    // {"dir": "grammars"},
-    {"dir": "test_re", "subdirs": [
-      "src",
-      {"dir": "ppx", "type": "ppx"}
-    ]},
+    {"dir": "grammars", "ppx": "Ppx_all"},
+    {"dir": "test_re", "subdirs": [ "src", {"dir": "ppx", "type": "ppx"} ]},
     {"dir": "ppx", "type": "ppx"}
   ],
   // "ppx-flags": ["Ppx_all"],
