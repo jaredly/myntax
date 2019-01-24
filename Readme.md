@@ -7,8 +7,20 @@ Based on https://rwmj.wordpress.com/2010/12/29/packrat-parser-with-left-recursio
 - [Defining a Grammar](docs/Grammar.md)
 - [The Lisp.re grammar generated documentation](docs/LispGrammar.md)
 
+# Contributing
+
+- `npm install`
+- `npm run build` (you'll have to run this a couple times before it compiles without error 🙃)
+- `cd reason-lisp`
+- `npm install` (this will fail)
+- `cd node_modules; rm -rf myntax; ln -s ../../ myntax; cd ..`
+- `npm run build`
+
+yeah it's pretty hacky. I think I might just switch over to esy+dune soon
+
 
 # Lisp.re
+NOTE: this is all out of date
 
 Building & using the lisp-to-ocaml parser
 
