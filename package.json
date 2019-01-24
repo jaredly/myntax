@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "bsb-native": "4.0.6",
-    "let-anything": "jaredly/let-anything",
+    "let-anything": "let-anything",
     "watch": "^1.0.2"
   },
   "scripts": {

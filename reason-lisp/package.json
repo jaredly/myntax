@@ -9,7 +9,7 @@
   "//": "this isn't the one to publish from tho",
   "private": true,
   "dependencies": {
-    "bs-platform": "bsansouci/bsb-native#3.2.0",
+    "bsb-native": "4.0.6",
     "myntax": "1.0.0-alpha.1",
     "watch": "^1.0.2"
   },
