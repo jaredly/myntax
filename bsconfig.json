@@ -7,16 +7,14 @@
     "error": "+8"
   },
   "sources": [
-    {"dir": "src", "subdirs": true},
+    {"dir": "src", "subdirs": true,
+      "ppx": "Ppx_all"
+    },
     {"dir": "bin"},
-    {"dir": "grammars"},
-    {"dir": "test_re", "subdirs": [
-      "src",
-      {"dir": "ppx", "type": "ppx"}
-    ]},
+    {"dir": "grammars", "ppx": "Ppx_all"},
+    {"dir": "test_re", "subdirs": [ "src", {"dir": "ppx", "type": "ppx"} ]},
     {"dir": "ppx", "type": "ppx"}
   ],
-  "ppx-flags": ["Ppx_all"],
   "ocaml-dependencies": ["compiler-libs", "unix", "bigarray", "str"],
   "entries": [{
     "backend": "native",
@@ -26,6 +24,10 @@
     "backend": "native",
     "type": "ppx",
     "main-module": "Ppx_release"
+  }, {
+    "backend": "native",
+    "type": "ppx",
+    "main-module": "Ppx_Grammar"
   }, {
     "backend": "native",
     "main-module": "Refmt"

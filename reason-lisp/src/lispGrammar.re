@@ -823,12 +823,14 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   ),
 ]];
 
-[@name "polyIdent"][%%rule ("'`' capIdent", ([@text "capIdent"](name, loc)) => Location.mkloc(name, loc))];
+[@name "polyIdent"][%%rule ("'`' anyIdent", ([@text "anyIdent"](name, loc)) => Location.mkloc(name, loc))];
 
 /** A simple identifier starting with a capital letter */
 [@leaf] [@name "capIdent"][%%rule {|~(reserved ~identchar) 'A..Z' identchar*|}];
 /** A simple identifier starting with a lower-case letter */
 [@leaf] [@name "lowerIdent"][%%rule {|~(reserved ~identchar) 'a..z' identchar*|}];
+/** A simple identifier starting with a letter in any case */
+[@leaf] [@name "anyIdent"][%%rule {|~(reserved ~identchar) 'A..z' identchar*|}];
 
 [@name "identchar"]
 [%%rule [
@@ -880,7 +882,6 @@ let processString = (str) => str |> stripQuotes |> Scanf.unescaped;
   {|"open"|},
   {|"import"|},
   {|"try"|},
-  {|"catch"|},
   {|"from"|}
 ]];
 

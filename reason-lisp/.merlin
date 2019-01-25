@@ -1,9 +1,10 @@
 ####{BSB GENERATED: NO EDIT
+# -backend native
 FLG -ppx /Users/jared/clone/tools/myntax/reason-lisp/./node_modules/myntax/lib/bs/native/ppx_grammar.native
-FLG -ppx /Users/jared/clone/tools/myntax/reason-lisp/node_modules/bs-platform/lib/bsppx.exe
-S /Users/jared/clone/tools/myntax/reason-lisp/node_modules/bs-platform/lib/ocaml/native
-B /Users/jared/clone/tools/myntax/reason-lisp/node_modules/bs-platform/lib/ocaml/native
-FLG -no-alias-deps -color always
+FLG -ppx /Users/jared/clone/tools/myntax/reason-lisp/node_modules/bsb-native/lib/bsppx.exe
+S /Users/jared/clone/tools/myntax/reason-lisp/node_modules/bsb-native/lib/ocaml/native
+B /Users/jared/clone/tools/myntax/reason-lisp/node_modules/bsb-native/lib/ocaml/native
+FLG -color always -no-alias-deps
 FLG -w -30-40+6+7+27+32..39+44+45+101-40-6+7-26-27-32..39-28-44-45
 S /Users/jared/clone/tools/myntax/reason-lisp/node_modules/myntax/lib/ocaml/native
 B /Users/jared/clone/tools/myntax/reason-lisp/node_modules/myntax/lib/ocaml/native
