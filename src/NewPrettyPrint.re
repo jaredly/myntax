@@ -343,7 +343,7 @@ let toPretty = (grammar: grammar, result) => {
   resultToPretty(false, grammar, result);
 };
 
-let startToString = (~maxWidth=30, grammar, (sub, children, loc, comments)) => {
+let startToString = (~maxWidth=80, grammar, (sub, children, loc, comments)) => {
   let node = Node(("Start", sub), children, loc, comments);
   let%try pretty = resultToPretty(false, grammar, node);
   Ok(prettyString(~width=maxWidth, pretty))
