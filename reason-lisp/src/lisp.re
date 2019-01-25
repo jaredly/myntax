@@ -38,7 +38,7 @@ switch (Sysop.argv) {
   | [|_, "--print", "re", width, "--parse", "re"|] =>
     switch (Str.split(Str.regexp_string("="), width)) {
       | [_, width] =>
-        let width = int_of_string(width);
+        let maxWidth = int_of_string(width);
         let raw = Sysop.readStdin();
         let result = Grammar.getResult(LispGrammar.grammar, "Start", raw);
         /* let result = switch (LispGrammar.start("Start", raw)) {
@@ -46,7 +46,13 @@ switch (Sysop.argv) {
           | exception PackTypes.ConversionError(loc, ruleName, searchedFor) =>
             failwith("Grammar error! Please report this to the lisp.re maintainers. Unable to find " ++ searchedFor ++ " in " ++ ruleName ++ " at " ++ PackTypes.Result.showLoc(loc))
         }; */
-        switch (NewPrettyPrint.startToString(LispGrammar.grammar, result)) {
+        switch (
+          NewPrettyPrint.startToString(
+            ~maxWidth,
+            LispGrammar.grammar,
+            result
+          )
+        ) {
         | Ok(res) => print_string(res)
         | Error(message) =>
           Printf.eprintf("Unable to print %s", message);
